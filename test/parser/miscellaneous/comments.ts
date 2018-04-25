@@ -186,6 +186,10 @@ describe('Miscellaneous - Comments', () => {
 
     describe('Pass', () => {
         const programs = [
+
+           // Babylon issue: https://github.com/babel/babel/issues/7802
+            `<!-- test --->`,
+            '<!-- console.log("foo") -->',
             '//\\u00A0 single line \\u00A0 comment \\u00A0',
             '// foo',
             '// foo /* bar */',

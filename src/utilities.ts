@@ -873,15 +873,10 @@ export function isEqualTagNames(
         case 'JSXIdentifier':
             return elementName.name;
         case 'JSXNamespacedName':
-            const ns = elementName as ESTree.JSXNamespacedName;
-            return isEqualTagNames(ns.namespace) + ':' +
-            isEqualTagNames(ns.name);
+            return isEqualTagNames(elementName.namespace) + ':' + isEqualTagNames(elementName.name);
         case 'JSXMemberExpression':
-
-            return (
-                isEqualTagNames(elementName.object) + '.' +
-                isEqualTagNames(elementName.property)
-            );
+            return isEqualTagNames(elementName.object) + '.' + isEqualTagNames(elementName.property)
+            
             /* istanbul ignore next */
         default:
             // ignore
@@ -907,7 +902,8 @@ export function isInstanceField(parser: Parser): boolean {
 export function validateUpdateExpression(parser: Parser, context: Context, expr: ESTree.Expression, prefix: string) {
     if (context & Context.Strict && nameIsArgumentsOrEval((expr as ESTree.Identifier).name)) {
         tolerant(parser, context, Errors.StrictLHSPrefixPostFix, 'Postfix');
-    } else if (!isValidSimpleAssignmentTarget(expr)) {
+    }
+    if (!isValidSimpleAssignmentTarget(expr)) {
         tolerant(parser, context, Errors.InvalidLHSInAssignment);
     }
 
