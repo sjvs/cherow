@@ -861,8 +861,14 @@ export function readNext(parser: Parser, prev: number): number {
     return nextUnicodeChar(parser);
 }
 
-// Fully qualified element name, e.g. <svg:path> returns "svg:path"
-export function isEqualTagNames(elementName: any): any {
+/**
+ * Returns tagName for JSX element
+ * 
+ * @param elementName JSX Element name
+ */
+export function isEqualTagNames(
+    elementName: ESTree.JSXNamespacedName | ESTree.JSXIdentifier | ESTree.JSXMemberExpression
+): string | undefined {
     switch (elementName.type) {
         case 'JSXIdentifier':
             return elementName.name;
@@ -882,7 +888,27 @@ export function isEqualTagNames(elementName: any): any {
     }
 }
 
+/**
+ * Returns true if this is an instance field ( stage 3 proposal)
+ * 
+ * @param parser Parser object
+ */
 export function isInstanceField(parser: Parser): boolean {
     const { token } = parser;
     return token === Token.RightBrace || token === Token.Semicolon || token === Token.Assign;
+}
+/**
+ * 
+ * @param parser Parser object
+ * @param context Context masks
+ * @param expr  AST expressions
+ * @param prefix 
+ */
+export function validateUpdateExpression(parser: Parser, context: Context, expr: ESTree.Expression, prefix: string) {
+    if (context & Context.Strict && nameIsArgumentsOrEval((expr as ESTree.Identifier).name)) {
+        tolerant(parser, context, Errors.StrictLHSPrefixPostFix, 'Postfix');
+    } else if (!isValidSimpleAssignmentTarget(expr)) {
+        tolerant(parser, context, Errors.InvalidLHSInAssignment);
+    }
+
 }

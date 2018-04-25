@@ -21,6 +21,7 @@ import {
     parseAndValidateIdentifier,
     parseExpressionCoverGrammar,
     isValidSimpleAssignmentTarget,
+    validateUpdateExpression,
     swapContext,
     ModifierState,
     getLocation,
@@ -363,39 +364,35 @@ function parseUnaryExpression(parser: Parser, context: Context): ESTree.UnaryExp
  * @param Parser Parser object
  * @param context Context masks
  */
-function parseUpdateExpression(parser: Parser, context: Context, pos: any): ESTree.Expression {
-
-    let prefix = false;
-    let operator: Token | undefined;
+function parseUpdateExpression(parser: Parser, context: Context, pos: Location): ESTree.Expression {
+    let { token } = parser;
     if (hasBit(parser.token, Token.IsUpdateOp)) {
-        operator = parser.token;
-        prefix = true;
         nextToken(parser, context);
+        const expr = parseLeftHandSideExpression(parser, context, pos);
+         validateUpdateExpression(parser, context, expr, 'Prefix');
+        return finishNode(context, parser, pos, {
+            type: 'UpdateExpression',
+            argument: expr,
+            operator: tokenDesc(token as Token),
+            prefix: true
+        });
+    } else if (context & Context.OptionsJSX && token === Token.LessThan) {
+        return parseJSXRootElement(parser, context | Context.InJSXChild);
     }
-    const { token } = parser;
-
-    const argument = parseLeftHandSideExpression(parser, context, pos);
-    const isPostfix = !(parser.flags & Flags.NewLine) && hasBit(parser.token, Token.IsUpdateOp);
-
-    if (!prefix && !isPostfix) return argument;
-
-    if (!prefix) {
-        operator = parser.token;
+    const expression = parseLeftHandSideExpression(parser, context, pos);
+    if (hasBit(parser.token, Token.IsUpdateOp) && !(parser.flags & Flags.NewLine)) {
+        validateUpdateExpression(parser, context, expression, 'Postfix');
+        const operator = parser.token;
         nextToken(parser, context);
+        return finishNode(context, parser, pos, {
+            type: 'UpdateExpression',
+            argument: expression,
+            operator: tokenDesc(operator as Token),
+            prefix: false
+        });
     }
 
-    if (context & Context.Strict && nameIsArgumentsOrEval((argument as ESTree.Identifier).name)) {
-        tolerant(parser, context, Errors.StrictLHSPrefixPostFix, prefix ? 'Prefix' : 'Postfix');
-    } else if (!isValidSimpleAssignmentTarget(argument)) {
-        tolerant(parser, context, Errors.InvalidLHSInAssignment);
-    }
-
-    return finishNode(context, parser, pos, {
-        type: 'UpdateExpression',
-        argument,
-        operator: tokenDesc(operator as Token),
-        prefix
-    });
+    return expression;
 }
 
 /**
@@ -751,8 +748,6 @@ export function parsePrimaryExpression(parser: Parser, context: Context): any {
             return parseTemplate(parser, context);
         case Token.LetKeyword:
             return parseLetAsIdentifier(parser, context);
-        case Token.LessThan:
-            if (context & Context.OptionsJSX) return parseJSXRootElement(parser, context | Context.InJSXChild);
         default:
             return parseAndValidateIdentifier(parser, context);
     }
