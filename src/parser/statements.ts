@@ -385,7 +385,7 @@ export function parseDirective(parser: Parser, context: Context): ESTree.Express
 export function parseExpressionOrLabelledStatement(parser: Parser, context: Context): ESTree.ExpressionStatement | ESTree.LabeledStatement {
     const pos = getLocation(parser);
     const { tokenValue, token } = parser;
-    const expr: ESTree.Expression = parseExpression(parser, context | Context.AllowIn);
+    const expr: ESTree.Expression = parseExpression(parser, context & ~Context.AllowSingleStatement | Context.AllowIn);
     if (token & (Token.IsIdentifier | Token.Keyword) && parser.token === Token.Colon) {
         // If within generator function bodies, we do it like this so we can throw an nice error message
         if (context & Context.Yield && token & Token.IsYield) tolerant(parser, context, Errors.YieldReservedKeyword);

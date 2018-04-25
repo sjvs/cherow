@@ -70,7 +70,7 @@ export function parseFunctionDeclaration(parser: Parser, context: Context): ESTr
 
         isGenerator = ModifierState.Generator;
     }
-    return parseFunctionDeclarationBody(parser, context & ~(Context.AllowSingleStatement | Context.Method | Context.AllowSuperProperty), isGenerator, pos);
+    return parseFunctionDeclarationBody(parser, context, isGenerator, pos);
 }
 
 /**
@@ -86,7 +86,7 @@ export function parseFunctionDeclaration(parser: Parser, context: Context): ESTr
  */
 function parseFunctionDeclarationBody(parser: Parser, context: Context, state: ModifierState, pos: Location): ESTree.FunctionDeclaration {
     const id = parseFunctionDeclarationName(parser, context);
-    const { params, body } = swapContext(parser, context & ~Context.RequireIdentifier, state, parseFormalListAndBody);
+    const { params, body } = swapContext(parser, context & ~(Context.Method | Context.AllowSuperProperty | Context.RequireIdentifier), state, parseFormalListAndBody);
     return finishNode(context, parser, pos, {
         type: 'FunctionDeclaration',
         params,
@@ -113,7 +113,7 @@ export function parseAsyncFunctionOrAsyncGeneratorDeclaration(parser: Parser, co
     expect(parser, context, Token.FunctionKeyword);
     const isAwait = ModifierState.Await;
     const isGenerator = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
-    return parseFunctionDeclarationBody(parser, context & ~(Context.AllowSingleStatement | Context.Method | Context.AllowSuperProperty), isGenerator | isAwait, pos);
+    return parseFunctionDeclarationBody(parser, context, isGenerator | isAwait, pos);
 }
 
 /**
