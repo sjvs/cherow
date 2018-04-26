@@ -5,7 +5,7 @@ import { Parser, Delegate, Location } from './types';
 import { Token, tokenDesc } from './token';
 import { scan } from './scanner';
 import { constructError } from './errors';
-import { parseExpression, parseIdentifier } from './parser/expressions';
+import { parseIdentifier } from './parser/expressions';
 import { isValidIdentifierStart, isValidIdentifierPart, mustEscape } from './unicode';
 
 // Context masks
@@ -759,7 +759,7 @@ export function nextTokenIsLeftParenOrPeriod(parser: Parser, context: Context): 
  */
 export function nextTokenisIdentifierOrParen(parser: Parser, context: Context): boolean | number {
     nextToken(parser, context);
-    const { token, flags } = parser;
+    const { token } = parser;
     return token & (Token.IsIdentifier | Token.IsYield) || token === Token.LeftParen;
 }
 
@@ -791,7 +791,7 @@ export function nextTokenIsFuncKeywordOnSameLine(parser: Parser, context: Contex
  * @param parser Parser object
  * @param context  Context masks
  */
-export function isPropertyWithPrivateFieldKey(context: Context, expr: any): boolean {
+export function isPropertyWithPrivateFieldKey(expr: any): boolean {
     return !expr.property ? false : expr.property.type === 'PrivateName';
 }
 
@@ -855,7 +855,7 @@ export function setPendingError(parser: Parser) {
     };
 }
 
-export function readNext(parser: Parser, prev: number): number {
+export function readNext(parser: Parser): number {
     advance(parser);
     if (!hasNext(parser)) report(parser, Errors.UnicodeOutOfRange);
     return nextUnicodeChar(parser);
@@ -868,7 +868,7 @@ export function readNext(parser: Parser, prev: number): number {
  */
 export function isEqualTagNames(
     elementName: ESTree.JSXNamespacedName | ESTree.JSXIdentifier | ESTree.JSXMemberExpression
-): string | undefined {
+): any {
     switch (elementName.type) {
         case 'JSXIdentifier':
             return elementName.name;
@@ -901,7 +901,7 @@ export function isInstanceField(parser: Parser): boolean {
  */
 export function validateUpdateExpression(parser: Parser, context: Context, expr: ESTree.Expression, prefix: string) {
     if (context & Context.Strict && nameIsArgumentsOrEval((expr as ESTree.Identifier).name)) {
-        tolerant(parser, context, Errors.StrictLHSPrefixPostFix, 'Postfix');
+        tolerant(parser, context, Errors.StrictLHSPrefixPostFix, prefix);
     }
     if (!isValidSimpleAssignmentTarget(expr)) {
         tolerant(parser, context, Errors.InvalidLHSInAssignment);

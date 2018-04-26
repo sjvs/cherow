@@ -18,7 +18,6 @@ describe('Miscellaneous - Comments', () => {
         -->`,
     });
     
-    function f(){}
     fail(`<!-- test --->`, Context.Module, {
         source: `<!-- test --->`,
     });
@@ -224,6 +223,10 @@ describe('Miscellaneous - Comments', () => {
             '/*a\rb*/ 0',
             '/*a\nb*/ 0',
             '/*a\nc*/ 0',
+            'let a = () => /* = */ { return "b" }',
+            'let a = () => { /* = */ return "b" }',
+            'let a = () /* = */ => { return "b" }',
+            '(/* className: string */) => {}',
             '0 // line comment',
             '// Hello, Icefapper!\n0',
             '//',
@@ -252,6 +255,7 @@ describe('Miscellaneous - Comments', () => {
             `\t /*\t*/ /* optional SingleLineDelimitedCommentSequence */
                 \n--> the comment extends to these characters\t `,
             `\t \n   --> the comment extends to these characters\r `,
+            "() => /* string */ ''",
             '// foo',
             '/**/ // ',
             '// a /* bcd */ ',

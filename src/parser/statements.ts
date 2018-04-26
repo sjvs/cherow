@@ -34,8 +34,7 @@ import {
     hasLabel,
     addLabel,
     popLabel,
-    restoreExpressionCoverGrammar,
-    parseExpressionCoverGrammar
+    restoreExpressionCoverGrammar
 } from '../utilities';
 
 // Statements
@@ -746,7 +745,7 @@ function parseForStatement(parser: Parser, context: Context): ESTree.ForStatemen
 
     } else {
 
-        if (parser.token === Token.Comma) init = parseSequenceExpression(parser, context, init as ESTree.Expression, sequencePos);
+        if (parser.token === Token.Comma) init = parseSequenceExpression(parser, context, init as ESTree.Expression, sequencePos as Location);
         if (variableStatement) init = variableStatement;
         expect(parser, context, Token.Semicolon);
 

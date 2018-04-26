@@ -1,10 +1,9 @@
 import * as ESTree from '../estree';
-import { Chars } from '../chars';
 import { Token, tokenDesc } from '../token';
 import { scanRegularExpression, consumeTemplateBrace } from '../scanner';
 import { Errors, report, tolerant } from '../errors';
 import { parseBindingIdentifierOrPattern, parseBindingIdentifier, parseAssignmentPattern } from './pattern';
-import { Options, Location, Parser } from '../types';
+import { Location, Parser } from '../types';
 import { parseStatementListItem, parseDirective } from './statements';
 import { parseJSXRootElement } from './jsx';
 import {
@@ -13,7 +12,6 @@ import {
     hasBit,
     finishNode,
     Flags,
-    hasNext,
     nextToken,
     consume,
     isInstanceField,
@@ -26,8 +24,6 @@ import {
     ModifierState,
     getLocation,
     reinterpret,
-    consumeSemicolon,
-    Labels,
     nextTokenIsFuncKeywordOnSameLine,
     lookahead,
     isPropertyWithPrivateFieldKey,
@@ -72,7 +68,7 @@ export function parseExpression(parser: Parser, context: Context): ESTree.Assign
  * @param Context masks
  */
 
-export function parseSequenceExpression(parser: Parser, context: Context, left: ESTree.Expression, pos: any): ESTree.SequenceExpression {
+export function parseSequenceExpression(parser: Parser, context: Context, left: ESTree.Expression, pos: Location): ESTree.SequenceExpression {
     const expressions: ESTree.Expression[] = [left];
     while (consume(parser, context, Token.Comma)) {
         expressions.push(parseExpressionCoverGrammar(parser, context, parseAssignmentExpression));
@@ -101,7 +97,8 @@ function parseYieldExpression(parser: Parser, context: Context, pos: Location): 
 
     // https://tc39.github.io/ecma262/#sec-generator-function-definitions-static-semantics-early-errors
    if (context & Context.InParameter) tolerant(parser, context, Errors.YieldInParameter);
-   if (parser.flags & Flags.EscapedKeyword) report(parser, Errors.UnexpectedEscapedKeyword);
+   if (parser.flags & Flags.EscapedKeyword) tolerant(parser, context, Errors.UnexpectedEscapedKeyword);
+   
    expect(parser, context, Token.YieldKeyword);
 
    let argument: ESTree.Expression | null = null;
@@ -339,7 +336,7 @@ function parseUnaryExpression(parser: Parser, context: Context): ESTree.UnaryExp
         if (context & Context.Strict && token === Token.DeleteKeyword) {
             if (argument.type === 'Identifier') {
                 tolerant(parser, context, Errors.StrictDelete);
-            } else if (isPropertyWithPrivateFieldKey(context, argument)) {
+            } else if (isPropertyWithPrivateFieldKey(argument)) {
                 tolerant(parser, context, Errors.DeletePrivateField);
             }
         }
@@ -425,7 +422,6 @@ export function parseRestElement(parser: Parser, context: Context, args: string[
 function parseSpreadElement(parser: Parser, context: Context): any {
     const pos = getLocation(parser);
     expect(parser, context, Token.Ellipsis);
-    const token = parser.token;
     const argument = restoreExpressionCoverGrammar(parser, context | Context.AllowIn, parseAssignmentExpression);
     return finishNode(context, parser, pos, {
         type: 'SpreadElement',
@@ -445,7 +441,7 @@ function parseSpreadElement(parser: Parser, context: Context): any {
 
 export function parseLeftHandSideExpression(parser: Parser, context: Context, pos: Location): ESTree.Expression {
     const expr = parser.token === Token.ImportKeyword ?
-        parseImportExpressions(parser, context | Context.AllowIn, pos) :
+        parseImportExpressions(parser, context | Context.AllowIn) :
         parseMemberExpression(parser, context | Context.AllowIn, pos);
     return parseCallExpression(parser, context | Context.AllowIn, pos, expr);
 }
@@ -831,7 +827,7 @@ function parseRegularExpressionLiteral(parser: Parser, context: Context): ESTree
         regex: tokenRegExp
     });
 
-    if (context & Context.OptionsRaw) node.raw = parser.tokenRaw;
+    if (context & Context.OptionsRaw) node.raw = tokenRaw;
 
     return node;
 }
@@ -951,7 +947,7 @@ export function parseIdentifierName(parser: Parser, context: Context, t: Token):
 
 function parseIdentifierNameOrPrivateName(parser: Parser, context: Context): ESTree.PrivateName | ESTree.Identifier {
     if (!consume(parser, context, Token.Hash)) return parseIdentifierName(parser, context, parser.token);
-    const { token, tokenValue } = parser;
+    const { tokenValue } = parser;
     const pos = getLocation(parser);
     const name = tokenValue;
     nextToken(parser, context);
@@ -1284,7 +1280,6 @@ export function parsePropertyName(parser: Parser, context: Context): ESTree.Expr
 function parseSpreadProperties(parser: Parser, context: Context): any {
     const pos = getLocation(parser);
     expect(parser, context, Token.Ellipsis);
-    const token = parser.token;
     if (parser.token & Token.IsBindingPattern) parser.flags &= ~Flags.AllowDestructuring;
     const argument = parseAssignmentExpression(parser, context | Context.AllowIn);
     return finishNode(context, parser, pos, {
@@ -1513,8 +1508,6 @@ function parseAsyncArrowFunction(parser: Parser, context: Context, state: Modifi
 // https://tc39.github.io/ecma262/#prod-AsyncArrowFunction
 
 function parseArrowBody(parser: Parser, context: Context, params: any, pos: Location, state: ModifierState): ESTree.ArrowFunctionExpression {
-
-    const { token } = parser;
     parser.pendingExpressionError = null;
     for (const i in params) reinterpret(parser, context | Context.InParameter, params[i]);
     const expression = parser.token !== Token.LeftBrace;
@@ -1977,7 +1970,7 @@ function parsePrivateMethod(parser: Parser, context: Context, key: any, pos: Loc
  * @param Context masks
  */
 
-function parseImportExpressions(parser: Parser, context: Context, poss: Location): ESTree.Expression {
+function parseImportExpressions(parser: Parser, context: Context): ESTree.Expression {
     if (!(context & Context.OptionsNext)) tolerant(parser, context, Errors.UnexpectedToken, tokenDesc(parser.token));
     const pos = getLocation(parser);
     const id = parseIdentifier(parser, context);
@@ -2035,8 +2028,6 @@ function parseMetaProperty(parser: Parser, context: Context, meta: ESTree.Identi
 function parseNewExpression(parser: Parser, context: Context): ESTree.NewExpression | ESTree.MetaProperty {
 
     const pos = getLocation(parser);
-    const { token, tokenValue } = parser;
-
     const id = parseIdentifier(parser, context);
 
     if (consume(parser, context, Token.Period)) {
@@ -2067,7 +2058,7 @@ function parseImportOrMemberExpression(parser: Parser, context: Context, pos: Lo
         // Invalid: '"new import(x)"'
         if (lookahead(parser, context, nextTokenIsLeftParen)) tolerant(parser, context, Errors.UnexpectedToken, tokenDesc(token));
         // Fixes cases like ''new import.meta','
-        return parseImportExpressions(parser, context, pos);
+        return parseImportExpressions(parser, context);
     }
     return parseMemberExpression(parser, context, pos);
 }

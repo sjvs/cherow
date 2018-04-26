@@ -6,8 +6,6 @@ import { parseAssignmentExpression, parseFormalListAndBody } from './expressions
 import { Parser, Location } from '../types';
 import { parseClassBodyAndElementList,  parseLeftHandSideExpression } from './expressions';
 import {
-    Flags,
-    hasBit,
     expect,
     Context,
     finishNode,
@@ -32,7 +30,6 @@ import {
 export function parseClassDeclaration(parser: Parser, context: Context): ESTree.ClassDeclaration {
     const pos = getLocation(parser);
     expect(parser, context, Token.ClassKeyword);
-    const { token } = parser;
     const id = (context & Context.RequireIdentifier && (parser.token !== Token.Identifier))
         ? null :
         parseBindingIdentifier(parser, context | Context.Strict);
