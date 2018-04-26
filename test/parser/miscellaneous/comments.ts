@@ -4,11 +4,25 @@ import * as t from 'assert';
 import { parse } from '../../../src/parser/parser';
 
 describe('Miscellaneous - Comments', () => {
+    
 
     fail(`;-->`, Context.Empty, {
         source: `;-->`,
     });
 
+    fail(`---*/
+
+    -->`, Context.Empty, {
+        source: `---*/
+
+        -->`,
+    });
+    
+    function f(){}
+    fail(`<!-- test --->`, Context.Module, {
+        source: `<!-- test --->`,
+    });
+    
     fail(`single and multi line comments used together`, Context.Empty, {
         source: `// var /*
             x*/`,
@@ -281,6 +295,15 @@ describe('Miscellaneous - Comments', () => {
             'var x = 42;/*\n*/-->is eol-comment\nvar y = 37;\n',
             '/* MLC1 \n */ /* SLDC1 */ /* MLC2 \n */ /* SLDC2 */ --> is eol-comment\n',
             'a(/* inner */); b(e, /* inner */)',
+            "while (true) { continue /* Multiline\nComment */there; }",
+            "while (true) { break /* Multiline\nComment */there; }",
+            "while (true) { continue // Comment\nthere; }",
+            "while (true) { continue\nthere; }",
+            "{ x\n++y }",
+            "{ x\n--y }",
+            "{ throw error\nerror; }",
+            "{ throw error// Comment\nerror; }",
+            "{ throw error/* Multiline\nComment */error; }",
             `// var /*
             // x
             // =

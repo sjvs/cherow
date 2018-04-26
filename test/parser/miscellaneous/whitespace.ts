@@ -15,6 +15,9 @@ describe('Miscellaneous - Whitespace', () => {
         '\\u000Bstr\\u000Bing\\u000B',
         '\\u00A0var\\u00A0x\\u00A0=\\u00A01\\u00A0; result = x;',
         'var᠎foo;',
+        "throw /* \n */ e",
+        "throw /* \u2028 */ e",
+        "throw /* \u2029 */ e",
         'var\u180Efoo;',
         'var\\u180Efoo;'
     ];
@@ -40,6 +43,9 @@ describe('Miscellaneous - Whitespace', () => {
         `MAX_VALUE\u2028in\u2028Number`,
         `MAX_VALUE\u2029in\u2029Number`,
         `MAX_VALUE\u0009\u000B\u000C\u0020\u00A0\u000A\u000D\u2028\u2029in\u0009\u000B\u000C\u0020\u00A0\u000A\u000D\u2028\u2029Number`,
+        "{0\n1\r2\u20283\u20294}",
+        "throw /* \u202a */ e",
+        "{ var x = 14, y = 3\nz; }",
 
     ];
       for (const arg of validSyntax) {
