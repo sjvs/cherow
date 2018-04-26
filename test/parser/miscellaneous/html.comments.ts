@@ -12,11 +12,11 @@ describe('Miscellaneous - HTML Comments', () => {
             `;-->`,
             `---*/
        -->`,
-   
+
            ];
-   
-           for (const arg of invalidModuleCode) {
-      
+
+        for (const arg of invalidModuleCode) {
+
                it(`${arg}`, () => {
                    t.throws(() => {
                        parse(`${arg}`, undefined, Context.Strict | Context.Module);
@@ -24,15 +24,15 @@ describe('Miscellaneous - HTML Comments', () => {
                });
            }
 
-           const invalidSyntax = [
+        const invalidSyntax = [
             `/*
             */ the comment should not include these characters, regardless of AnnexB extensions -->`,
             ';-->'
-   
+
            ];
-   
-           for (const arg of invalidSyntax) {
-      
+
+        for (const arg of invalidSyntax) {
+
                it(`${arg}`, () => {
                    t.throws(() => {
                        parse(`${arg}`, undefined, Context.Empty);
@@ -41,7 +41,7 @@ describe('Miscellaneous - HTML Comments', () => {
            }
     });
 
-    describe('Pass', () => {    
+    describe('Pass', () => {
 
         const validSyntax = [
          // Babylon issue: https://github.com/babel/babel/issues/7802
@@ -58,12 +58,12 @@ describe('Miscellaneous - HTML Comments', () => {
          `Function("-->", "");`,
          `/*
          */-->`,
-         "0/*\n*/--> a comment",
-         "/* block comment */--> comment",
-         " \t /* block comment */  --> comment",
-         " \t --> comment",
-         "<!-- foo",
-         "--> comment"
+         '0/*\n*/--> a comment',
+         '/* block comment */--> comment',
+         ' \t /* block comment */  --> comment',
+         ' \t --> comment',
+         '<!-- foo',
+         '--> comment'
 
         ];
 

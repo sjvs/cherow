@@ -98,7 +98,7 @@ function parseYieldExpression(parser: Parser, context: Context, pos: Location): 
     // https://tc39.github.io/ecma262/#sec-generator-function-definitions-static-semantics-early-errors
    if (context & Context.InParameter) tolerant(parser, context, Errors.YieldInParameter);
    if (parser.flags & Flags.EscapedKeyword) tolerant(parser, context, Errors.UnexpectedEscapedKeyword);
-   
+
    expect(parser, context, Token.YieldKeyword);
 
    let argument: ESTree.Expression | null = null;
@@ -162,7 +162,7 @@ export function parseAssignmentExpression(parser: Parser, context: Context): any
             if (token & (Token.FutureReserved | Token.IsEvalOrArguments)) {
                 // Invalid: ' yield => { 'use strict'; 0 };'
                 if (token & Token.FutureReserved) {
-                    parser.flags |= Flags.StrictReserved;
+                    parser.flags |= Flags.HasStrictReserved;
                 }
                 if (token & Token.IsEvalOrArguments) {
                     if (context & Context.Strict)  tolerant(parser, context, Errors.StrictEvalArguments);
@@ -362,11 +362,11 @@ function parseUnaryExpression(parser: Parser, context: Context): ESTree.UnaryExp
  * @param context Context masks
  */
 function parseUpdateExpression(parser: Parser, context: Context, pos: Location): ESTree.Expression {
-    let { token } = parser;
+    const { token } = parser;
     if (hasBit(parser.token, Token.IsUpdateOp)) {
         nextToken(parser, context);
         const expr = parseLeftHandSideExpression(parser, context, pos);
-         validateUpdateExpression(parser, context, expr, 'Prefix');
+        validateUpdateExpression(parser, context, expr, 'Prefix');
         return finishNode(context, parser, pos, {
             type: 'UpdateExpression',
             argument: expr,
@@ -844,7 +844,7 @@ function parseRegularExpressionLiteral(parser: Parser, context: Context): ESTree
 export function parseLiteral(parser: Parser, context: Context): ESTree.Literal {
     const pos = getLocation(parser);
     const value = parser.tokenValue;
-    if (context & Context.Strict && parser.flags & Flags.Octal) {
+    if (context & Context.Strict && parser.flags & Flags.HasOctal) {
         tolerant(parser, context, Errors.StrictOctalLiteral);
     }
     nextToken(parser, context);
@@ -1130,7 +1130,7 @@ function parseCoverParenthesizedExpressionAndArrowParameterList(parser: Parser, 
                         parser.flags |= Flags.StrictEvalArguments;
                     } else if (state & CoverParenthesizedState.HasReservedWords) {
                         if (context & Context.Strict) tolerant(parser, context, Errors.UnexpectedStrictReserved);
-                        parser.flags |= Flags.StrictReserved;
+                        parser.flags |= Flags.HasStrictReserved;
                     } else if (!(parser.flags & Flags.AllowBinding)) {
                         tolerant(parser, context, Errors.NotBindable);
                     }
@@ -1534,7 +1534,7 @@ function parseArrowBody(parser: Parser, context: Context, params: any, pos: Loca
  * @param Context masks
  */
 
-export function parseFormalListAndBody(parser: Parser, context: Context, state: ObjectState){
+export function parseFormalListAndBody(parser: Parser, context: Context, state: ObjectState) {
     const paramList = parseFormalParameters(parser, context | Context.InParameter, state);
     const args = paramList.args;
     const params = paramList.params;
@@ -1565,7 +1565,7 @@ export function parseFunctionBody(parser: Parser, context: Context, params: any)
         if (tokenRaw.length === /* length of prologue*/ 12 && tokenValue === 'use strict') {
             if (parser.flags & Flags.SimpleParameterList) {
                 tolerant(parser, context, Errors.IllegalUseStrict);
-            } else if (parser.flags & (Flags.StrictReserved | Flags.StrictFunctionName)) {
+            } else if (parser.flags & (Flags.HasStrictReserved | Flags.StrictFunctionName)) {
                 tolerant(parser, context, Errors.UnexpectedStrictReserved);
             } else if (parser.flags & Flags.StrictEvalArguments) {
                 tolerant(parser, context, Errors.StrictEvalArguments);
@@ -1584,14 +1584,14 @@ export function parseFunctionBody(parser: Parser, context: Context, params: any)
 
     const savedFlags = parser.flags;
 
-    parser.flags = parser.flags & ~(Flags.StrictFunctionName | Flags.StrictEvalArguments | Flags.Switch | Flags.Iteration) | Flags.AllowDestructuring;
+    parser.flags = parser.flags & ~(Flags.StrictFunctionName | Flags.StrictEvalArguments | Flags.InSwitchStatement | Flags.InIterationStatement) | Flags.AllowDestructuring;
 
     while (parser.token !== Token.RightBrace) {
         body.push(parseStatementListItem(parser, context));
     }
 
-    if (savedFlags & Flags.Iteration) parser.flags |= Flags.Iteration;
-    if (savedFlags & Flags.Switch) parser.flags |= Flags.Switch;
+    if (savedFlags & Flags.InIterationStatement) parser.flags |= Flags.InIterationStatement;
+    if (savedFlags & Flags.InSwitchStatement) parser.flags |= Flags.InSwitchStatement;
 
     parser.labelSet = labelSet;
 
@@ -1641,7 +1641,7 @@ export function parseFormalParameters(
 
     expect(parser, context, Token.LeftParen);
 
-    parser.flags &= ~(Flags.SimpleParameterList | Flags.StrictReserved);
+    parser.flags &= ~(Flags.SimpleParameterList | Flags.HasStrictReserved);
 
     const args: string[] = [];
     const params: ESTree.ArrayPattern | ESTree.RestElement | ESTree.ObjectPattern | ESTree.Identifier[] = [];

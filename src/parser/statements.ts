@@ -68,7 +68,7 @@ export function parseStatementListItem(parser: Parser, context: Context) {
         }
         case Token.ExportKeyword:
             if (context & Context.Module) {
-                tolerant(parser, context, parser.token == Token.ImportKeyword ? Errors.ImportDeclAtTopLevel : Errors.ExportDeclAtTopLevel);
+                tolerant(parser, context, parser.token === Token.ImportKeyword ? Errors.ImportDeclAtTopLevel : Errors.ExportDeclAtTopLevel);
             }
         default:
             return parseStatement(parser, context | Context.AllowSingleStatement);
@@ -529,7 +529,7 @@ export function parseIterationStatement(parser: Parser, context: Context): ESTre
     // bitfiddling before and after to modify the parser state before we let the 'parseStatement'
     // return the mentioned statements (to match the original grammar).
     const savedFlags = parser.flags;
-    parser.flags |= Flags.Iteration | Flags.AllowDestructuring;
+    parser.flags |= Flags.InIterationStatement | Flags.AllowDestructuring;
     const body = parseStatement(parser, context & ~Context.AllowSingleStatement | Context.DisallowEscapedKeyword);
     parser.flags = savedFlags;
     return body;
@@ -577,7 +577,7 @@ export function parseSwitchStatement(parser: Parser, context: Context): ESTree.S
     expect(parser, context | Context.DisallowEscapedKeyword, Token.LeftBrace);
     const cases: ESTree.SwitchCase[] = [];
     const savedFlags = parser.flags;
-    parser.flags |= Flags.Switch;
+    parser.flags |= Flags.InSwitchStatement;
     let seenDefault = false;
     while (parser.token !== Token.RightBrace) {
         const clause = parseCaseOrDefaultClauses(parser, context);

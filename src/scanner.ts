@@ -683,7 +683,7 @@ export function scanImplicitOctalDigits(parser: Parser, context: Context): Token
                 let column = parser.column;
                 let code = 0;
 
-                parser.flags |= Flags.Octal;
+                parser.flags |= Flags.HasOctal;
 
                 // Implicit octal, unless there is a non-octal digit.
                 // (Annex B.1.1 on Numeric Literals)
@@ -707,7 +707,7 @@ export function scanImplicitOctalDigits(parser: Parser, context: Context): Token
         case Chars.Eight:
         case Chars.Nine:
 
-            parser.flags |= Flags.Octal;
+            parser.flags |= Flags.HasOctal;
 
         default:
             if (context & Context.OptionsNext && nextChar(parser) === Chars.Underscore) {
@@ -1099,12 +1099,12 @@ function scanEscapeSequence(parser: Parser, context: Context, first: number): nu
                     // Strict mode code allows only \0, then a non-digit.
                     if (code !== 0 || next === Chars.Eight || next === Chars.Nine) {
                         if (context & Context.Strict) return Escape.StrictOctal;
-                        parser.flags |= Flags.Octal;
+                        parser.flags |= Flags.HasOctal;
                     }
                 } else if (context & Context.Strict) {
                     return Escape.StrictOctal;
                 } else {
-                    parser.flags |= Flags.Octal;
+                    parser.flags |= Flags.HasOctal;
                     parser.lastValue = next;
                     code = code * 8 + (next - Chars.Zero);
                     index++;

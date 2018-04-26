@@ -82,7 +82,7 @@ describe('Statements - Async function', () => {
      source: 'async function foo (foo = super()) { let bar; }',
    });
 
-  fail('\\u0061sync function f(){}', Context.Empty, {
+    fail('\\u0061sync function f(){}', Context.Empty, {
     source: '\\u0061sync function f(){}',
   });
 

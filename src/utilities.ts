@@ -11,6 +11,7 @@ import { isValidIdentifierStart, isValidIdentifierPart, mustEscape } from './uni
 // Context masks
 export const enum Context {
     Empty                   = 0,
+    /** options */
     OptionsNext             = 1 << 0,
     OptionsRanges           = 1 << 1,
     OptionsJSX              = 1 << 2,
@@ -24,6 +25,7 @@ export const enum Context {
     OptionsRawidentifiers   = 1 << 10,
     OptionsTolerant         = 1 << 11,
     OptionsNode             = 1 << 12,
+    /** misc */
     Strict                  = 1 << 13,
     Module                  = 1 << 14,
     TaggedTemplate          = 1 << 15,
@@ -51,10 +53,10 @@ export const enum Flags {
     AllowBinding            = 1 << 1,
     AllowDestructuring      = 1 << 2,
     SimpleParameterList     = 1 << 3,
-    Switch                  = 1 << 4,
-    Iteration               = 1 << 5,
-    StrictReserved          = 1 << 6,
-    Octal                   = 1 << 7,
+    InSwitchStatement       = 1 << 4,
+    InIterationStatement    = 1 << 5,
+    HasStrictReserved       = 1 << 6,
+    HasOctal                = 1 << 7,
     SimpleAssignmentTarget  = 1 << 8,
     HasProtoField           = 1 << 9,
     HasDuplicateProto       = 1 << 10,
@@ -64,7 +66,7 @@ export const enum Flags {
     HasAwait                = 1 << 14,
     HasYield                = 1 << 15,
     EscapedKeyword          = 1 << 16,
-    AllowBreakOrContinue = Switch | Iteration,
+    AllowBreakOrContinue = InSwitchStatement | InIterationStatement,
 }
 
 // Label tracking state
@@ -128,13 +130,13 @@ export const enum CoverCallState {
     SimpleParameter = 1 << 2,
     EvalOrArguments = 1 << 3,
     Yield           = 1 << 4,
-    Await            = 1 << 5,
+    Await           = 1 << 5,
 }
 
 export const enum RegexState {
-    Empty = 0,
+    Empty  = 0,
     Escape = 0x1,
-    Class = 0x2,
+    Class  = 0x2,
 }
 
 // Shared between class expr / decl & object literal
@@ -584,7 +586,7 @@ export function consumeLineFeed(parser: Parser, state: ScannerState) {
     }
 }
 
- /**
+/**
  * Advance to new line
  *
  * @param parser Parser object
@@ -863,7 +865,7 @@ export function readNext(parser: Parser): number {
 
 /**
  * Returns tagName for JSX element
- * 
+ *
  * @param elementName JSX Element name
  */
 export function isEqualTagNames(
@@ -875,8 +877,8 @@ export function isEqualTagNames(
         case 'JSXNamespacedName':
             return isEqualTagNames(elementName.namespace) + ':' + isEqualTagNames(elementName.name);
         case 'JSXMemberExpression':
-            return isEqualTagNames(elementName.object) + '.' + isEqualTagNames(elementName.property)
-            
+            return isEqualTagNames(elementName.object) + '.' + isEqualTagNames(elementName.property);
+
             /* istanbul ignore next */
         default:
             // ignore
@@ -885,7 +887,7 @@ export function isEqualTagNames(
 
 /**
  * Returns true if this is an instance field ( stage 3 proposal)
- * 
+ *
  * @param parser Parser object
  */
 export function isInstanceField(parser: Parser): boolean {
@@ -893,11 +895,11 @@ export function isInstanceField(parser: Parser): boolean {
     return token === Token.RightBrace || token === Token.Semicolon || token === Token.Assign;
 }
 /**
- * 
+ *
  * @param parser Parser object
  * @param context Context masks
  * @param expr  AST expressions
- * @param prefix 
+ * @param prefix
  */
 export function validateUpdateExpression(parser: Parser, context: Context, expr: ESTree.Expression, prefix: string) {
     if (context & Context.Strict && nameIsArgumentsOrEval((expr as ESTree.Identifier).name)) {

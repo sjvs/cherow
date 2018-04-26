@@ -4,7 +4,6 @@ import * as t from 'assert';
 import { parse } from '../../../src/parser/parser';
 
 describe('Miscellaneous - Comments', () => {
-    
 
     fail(`;-->`, Context.Empty, {
         source: `;-->`,
@@ -17,11 +16,11 @@ describe('Miscellaneous - Comments', () => {
 
         -->`,
     });
-    
+
     fail(`<!-- test --->`, Context.Module, {
         source: `<!-- test --->`,
     });
-    
+
     fail(`single and multi line comments used together`, Context.Empty, {
         source: `// var /*
             x*/`,
@@ -255,7 +254,7 @@ describe('Miscellaneous - Comments', () => {
             `\t /*\t*/ /* optional SingleLineDelimitedCommentSequence */
                 \n--> the comment extends to these characters\t `,
             `\t \n   --> the comment extends to these characters\r `,
-            "() => /* string */ ''",
+            '() => /* string */ \'\'',
             '// foo',
             '/**/ // ',
             '// a /* bcd */ ',
@@ -299,15 +298,15 @@ describe('Miscellaneous - Comments', () => {
             'var x = 42;/*\n*/-->is eol-comment\nvar y = 37;\n',
             '/* MLC1 \n */ /* SLDC1 */ /* MLC2 \n */ /* SLDC2 */ --> is eol-comment\n',
             'a(/* inner */); b(e, /* inner */)',
-            "while (true) { continue /* Multiline\nComment */there; }",
-            "while (true) { break /* Multiline\nComment */there; }",
-            "while (true) { continue // Comment\nthere; }",
-            "while (true) { continue\nthere; }",
-            "{ x\n++y }",
-            "{ x\n--y }",
-            "{ throw error\nerror; }",
-            "{ throw error// Comment\nerror; }",
-            "{ throw error/* Multiline\nComment */error; }",
+            'while (true) { continue /* Multiline\nComment */there; }',
+            'while (true) { break /* Multiline\nComment */there; }',
+            'while (true) { continue // Comment\nthere; }',
+            'while (true) { continue\nthere; }',
+            '{ x\n++y }',
+            '{ x\n--y }',
+            '{ throw error\nerror; }',
+            '{ throw error// Comment\nerror; }',
+            '{ throw error/* Multiline\nComment */error; }',
             `// var /*
             // x
             // =
