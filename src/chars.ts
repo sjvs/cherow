@@ -18,6 +18,14 @@ const enum CharacterFlags {
     Decimals = IdentifierStart | Decimal,
 };
 
+// Note: This is the valid ascii range for faster lookup. 
+//
+// 1) The  0...127 range is not included.
+// 2) Unicode not included
+//
+// There will be a fallback to a the "normal" unicode lookup table
+// if no match here.
+
 const CharacterType = [
     CharacterFlags.Unknown,
     CharacterFlags.Unknown,
