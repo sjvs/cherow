@@ -32,7 +32,7 @@ export function parseClassDeclaration(parser: Parser, context: Context): ESTree.
     expect(parser, context | Context.DisallowEscapedKeyword, Token.ClassKeyword);
     const id = (context & Context.RequireIdentifier && (parser.token !== Token.Identifier))
         ? null :
-        parseBindingIdentifier(parser, context | Context.Strict);
+        parseBindingIdentifier(parser, context | Context.Strict | Context.DisallowEscapedKeyword);
     let state = ObjectState.None;
     let superClass: ESTree.Expression | null = null;
     if (consume(parser, context, Token.ExtendsKeyword)) {

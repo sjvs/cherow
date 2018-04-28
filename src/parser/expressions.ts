@@ -53,7 +53,7 @@ import {
  * @param Context masks
  */
 
-export function parseExpression(parser: Parser, context: Context): ESTree.AssignmentExpression | ESTree.SequenceExpression {
+export function parseExpression(parser: Parser, context: Context): ESTree.Expression {
     const pos = getLocation(parser);
     const expr = parseExpressionCoverGrammar(parser, context, parseAssignmentExpression);
     return parser.token === Token.Comma ?
@@ -81,11 +81,7 @@ export function parseSequenceExpression(parser: Parser, context: Context, left: 
 }
 
 /**
- * YieldExpression[In] :
- *   yield
- *   yield [no LineTerminator here] AssignmentExpression[?In, Yield]
- *   yield [no LineTerminator here] * AssignmentExpression[?In, Yield]
- *
+ * Parse yield expression
  *
  * @see [Link](https://tc39.github.io/ecma262/#prod-YieldExpression)
  *
@@ -94,10 +90,13 @@ export function parseSequenceExpression(parser: Parser, context: Context, left: 
  */
 
 function parseYieldExpression(parser: Parser, context: Context, pos: Location): ESTree.YieldExpression | ESTree.Identifier {
+      // YieldExpression[In] :
+    //     yield
+    //     yield [no LineTerminator here] AssignmentExpression[?In, Yield]
+    //     yield [no LineTerminator here] * AssignmentExpression[?In, Yield]
 
     // https://tc39.github.io/ecma262/#sec-generator-function-definitions-static-semantics-early-errors
    if (context & Context.InParameter) tolerant(parser, context, Errors.YieldInParameter);
-   if (parser.flags & Flags.EscapedKeyword) tolerant(parser, context, Errors.UnexpectedEscapedKeyword);
 
    expect(parser, context, Token.YieldKeyword);
 
@@ -308,7 +307,6 @@ function parseBinaryExpression(
 
 function parseAwaitExpression(parser: Parser, context: Context, pos: Location): ESTree.AwaitExpression {
     if (context & Context.InParameter) tolerant(parser, context, Errors.AwaitInParameter);
-    if (parser.flags & Flags.EscapedKeyword) report(parser, Errors.UnexpectedEscapedKeyword);
     expect(parser, context, Token.AwaitKeyword);
     return finishNode(context, parser, pos, {
         type: 'AwaitExpression',
@@ -330,7 +328,7 @@ function parseUnaryExpression(parser: Parser, context: Context): ESTree.UnaryExp
 
     if (hasBit(token, Token.IsUnaryOp)) {
         nextToken(parser, context);
-        if (parser.flags & Flags.EscapedKeyword) report(parser, Errors.UnexpectedEscapedKeyword);
+        if (parser.flags & Flags.EscapedKeyword) tolerant(parser, context, Errors.InvalidEscapedReservedWord);
         const argument = parseExpressionCoverGrammar(parser, context, parseUnaryExpression);
         if (parser.token === Token.Exponentiate) tolerant(parser, context, Errors.UnexpectedToken, tokenDesc(parser.token));
         if (context & Context.Strict && token === Token.DeleteKeyword) {
@@ -893,7 +891,7 @@ function parseNullOrTrueOrFalseLiteral(parser: Parser, context: Context): ESTree
     const pos = getLocation(parser);
     const { token } = parser;
     const raw = tokenDesc(token);
-    if (parser.flags & Flags.EscapedKeyword) report(parser, Errors.UnexpectedEscapedKeyword);
+    if (parser.flags & Flags.EscapedKeyword) tolerant(parser, context, Errors.InvalidEscapedReservedWord);
     nextToken(parser, context);
 
     const node: any = finishNode(context, parser, pos, {
@@ -914,7 +912,7 @@ function parseNullOrTrueOrFalseLiteral(parser: Parser, context: Context): ESTree
  */
 
 function parseThisExpression(parser: Parser, context: Context): ESTree.ThisExpression {
-   if (parser.flags & Flags.EscapedKeyword) report(parser, Errors.UnexpectedEscapedKeyword);
+   if (parser.flags & Flags.EscapedKeyword) tolerant(parser, context, Errors.InvalidEscapedReservedWord);
    const pos = getLocation(parser);
    nextToken(parser, context | Context.DisallowEscapedKeyword);
    return finishNode(context, parser, pos, {
@@ -1077,7 +1075,7 @@ function parseCoverParenthesizedExpressionAndArrowParameterList(parser: Parser, 
 
                     const expressions: ESTree.Expression[] = [expr];
 
-                    while (consume(parser, context, Token.Comma)) {
+                    while (consume(parser, context | Context.DisallowEscapedKeyword, Token.Comma)) {
                         parser.flags &= ~Flags.AllowDestructuring;
                         switch (parser.token) {
 
@@ -1170,7 +1168,6 @@ function parseCoverParenthesizedExpressionAndArrowParameterList(parser: Parser, 
 
 export function parseFunctionExpression(parser: Parser, context: Context): ESTree.FunctionExpression {
     const pos = getLocation(parser);
-    if (parser.flags & Flags.EscapedKeyword) report(parser, Errors.UnexpectedEscapedKeyword);
     expect(parser, context, Token.FunctionKeyword);
     const isGenerator = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
     let id: ESTree.Identifier | null = null;
@@ -1355,12 +1352,12 @@ function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Prope
 
         if (!(state & ObjectState.Generator) && t & Token.IsAsync && !(parser.flags & Flags.NewLine)) {
             t = parser.token;
-            if (parser.flags & Flags.EscapedKeyword) report(parser, Errors.UnexpectedEscapedKeyword);
+            if (isEscaped) tolerant(parser, context, Errors.InvalidEscapedReservedWord);
             state |= ObjectState.Async;
             if (consume(parser, context, Token.Multiply)) state |= ObjectState.Generator;
             key = parsePropertyName(parser, context);
         } else if ((t === Token.GetKeyword || t === Token.SetKeyword)) {
-            if (isEscaped) tolerant(parser, context, Errors.UnexpectedEscapedKeyword);
+            if (isEscaped) tolerant(parser, context, Errors.InvalidEscapedReservedWord);
             if (state & ObjectState.Generator) {
                 tolerant(parser, context, Errors.UnexpectedToken, tokenDesc(parser.token));
             }
@@ -1563,7 +1560,7 @@ export function parseFunctionBody(parser: Parser, context: Context, params: any)
     // on the parser object instead. So for now the 'params' arg are only used within the
     // 'parseFormalListAndBody' method, and not within the arrow function body.
     const pos = getLocation(parser);
-    expect(parser, context, Token.LeftBrace);
+    expect(parser, context | Context.DisallowEscapedKeyword, Token.LeftBrace);
 
     const body: ESTree.Statement[] = [];
     while (parser.token === Token.StringLiteral) {
@@ -1825,7 +1822,7 @@ export function parseClassElement(parser: Parser, context: Context, state: Objec
             token = parser.token;
             if (consume(parser, context, Token.Multiply)) state |= ObjectState.Generator;
             tokenValue = parser.tokenValue;
-            if (isEscaped) report(parser, Errors.UnexpectedEscapedKeyword);
+            if (isEscaped) tolerant(parser, context, Errors.InvalidEscapedReservedWord);
             if (parser.token === Token.LeftBracket) state |= ObjectState.Computed;
             if (parser.tokenValue === 'prototype') tolerant(parser, context, Errors.StaticPrototype);
 
@@ -2080,7 +2077,6 @@ function parseImportOrMemberExpression(parser: Parser, context: Context, pos: Lo
 
 function parseSuperProperty(parser: Parser, context: Context): ESTree.Super {
     const pos = getLocation(parser);
-    if (parser.flags & Flags.EscapedKeyword) report(parser, Errors.UnexpectedEscapedKeyword);
     expect(parser, context, Token.SuperKeyword);
 
     const { token } = parser;
