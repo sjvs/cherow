@@ -10,8 +10,8 @@ import { readNext, fromCodePoint, hasNext, nextChar, advance } from './common';
 /**
  * Consumes template brace
  *
- * @param {Parser} Parser instance
- * @param {context} Context masks
+ * @param parser Parser object
+ * @param context Context masks
  */
 
 export function consumeTemplateBrace(parser: Parser, context: Context): Token {
@@ -25,9 +25,9 @@ export function consumeTemplateBrace(parser: Parser, context: Context): Token {
 /**
  * Scan template
  *
- * @param {Parser} Parser instance
- * @param {context} Context masks
- * @param {first} Codepoint
+ * @param parser Parser object
+ * @param context Context masks
+ * @param first Codepoint
  */
 export function scanTemplate(parser: Parser, context: Context): Token {
     const { index: start, lastValue } = parser;
@@ -108,6 +108,7 @@ export function scanTemplate(parser: Parser, context: Context): Token {
     advance(parser);
     parser.tokenValue = ret;
     parser.lastValue = lastValue;
+
     if (tail) {
         parser.tokenRaw = parser.source.slice(start + 1, parser.index - 1);
         return Token.TemplateTail;
@@ -120,8 +121,8 @@ export function scanTemplate(parser: Parser, context: Context): Token {
 /**
  * Scan looser template segment
  *
- * @param {Parser} Parser instance
- * @param {context} codepoint
+ * @param parser Parser object
+ * @param ch codepoint
  */
 function scanLooserTemplateSegment(parser: Parser, ch: number): number {
     while (ch !== Chars.Backtick) {

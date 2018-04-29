@@ -15,8 +15,8 @@ import {
 /**
  * Scan escape sequence
  *
- * @param {Parser} Parser instance
- * @param {context} Context masks
+ * @param parser Parser object
+ * @param context Context masks
  */
 export function scanEscapeSequence(parser: Parser, context: Context, first: number): number {
     switch (first) {
@@ -166,10 +166,10 @@ export function scanEscapeSequence(parser: Parser, context: Context, first: numb
 /**
  * Throws a string error for either string or template literal
  *
- * @param {Parser} Parser instance
- * @param {context} Context masks
+ * @param parser Parser object
+ * @param context Context masks
  */
-export function throwStringError(parser: Parser, context: Context, code: Escape): void {
+export function throwStringError(parser: Parser, context: Context, code: Escape) {
     switch (code) {
         case Escape.Empty:
             return;
@@ -196,17 +196,13 @@ export function throwStringError(parser: Parser, context: Context, code: Escape)
  *
  * @see [Link](https://tc39.github.io/ecma262/#sec-literals-string-literals)
  *
- * @param {Parser} Parser instance
- * @param {context} Context masks
- * @param {context} quote codepoint
+ * @param parser Parser object
+ * @param context Context masks
+ * @param quote codepoint
  */
 export function scanString(parser: Parser, context: Context, quote: number): Token {
-    const {
-        index: start,
-        lastValue
-    } = parser;
+    const { index: start, lastValue} = parser;
     let ret = '';
-
     let ch = readNext(parser);
     while (ch !== quote) {
         switch (ch) {
@@ -222,7 +218,7 @@ export function scanString(parser: Parser, context: Context, quote: number): Tok
             case Chars.Backslash:
                 ch = readNext(parser);
 
-                if (ch >= 128) {
+                if (ch > Chars.MaxAsciiCharacter) {
                     ret += fromCodePoint(ch);
                 } else {
                     parser.lastValue = ch;

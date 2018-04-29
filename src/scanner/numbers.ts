@@ -4,14 +4,7 @@ import { Errors, report, tolerant } from '../errors';
 import { Token, descKeyword, tokenDesc } from '../token';
 import { isValidIdentifierStart } from '../unicode';
 import { Context, Flags, NumericState, } from '../utilities';
-import {
-    consumeLineFeed,
-    consumeOpt,
-    toHex,
-    hasNext,
-    nextChar,
-    advance,
-} from './common';
+import { consumeLineFeed, consumeOpt, toHex, hasNext, nextChar, advance } from './common';
 
 // 11.8.3 Numeric Literals
 
@@ -20,8 +13,8 @@ import {
  *
  * @see [Link](https://tc39.github.io/ecma262/#prod-HexIntegerLiteral)
  *
- * @param {Parser} Parser instance
- * @param {context} Context masks
+ * @param parser Parser object
+ * @param context Context masks
  */
 
 export function scanHexIntegerLiteral(parser: Parser, context: Context): Token {
@@ -56,8 +49,8 @@ export function scanHexIntegerLiteral(parser: Parser, context: Context): Token {
  * @see [Link](https://tc39.github.io/ecma262/#prod-OctalIntegerLiteral)
  * @see [Link](https://tc39.github.io/ecma262/#prod-BinaryIntegerLiteral)
  *
- * @param {Parser} Parser instance
- * @param {context} Context masks
+ * @param parser Parser object
+ * @param context Context masks
  */
 
 export function scanOctalOrBinary(parser: Parser, context: Context, base: number): Token {
@@ -97,8 +90,8 @@ export function scanOctalOrBinary(parser: Parser, context: Context, base: number
  *
  * @see [Link](https://tc39.github.io/ecma262/#prod-OctalDigits)
  *
- * @param {Parser} Parser instance
- * @param {context} Context masks
+ * @param parser Parser object
+ * @param context Context masks
  */
 export function scanImplicitOctalDigits(parser: Parser, context: Context): Token {
 
@@ -158,8 +151,8 @@ export function scanImplicitOctalDigits(parser: Parser, context: Context): Token
  *
  * @see [Link](https://tc39.github.io/ecma262/#prod-SignedInteger)
  *
- * @param {Parser} Parser instance
- * @param {context} Context masks
+ * @param parser Parser object
+ * @param context Context masks
  */
 export function scanSignedInteger(parser: Parser, end: number): string {
     let next = nextChar(parser);
@@ -183,8 +176,8 @@ export function scanSignedInteger(parser: Parser, end: number): string {
  *
  * @see [Link](https://tc39.github.io/ecma262/#prod-NumericLiteral)
  *
- * @param {Parser} Parser instance
- * @param {context} Context masks
+ * @param parser Parser object
+ * @param context Context masks
  */
 
 export function scanNumericLiteral(parser: Parser, context: Context, state: NumericState = NumericState.None): Token {
@@ -230,9 +223,9 @@ export function scanNumericLiteral(parser: Parser, context: Context, state: Nume
 /**
  * Internal helper function for scanning numeric separators.
  *
- * @param {Parser} Parser instance
- * @param {context} Context masks
- * @param {state} NumericState state
+ * @param parser Parser object
+ * @param context Context masks
+ * @param state NumericState state
  */
 export function scanNumericSeparator(parser: Parser, state: NumericState): NumericState {
     advance(parser);
@@ -244,8 +237,8 @@ export function scanNumericSeparator(parser: Parser, state: NumericState): Numer
 /**
  * Internal helper function that scans numeric values
  *
- * @param {Parser} Parser instance
- * @param {context} Context masks
+ * @param parser Parser object
+ * @param context Context masks
  */
 export function scanDecimalDigitsOrSeparator(parser: Parser): string {
 
@@ -288,8 +281,8 @@ export function scanDecimalDigitsOrSeparator(parser: Parser): string {
 /**
  * Internal helper function that scans numeric values
  *
- * @param {Parser} Parser instance
- * @param {context} Context masks
+ * @param parser Parser object
+ * @param context Context masks
  */
 export function scanDecimalAsSmi(parser: Parser, context: Context): number {
     let state = NumericState.None;
@@ -314,9 +307,9 @@ export function scanDecimalAsSmi(parser: Parser, context: Context): number {
 /**
  * Internal helper function that assamble the number scanning parts and return
  *
- * @param {Parser} Parser instance
- * @param {context} Context masks
- * @param {value} The numeric value
+ * @param parser Parser object
+ * @param context Context masks
+ * @param value The numeric value
  */
 function assembleNumericLiteral(parser: Parser, context: Context, value: number, isBigInt = false): Token {
     parser.tokenValue = value;

@@ -6,6 +6,13 @@ import { isValidIdentifierStart } from '../unicode';
 import { Context, RegexFlags, RegexState } from '../utilities';
 import { isIdentifierPart, fromCodePoint, hasNext, nextChar, advance } from './common';
 
+/**
+ * Scans regular expression
+ * 
+ * @param parser Parser object
+ * @param context Context masks
+ */
+
 export function scanRegularExpression(parser: Parser, context: Context): Token {
 
     const bodyStart = parser.index;
@@ -51,9 +58,7 @@ export function scanRegularExpression(parser: Parser, context: Context): Token {
 
     let mask = RegexFlags.Empty;
 
-    const {
-        index: flagStart
-    } = parser;
+    const { index: flagStart } = parser;
 
     loop:
         while (hasNext(parser)) {
@@ -103,10 +108,7 @@ export function scanRegularExpression(parser: Parser, context: Context): Token {
 
     const pattern = parser.source.slice(bodyStart, bodyEnd);
 
-    parser.tokenRegExp = {
-        pattern,
-        flags
-    };
+    parser.tokenRegExp = { pattern, flags };
 
     if (context & Context.OptionsRaw) parser.tokenRaw = parser.source.slice(parser.startIndex, parser.index);
 

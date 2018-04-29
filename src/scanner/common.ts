@@ -5,8 +5,9 @@ import { Token, descKeyword, tokenDesc } from '../token';
 import { isValidIdentifierStart } from '../unicode';
 import { isValidIdentifierPart, mustEscape } from '../unicode';
 import { Flags, Context, ScannerState } from '../utilities';
+
 /**
- * Return the next codepoint in the stream
+ * Return true if more chars in the stream. Otherwise return false.
  *
  * @param parser Parser object
  */
@@ -14,14 +15,16 @@ import { Flags, Context, ScannerState } from '../utilities';
 export function hasNext(parser: Parser) {
     return parser.index < parser.source.length;
 }
+
+/**
+ * Advance to the next token in the stream
+ * 
+ * @param parser Parser object
+ */
+
 export function advance(parser: Parser) {
     parser.index++;
     parser.column++;
-}
-
-export function advanceOnMaybeAstral(parser: Parser, ch: number) {
-    advance(parser);
-    if (ch > 0xFFFF) parser.index++;
 }
 
 /**
@@ -46,41 +49,6 @@ export function nextUnicodeChar(parser: Parser) {
     const lo = parser.source.charCodeAt(index + 1);
     if (lo < Chars.TrailSurrogateMin || lo > Chars.TrailSurrogateMax) return hi;
     return Chars.NonBMPMin + ((hi & 0x3FF) << 10) | lo & 0x3FF;
-}
-
-export function readNext(parser: Parser): number {
-    advance(parser);
-    if (!hasNext(parser)) report(parser, Errors.UnicodeOutOfRange);
-    return nextUnicodeChar(parser);
-}
-
-/**
- * Advance to new line
- *
- * @param parser Parser object
- */
-export function advanceNewline(parser: Parser) {
-    parser.flags |= Flags.NewLine;
-    parser.index++;
-    parser.column = 0;
-    parser.line++;
-}
-
-export const fromCodePoint = (code: Chars) => {
-    return code <= 0xFFFF ?
-        String.fromCharCode(code) :
-        String.fromCharCode(((code - Chars.NonBMPMin) >> 10) +
-            Chars.LeadSurrogateMin, ((code - Chars.NonBMPMin) & (1024 - 1)) + Chars.TrailSurrogateMin);
-};
-
-export function toHex(code: number): number {
-    if (code < Chars.Zero) return -1;
-    if (code <= Chars.Nine) return code - Chars.Zero;
-    if (code < Chars.UpperA) return -1;
-    if (code <= Chars.UpperF) return code - Chars.UpperA + 10;
-    if (code < Chars.LowerA) return -1;
-    if (code <= Chars.LowerF) return code - Chars.LowerA + 10;
-    return -1;
 }
 
 /**
@@ -163,4 +131,44 @@ export function scanPrivateName(parser: Parser, context: Context): Token {
         report(parser, Errors.UnexpectedToken, tokenDesc(parser.token));
     }
     return Token.Hash;
+}
+
+/**
+ * Advance to new line
+ *
+ * @param parser Parser object
+ */
+export function advanceNewline(parser: Parser) {
+    parser.flags |= Flags.NewLine;
+    parser.index++;
+    parser.column = 0;
+    parser.line++;
+}
+
+export const fromCodePoint = (code: Chars) => {
+    return code <= 0xFFFF ?
+        String.fromCharCode(code) :
+        String.fromCharCode(((code - Chars.NonBMPMin) >> 10) +
+            Chars.LeadSurrogateMin, ((code - Chars.NonBMPMin) & (1024 - 1)) + Chars.TrailSurrogateMin);
+}
+
+export function readNext(parser: Parser): number {
+    advance(parser);
+    if (!hasNext(parser)) report(parser, Errors.UnicodeOutOfRange);
+    return nextUnicodeChar(parser);
+}
+
+export function toHex(code: number): number {
+    if (code < Chars.Zero) return -1;
+    if (code <= Chars.Nine) return code - Chars.Zero;
+    if (code < Chars.UpperA) return -1;
+    if (code <= Chars.UpperF) return code - Chars.UpperA + 10;
+    if (code < Chars.LowerA) return -1;
+    if (code <= Chars.LowerF) return code - Chars.LowerA + 10;
+    return -1;
+}
+
+export function advanceOnMaybeAstral(parser: Parser, ch: number) {
+    advance(parser);
+    if (ch > 0xFFFF) parser.index++;
 }

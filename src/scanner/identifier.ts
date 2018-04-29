@@ -108,9 +108,7 @@ export function scanMaybeIdentifier(parser: Parser, context: Context, first: num
  */
 function scanUnicodeCodePointEscape(parser: Parser): string | void {
 
-    const {
-        index
-    } = parser;
+    const { index } = parser;
 
     if (index + 5 < parser.source.length) {
 
@@ -159,7 +157,7 @@ function scanIdentifierUnicodeEscape(parser: Parser): Chars {
         while (digit >= 0) {
             codePoint = (codePoint << 4) | digit;
             if (codePoint > Chars.NonBMPMax) {
-                report(parser, Errors.Unexpected /*UndefinedUnicodeCodePoint*/ );
+                report(parser, Errors.UndefinedUnicodeCodePoint);
             }
             advance(parser);
             digit = toHex(nextChar(parser));
