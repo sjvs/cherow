@@ -107,6 +107,7 @@ describe('Miscellaneous - Escaped keywords', () => {
             'f\\u0075nction fn() {}',
             'var f = f\\u0075nction() {}',
             '\\u0069f (true) { }',
+            'n\\u0065w function f() {}',
             '(function() { r\\u0065turn; })()',
             'class C extends function() {} { constructor() { sup\\u0065r() } }',
             'class C extends function() {} { constructor() { sup\\u0065r.a = 1 } }',
@@ -170,12 +171,6 @@ describe('Miscellaneous - Escaped keywords', () => {
             it(`${arg}`, () => {
                 t.throws(() => {
                     parse(`${arg}`, undefined, Context.Strict);
-                });
-            });
-
-            it(`${arg}`, () => {
-                t.throws(() => {
-                    parse(`${arg}`, undefined, Context.Strict | Context.Module);
                 });
             });
         }

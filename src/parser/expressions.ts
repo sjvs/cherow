@@ -90,10 +90,11 @@ export function parseSequenceExpression(parser: Parser, context: Context, left: 
  */
 
 function parseYieldExpression(parser: Parser, context: Context, pos: Location): ESTree.YieldExpression | ESTree.Identifier {
-      // YieldExpression[In] :
-    //     yield
-    //     yield [no LineTerminator here] AssignmentExpression[?In, Yield]
-    //     yield [no LineTerminator here] * AssignmentExpression[?In, Yield]
+    
+    // YieldExpression[In] :
+    //    yield
+    //    yield [no LineTerminator here] AssignmentExpression[?In, Yield]
+    //    yield [no LineTerminator here] * AssignmentExpression[?In, Yield]
 
     // https://tc39.github.io/ecma262/#sec-generator-function-definitions-static-semantics-early-errors
    if (context & Context.InParameter) tolerant(parser, context, Errors.YieldInParameter);
@@ -328,7 +329,7 @@ function parseUnaryExpression(parser: Parser, context: Context): ESTree.UnaryExp
 
     if (hasBit(token, Token.IsUnaryOp)) {
         nextToken(parser, context);
-        if (parser.flags & Flags.EscapedKeyword) tolerant(parser, context, Errors.InvalidEscapedReservedWord);
+        if (parser.flags & Flags.EscapedKeyword) tolerant(parser, context,  Errors.InvalidEscapedReservedWord);
         const argument = parseExpressionCoverGrammar(parser, context, parseUnaryExpression);
         if (parser.token === Token.Exponentiate) tolerant(parser, context, Errors.UnexpectedToken, tokenDesc(parser.token));
         if (context & Context.Strict && token === Token.DeleteKeyword) {
@@ -891,7 +892,7 @@ function parseNullOrTrueOrFalseLiteral(parser: Parser, context: Context): ESTree
     const pos = getLocation(parser);
     const { token } = parser;
     const raw = tokenDesc(token);
-    if (parser.flags & Flags.EscapedKeyword) tolerant(parser, context, Errors.InvalidEscapedReservedWord);
+    if (parser.flags & Flags.EscapedKeyword) tolerant(parser, context,  Errors.InvalidEscapedReservedWord);
     nextToken(parser, context);
 
     const node: any = finishNode(context, parser, pos, {
@@ -912,7 +913,7 @@ function parseNullOrTrueOrFalseLiteral(parser: Parser, context: Context): ESTree
  */
 
 function parseThisExpression(parser: Parser, context: Context): ESTree.ThisExpression {
-   if (parser.flags & Flags.EscapedKeyword) tolerant(parser, context, Errors.InvalidEscapedReservedWord);
+   if (parser.flags & Flags.EscapedKeyword) tolerant(parser, context,  Errors.InvalidEscapedReservedWord);
    const pos = getLocation(parser);
    nextToken(parser, context | Context.DisallowEscapedKeyword);
    return finishNode(context, parser, pos, {
