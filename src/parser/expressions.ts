@@ -1755,6 +1755,7 @@ export function parseClassElement(parser: Parser, context: Context, state: Objec
 
     let { tokenValue, token } = parser;
     const isEscaped = !!(parser.flags & Flags.EscapedKeyword);
+
     if (consume(parser, context, Token.Multiply)) state |= ObjectState.Generator;
 
     if (parser.token === Token.LeftBracket) state |= ObjectState.Computed;
@@ -1774,11 +1775,12 @@ export function parseClassElement(parser: Parser, context: Context, state: Objec
 
     if (!(parser.token & Token.IsShorthandProperty)) {
 
-        if (token === Token.StaticKeyword) {
+        if (isEscaped) tolerant(parser, context, Errors.InvalidEscapedReservedWord);
+        else if (token === Token.StaticKeyword) {
             token = parser.token;
             if (consume(parser, context, Token.Multiply)) state |= ObjectState.Generator;
             tokenValue = parser.tokenValue;
-            if (isEscaped) tolerant(parser, context, Errors.InvalidEscapedReservedWord);
+           
             if (parser.token === Token.LeftBracket) state |= ObjectState.Computed;
             if (parser.tokenValue === 'prototype') tolerant(parser, context, Errors.StaticPrototype);
 
@@ -2162,5 +2164,19 @@ function parseTemplateSpans(parser: Parser, context: Context, pos: Location = ge
             raw: tokenRaw,
         },
         tail: true,
+    });
+}
+
+export function parseDecorator(parser: Parser, context: Context) {
+    const pos = getLocation(parser);
+    let expression: any = [];
+    let expr = parseIdentifier(parser, context);
+    while (consume(parser, context, Token.At)) {
+        expression.push(parseLeftHandSideExpression(parser, context, getLocation(parser)));
+    }
+
+    return finishNode(context, parser, pos, {
+        type: 'Decorator',
+        expression
     });
 }

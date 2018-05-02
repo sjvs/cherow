@@ -14,6 +14,7 @@ import {
     parseIdentifier,
     parseAssignmentExpression,
     parseSequenceExpression,
+    parseDecorator
 } from './expressions';
 import {
     expect,
@@ -61,6 +62,8 @@ export function parseStatementListItem(parser: Parser, context: Context) {
             return parseVariableStatement(parser, context | Context.BlockScope | Context.AllowIn);
         case Token.AsyncKeyword:
             return parseAsyncFunctionDeclarationOrStatement(parser, context);
+        case Token.At:
+            return parseDecoratorOrStatement(parser, context);
         case Token.ImportKeyword: {
             if (context & Context.OptionsNext && lookahead(parser, context, nextTokenIsLeftParenOrPeriod)) {
                 return parseExpressionStatement(parser, context | Context.AllowIn);
@@ -777,4 +780,9 @@ function parseForStatement(parser: Parser, context: Context): ESTree.ForStatemen
         test,
         update,
     });
+}
+
+function parseDecoratorOrStatement(parser: Parser, context: Context) {
+    if (context & Context.OptionsExperimental) return parseDecorator(parser, context);
+    return parseStatement(parser, context | Context.AllowSingleStatement);
 }
