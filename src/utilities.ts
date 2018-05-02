@@ -63,6 +63,7 @@ export const enum Flags {
     HasAwait                = 1 << 13,
     HasYield                = 1 << 14,
     EscapedKeyword          = 1 << 15,
+    AllowDecorators         = 1 << 16,
     AllowBreakOrContinue = InSwitchStatement | InIterationStatement,
 }
 
