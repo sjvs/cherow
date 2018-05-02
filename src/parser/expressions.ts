@@ -2170,7 +2170,6 @@ function parseTemplateSpans(parser: Parser, context: Context, pos: Location = ge
 export function parseDecorator(parser: Parser, context: Context) {
     const pos = getLocation(parser);
     let expression: any = [];
-    let expr = parseIdentifier(parser, context);
     while (consume(parser, context, Token.At)) {
         expression.push(parseLeftHandSideExpression(parser, context, getLocation(parser)));
     }
