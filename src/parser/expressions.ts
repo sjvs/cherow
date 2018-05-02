@@ -2167,16 +2167,12 @@ function parseTemplateSpans(parser: Parser, context: Context, pos: Location = ge
     });
 }
 
-export function parseDecorator(parser: Parser, context: Context) {
+export function parseDecoratorList(parser: Parser, context: Context) {
     const pos = getLocation(parser);
-    // hm
-    let expression: any = [];
+    let decoratorList: any = [];
     while (consume(parser, context, Token.At)) {
-        expression.push(parseLeftHandSideExpression(parser, context, getLocation(parser)));
+        decoratorList.push(parseLeftHandSideExpression(parser, context, getLocation(parser)));
     }
 
-    return finishNode(context, parser, pos, {
-        type: 'Decorator',
-        expression
-    });
+    return decoratorList
 }

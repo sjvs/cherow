@@ -14,7 +14,7 @@ import {
     parseIdentifier,
     parseAssignmentExpression,
     parseSequenceExpression,
-    parseDecorator
+    parseDecoratorList
 } from './expressions';
 import {
     expect,
@@ -783,6 +783,6 @@ function parseForStatement(parser: Parser, context: Context): ESTree.ForStatemen
 }
 
 function parseDecoratorOrStatement(parser: Parser, context: Context) {
-    if (context & Context.OptionsExperimental) return parseDecorator(parser, context);
+    if (context & Context.OptionsExperimental) return parseDecoratorList(parser, context);
     return parseStatement(parser, context | Context.AllowSingleStatement);
 }
