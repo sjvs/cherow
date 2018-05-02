@@ -15,6 +15,7 @@ import {
     parseExpressionCoverGrammar,
     restoreExpressionCoverGrammar,
     hasBit,
+    setPendingError
 } from '../utilities';
 
 // 12.15.5 Destructuring Assignment
@@ -72,7 +73,7 @@ export function parseBindingIdentifier(parser: Parser, context: Context): ESTree
     nextToken(parser, context);
     return finishNode(context, parser, pos, {
         type: 'Identifier',
-        name
+        name,
     });
 }
 
@@ -93,7 +94,7 @@ function parseAssignmentRestElementOrProperty(parser: Parser, context: Context):
     if (parser.token === Token.Comma) tolerant(parser, context, Errors.RestWithComma);
     return finishNode(context, parser, pos, {
         type: 'RestElement',
-        argument
+        argument,
     });
 }
 
@@ -151,7 +152,7 @@ function parseArrayAssignmentPattern(parser: Parser, context: Context): ESTree.A
 
     return finishNode(context, parser, pos, {
         type: 'ArrayPattern',
-        elements
+        elements,
     });
 }
 
@@ -180,7 +181,7 @@ function parserObjectAssignmentPattern(parser: Parser, context: Context): ESTree
 
     return finishNode(context, parser, pos, {
         type: 'ObjectPattern',
-        properties
+        properties,
     });
 }
 
@@ -199,12 +200,12 @@ export function parseAssignmentPattern(
     parser: Parser,
     context: Context,
     left: ESTree.Node,
-    pos: Location
+    pos: Location,
 ): ESTree.AssignmentPattern {
     return finishNode(context, parser, pos, {
         type: 'AssignmentPattern',
         left,
-        right: parseExpressionCoverGrammar(parser, context, parseAssignmentExpression)
+        right: parseExpressionCoverGrammar(parser, context | Context.AllowIn, parseAssignmentExpression),
     });
 }
 
@@ -225,7 +226,7 @@ function parseBindingInitializer(parser: Parser, context: Context): ESTree.Assig
         finishNode(context, parser, pos, {
             type: 'AssignmentPattern',
             left,
-            right: parseAssignmentExpression(parser, context | Context.AllowIn)
+            right: parseAssignmentExpression(parser, context | Context.AllowIn),
         });
 }
 
@@ -254,7 +255,7 @@ function parseAssignmentProperty(parser: Parser, context: Context): ESTree.Assig
             const hasInitializer = consume(parser, context, Token.Assign);
             if (context & Context.Yield && token & Token.IsYield) tolerant(parser, context, Errors.YieldBindingIdentifier);
             if (!isValidIdentifier(context, token)) tolerant(parser, context, Errors.UnexpectedReserved);
-            value = hasInitializer ? parseAssignmentPattern(parser, context | Context.AllowIn, key, pos) : key;
+            value = hasInitializer ? parseAssignmentPattern(parser, context, key, pos) : key;
         } else value = parseBindingInitializer(parser, context);
     } else {
         computed = token === Token.LeftBracket;
@@ -272,6 +273,6 @@ function parseAssignmentProperty(parser: Parser, context: Context): ESTree.Assig
         computed,
         value,
         method: false,
-        shorthand
+        shorthand,
     });
 }

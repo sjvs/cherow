@@ -7,10 +7,6 @@
 [![CircleCI](https://circleci.com/gh/cherow/cherow.svg?style=svg)](https://circleci.com/gh/cherow/cherow)
 [![Coverage Status](https://coveralls.io/repos/github/cherow/cherow/badge.svg?branch=master)](https://coveralls.io/github/cherow/cherow?branch=master)
 
-**Active development branch**
-
-
-
 A very fast and lightweight, standards-compliant, self-hosted javascript parser with high focus on both performance and stability.
 
 ## [Demo](https://cherow.github.io/cherow/) and [Benchmark](https://cherow.github.io/cherow/performance/)
@@ -18,7 +14,8 @@ A very fast and lightweight, standards-compliant, self-hosted javascript parser 
 ## Features
 
 * Conforms to the standard ECMAScript® 2018 [(ECMA-262 9th Edition)](https://tc39.github.io/ecma262/) language specification 
-* Supports Stage 3 proposals via option
+* Support for all stage 3 proposals via option.
+* JSX support via option.
 * Optionally track syntactic node locations
 * Emits an [ESTree-compatible](https://github.com/estree/estree) abstract syntax tree.
 * Very well tested (~45 000 [unit tests](https://github.com/cherow/cherow/tree/master/test) with [full code coverage)](https://coveralls.io/github/cherow/cherow))
@@ -117,6 +114,7 @@ Cherow contains 3 different builds:
 | `Stable`    | Stable release |
 | `Next`      | Has the `next` option enabled by default, and support all latest ECMAScript proposals. |
 | `Bleeding`  | The active development branch. You can and will expect bugs with this branch because it's not stable |
+
 
 ## Syntax Delegate
 

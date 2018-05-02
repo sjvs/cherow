@@ -96,11 +96,12 @@ export const enum Errors {
     AdjacentJSXElements,
     InvalidJSXAttributeValue,
     RestWithComma,
-    UndefinedUnicodeCodePoint
+    UndefinedUnicodeCodePoint,
+    HtmlCommentInModule,
 }
 
 export const ErrorMessages: {
-    [key: string]: string
+    [key: string]: string,
 } = {
     [Errors.Unexpected]: 'Unexpected token',
     [Errors.UnexpectedToken]: 'Unexpected token \'%0\'',
@@ -197,7 +198,8 @@ export const ErrorMessages: {
     [Errors.AdjacentJSXElements]: 'Adjacent JSX elements must be wrapped in an enclosing tag',
     [Errors.InvalidJSXAttributeValue]: 'Invalid JSX attribute value',
     [Errors.RestWithComma]: 'Rest element may not have a trailing comma',
-    [Errors.UndefinedUnicodeCodePoint]: 'Undefined Unicode code-point'
+    [Errors.UndefinedUnicodeCodePoint]: 'Undefined Unicode code-point',
+    [Errors.HtmlCommentInModule]: 'HTML comments are not allowed in modules',
 };
 
 /**

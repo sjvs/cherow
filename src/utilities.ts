@@ -1,9 +1,9 @@
 import * as ESTree from './estree';
 import { Chars } from './chars';
-import { Errors, report, tolerant } from './errors';
+import { Errors, report, tolerant, ErrorMessages } from './errors';
 import { Parser, Delegate, Location } from './types';
 import { Token, tokenDesc } from './token';
-import { scan } from './scanner/scan';
+import { scan } from './lexer/scan';
 import { constructError } from './errors';
 import { parseIdentifier } from './parser/expressions';
 import { isValidIdentifierStart, isValidIdentifierPart, mustEscape } from './unicode';
@@ -11,9 +11,6 @@ import { isValidIdentifierStart, isValidIdentifierPart, mustEscape } from './uni
 // Context masks
 export const enum Context {
     Empty                   = 0,
-    
-    /** options */
-    
     OptionsNext             = 1 << 0,
     OptionsRanges           = 1 << 1,
     OptionsJSX              = 1 << 2,
@@ -27,9 +24,6 @@ export const enum Context {
     OptionsRawidentifiers   = 1 << 10,
     OptionsTolerant         = 1 << 11,
     OptionsNode             = 1 << 12,
-
-    /** misc */
-
     Strict                  = 1 << 13,
     Module                  = 1 << 14,
     TaggedTemplate          = 1 << 15,
@@ -47,7 +41,7 @@ export const enum Context {
     AllowSuperProperty      = 1 << 27,
     InParen                 = 1 << 28,
     InJSXChild              = 1 << 29,
-    DisallowEscapedKeyword  = 1 << 30
+    DisallowEscapedKeyword  = 1 << 30,
 }
 
 // Mutual parser flags
@@ -63,13 +57,12 @@ export const enum Flags {
     HasOctal                = 1 << 7,
     SimpleAssignmentTarget  = 1 << 8,
     HasProtoField           = 1 << 9,
-    HasDuplicateProto       = 1 << 10,
-    StrictFunctionName      = 1 << 11,
-    StrictEvalArguments     = 1 << 12,
-    InFunctionBody          = 1 << 13,
-    HasAwait                = 1 << 14,
-    HasYield                = 1 << 15,
-    EscapedKeyword          = 1 << 16,
+    StrictFunctionName      = 1 << 10,
+    StrictEvalArguments     = 1 << 11,
+    InFunctionBody          = 1 << 12,
+    HasAwait                = 1 << 13,
+    HasYield                = 1 << 14,
+    EscapedKeyword          = 1 << 15,
     AllowBreakOrContinue = InSwitchStatement | InIterationStatement,
 }
 
@@ -77,7 +70,7 @@ export const enum Flags {
 export const enum Labels {
     None        = 0,
     NotNested   = 1 << 0,
-    Nested      = 1 << 1
+    Nested      = 1 << 1,
 }
 
 export const enum NumericState {
@@ -234,8 +227,8 @@ export function finishNode < T extends ESTree.Node >(
             },
             end: {
                 line: lastLine,
-                column: lastColumn
-            }
+                column: lastColumn,
+            },
         };
 
         if (sourceFile) node.loc.source = sourceFile;
@@ -297,7 +290,7 @@ export const hasBit = (mask: number, flags: number) => (mask & flags) === flags;
  * @param parser Parser object
  * @param context Context masks
  */
-export function consumeSemicolon(parser: Parser, context: Context) {
+export function consumeSemicolon(parser: Parser, context: Context): void | boolean {
     const { token } = parser;
 
     if (token & Token.ASI || parser.flags & Flags.NewLine) { // EOF, '}', ';'
@@ -325,7 +318,7 @@ export function consumeSemicolon(parser: Parser, context: Context) {
 export function parseExpressionCoverGrammar < T >(
     parser: Parser,
     context: Context,
-    callback: (parser: Parser, context: Context) => T
+    callback: (parser: Parser, context: Context) => T,
 ) {
     const prevFlags = parser.flags;
     const prevpendingExpressionError = parser.pendingExpressionError;
@@ -355,7 +348,7 @@ export function parseExpressionCoverGrammar < T >(
 export function restoreExpressionCoverGrammar < T >(
     parser: Parser,
     context: Context,
-    callback: (parser: Parser, context: Context) => T
+    callback: (parser: Parser, context: Context) => T,
 ) {
     const prevFlags = parser.flags;
     const prevpendingExpressionError = parser.pendingExpressionError;
@@ -652,7 +645,7 @@ export function isPropertyWithPrivateFieldKey(expr: any): boolean {
  * @param parser Parser object
  * @param context Context masks
  */
-export function parseAndValidateIdentifier(parser: Parser, context: Context) {
+export function parseAndValidateIdentifier(parser: Parser, context: Context): void | ESTree.Identifier {
 
     const { token} = parser;
 
@@ -712,7 +705,7 @@ export function setPendingError(parser: Parser) {
  * @param elementName JSX Element name
  */
 export function isEqualTagNames(
-    elementName: ESTree.JSXNamespacedName | ESTree.JSXIdentifier | ESTree.JSXMemberExpression
+    elementName: ESTree.JSXNamespacedName | ESTree.JSXIdentifier | ESTree.JSXMemberExpression,
 ): any {
     switch (elementName.type) {
         case 'JSXIdentifier':
@@ -752,4 +745,80 @@ export function validateUpdateExpression(parser: Parser, context: Context, expr:
         tolerant(parser, context, Errors.InvalidLHSInAssignment);
     }
 
+}
+
+
+/**
+ * Record expression error
+ * 
+ * @param parser Parser object
+ * @param error Error message
+ */
+export function recordExpressionError(parser: Parser, type: Errors) {
+    parser.pendingExpressionError = {
+        error: ErrorMessages[type],
+        line: parser.startLine,
+        column: parser.startColumn,
+        index: parser.startIndex,
+    };
+}
+
+/**
+ * Validate coer parenthesized expression
+ * 
+ * @param parser Parser object
+ * @param state CoverParenthesizedState
+ */
+export function validateCoverParenthesizedExpression(
+    parser: Parser,
+    state: CoverParenthesizedState
+): CoverParenthesizedState {
+    const { token } = parser;
+    if (token & Token.IsBindingPattern) {
+        parser.flags |= Flags.SimpleParameterList;
+    } else {
+        if ((token & Token.IsEvalOrArguments) === Token.IsEvalOrArguments) {
+            setPendingError(parser);
+            state |= CoverParenthesizedState.HasEvalOrArguments;
+        } else if ((token & Token.FutureReserved) === Token.FutureReserved) {
+            setPendingError(parser);
+            state |= CoverParenthesizedState.HasReservedWords;
+        } else if ((token & Token.IsAwait) === Token.IsAwait) {
+            setPendingError(parser);
+            parser.flags |= Flags.HasAwait;
+        }
+    }
+    return state;
+}
+
+/**
+ * Validate coer parenthesized expression
+ * 
+ * @param parser Parser object
+ * @param state CoverParenthesizedState
+ */
+export function validateAsyncArgumentList(
+    parser: Parser,
+    context: Context,
+    state: CoverCallState
+): CoverCallState {
+    const { token } = parser;
+    if (!(parser.flags & Flags.AllowBinding)) {
+        tolerant(parser, context, Errors.NotBindable);
+    } else if (token & Token.IsBindingPattern) {
+        parser.flags |= Flags.SimpleParameterList;
+    } else {
+        if ((token & Token.IsEvalOrArguments) === Token.IsEvalOrArguments) {
+            setPendingError(parser);
+            state |= CoverCallState.EvalOrArguments;
+        } else if ((token & Token.IsAwait) === Token.IsAwait) {
+            setPendingError(parser);
+            state |= CoverCallState.Await;
+        } else if ((token & Token.IsYield) === Token.IsYield) {
+            setPendingError(parser);
+            state |= CoverCallState.Yield;
+        }
+        
+    }
+    return state;
 }
