@@ -770,6 +770,45 @@ describe('Experimental - Decorators', () => {
             }
         });
 
+        
+        pass(`@bar export default
+       class Foo { }
+        }`, Context.OptionsExperimental | Context.Module, {
+            source: `@bar export default
+          class Foo { }`,
+            expected: {
+                  "body": [
+                    [
+                      {
+                        "expression": {
+                          "name": "bar",
+                          "type": "Identifier",
+                        },
+                        "type": "Decorator"
+                      }
+                    ],
+                    {
+                      "declaration": {
+                        "body": {
+                          "body": [],
+                          "type": "ClassBody"
+                       },
+                        "decorators": [],
+                        "id": {
+                          "name": "Foo",
+                          "type": "Identifier",
+                        },
+                        "superClass": null,
+                        "type": "ClassDeclaration",
+                      },
+                      "type": "ExportDefaultDeclaration",
+                    }
+                  ],
+                  "sourceType": "module",
+                  "type": "Program"
+                }
+        });
+
         pass(`export default
       @bar class Foo { }
         }`, Context.OptionsExperimental | Context.Module, {
@@ -1342,7 +1381,7 @@ describe('Experimental - Decorators', () => {
             }]
         }
     });
-
+/*
     pass(`export @bar class Foo { }`, Context.OptionsExperimental | Context.Module, {
         source: `export @bar class Foo { }`,
         expected: {
@@ -1374,7 +1413,7 @@ describe('Experimental - Decorators', () => {
             type: 'Program'
         }
     });
-
+*/
     pass(`class Counter extends HTMLElement {
     @observed #x = 0;
 
