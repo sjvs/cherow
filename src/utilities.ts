@@ -1,7 +1,7 @@
 import * as ESTree from './estree';
 import { Chars } from './chars';
 import { Errors, report, tolerant, ErrorMessages } from './errors';
-import { Parser, Delegate, Location } from './types';
+import { Parser, Location } from './types';
 import { Token, tokenDesc } from './token';
 import { scan } from './lexer/scan';
 import { constructError } from './errors';
@@ -211,7 +211,7 @@ export function finishNode < T extends ESTree.Node >(
     node: any,
 ): T {
 
-    const { lastIndex, lastLine, lastColumn, sourceFile, index, delegate } = parser;
+    const { lastIndex, lastLine, lastColumn, sourceFile, index } = parser;
 
     if (context & Context.OptionsRanges) {
         node.start = meta.index;
@@ -233,8 +233,6 @@ export function finishNode < T extends ESTree.Node >(
 
         if (sourceFile) node.loc.source = sourceFile;
     }
-
-    if (delegate) (delegate as Delegate)(node, meta.index, index);
 
     return node;
 }
