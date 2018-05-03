@@ -1723,7 +1723,7 @@ export function parseClassBodyAndElementList(parser: Parser, context: Context, s
     while (parser.token !== Token.RightBrace) {
         if (!consume(parser, context, Token.Semicolon)) {
             if (context & Context.OptionsExperimental) {
-                decorators = parseDecoratorList(parser, context)
+                decorators = parseDecorators(parser, context)
                 if (parser.token === Token.RightBrace) report(parser, Errors.TrailingDecorators)
                 if (decorators.length !== 0 && parser.tokenValue === 'constructor') {
                     report(parser, Errors.GeneratorConstructor)
@@ -2209,7 +2209,7 @@ function parseTemplateSpans(parser: Parser, context: Context, pos: Location = ge
  * @param parser Parser object
  * @param context Context masks
  */
-export function parseDecorator(parser: Parser, context: Context): ESTree.Decorator {
+function parseDecoratorList(parser: Parser, context: Context): ESTree.Decorator {
     const pos = getLocation(parser);
     return finishNode(context, parser, pos, {
             type: 'Decorator',
@@ -2223,11 +2223,11 @@ export function parseDecorator(parser: Parser, context: Context): ESTree.Decorat
  * @param parser Parser object
  * @param context Context masks
  */
-export function parseDecoratorList(parser: Parser, context: Context): ESTree.Decorator[] {
+export function parseDecorators(parser: Parser, context: Context): ESTree.Decorator[] {
     const pos = getLocation(parser);
     let decoratorList: ESTree.Decorator[] = [];
     while (consume(parser, context, Token.At)) {
-       decoratorList.push(parseDecorator(parser, context | Context.AllowDecorator));
+       decoratorList.push(parseDecoratorList(parser, context | Context.AllowDecorator));
     }
     return decoratorList
 }
