@@ -278,7 +278,6 @@ function parseBinaryExpression(
     // Shift-reduce parser for the binary operator part of the JS expression
     // syntax.
     const bit = context & Context.AllowIn ^ Context.AllowIn;
-    if (!hasBit(parser.token, Token.IsBinaryOp)) return left;
     while (hasBit(parser.token, Token.IsBinaryOp)) {
         const t = parser.token;
         if (bit && t === Token.InKeyword) break;
@@ -1719,7 +1718,7 @@ export function parseClassBodyAndElementList(parser: Parser, context: Context, s
     const pos = getLocation(parser);
     expect(parser, context, Token.LeftBrace);
     const body: (ESTree.MethodDefinition | ESTree.FieldDefinition)[] = [];
-    let decorators: ESTree.Decorator[] | null = [];
+    let decorators: ESTree.Decorator[] = [];
     while (parser.token !== Token.RightBrace) {
         if (!consume(parser, context, Token.Semicolon)) {
             if (context & Context.OptionsExperimental) {
@@ -2224,8 +2223,8 @@ function parseDecoratorList(parser: Parser, context: Context): ESTree.Decorator 
  * @param context Context masks
  */
 export function parseDecorators(parser: Parser, context: Context): ESTree.Decorator[] {
-    const pos = getLocation(parser);
     let decoratorList: ESTree.Decorator[] = [];
+    if (!(context & Context.OptionsExperimental)) decoratorList;
     while (consume(parser, context, Token.At)) {
        decoratorList.push(parseDecoratorList(parser, context | Context.AllowDecorator));
     }
