@@ -1719,7 +1719,7 @@ export function parseClassBodyAndElementList(parser: Parser, context: Context, s
     const pos = getLocation(parser);
     expect(parser, context, Token.LeftBrace);
     const body: (ESTree.MethodDefinition | ESTree.FieldDefinition)[] = [];
-    let decorators: any;
+    let decorators: ESTree.Decorator[] | null;
     while (parser.token !== Token.RightBrace) {
         if (!consume(parser, context, Token.Semicolon)) {
             body.push(parseClassElement(parser, context, state));
@@ -1842,7 +1842,7 @@ export function parseClassElement(parser: Parser, context: Context, state: Objec
     return parseMethodDefinition(parser, context, key, value, state, pos, decorators);
 }
 
-function parseMethodDefinition(parser: Parser, context: Context, key: any, value: any, state: ObjectState, pos: Location, decorators?: any): ESTree.MethodDefinition {
+function parseMethodDefinition(parser: Parser, context: Context, key: any, value: any, state: ObjectState, pos: Location, decorators: ESTree.Decorator[] | null): ESTree.MethodDefinition {
     return finishNode(context, parser, pos, context & Context.OptionsExperimental ? {
         type: 'MethodDefinition',
         kind: (state & ObjectState.Constructor) ? 'constructor' : (state & ObjectState.Getter) ? 'get' :
@@ -1870,7 +1870,7 @@ function parseMethodDefinition(parser: Parser, context: Context, key: any, value
  * @param context Context masks
  */
 
-function parseFieldDefinition(parser: Parser, context: Context, key: any, state: ObjectState, pos: Location, decorators?: any): ESTree.FieldDefinition {
+function parseFieldDefinition(parser: Parser, context: Context, key: any, state: ObjectState, pos: Location, decorators: ESTree.Decorator[] | null): ESTree.FieldDefinition {
     if (state & ObjectState.Constructor) tolerant(parser, context, Errors.Unexpected);
     let value: ESTree.Expression | null = null;
 
@@ -1922,11 +1922,13 @@ function parsePrivateName(parser: Parser, context: Context, pos: Location): ESTr
  * @param parser Parser object
  * @param context Context masks
  */
-function parsePrivateFields(parser: Parser, context: Context, pos: Location, decorators?: any): ESTree.FieldDefinition | ESTree.MethodDefinition {
+
+function parsePrivateFields(parser: Parser, context: Context, pos: Location, decorators: ESTree.Decorator[] | null): ESTree.FieldDefinition | ESTree.MethodDefinition {
     expect(parser, context | Context.InClass, Token.Hash);
     if (parser.tokenValue === 'constructor') tolerant(parser, context, Errors.PrivateFieldConstructor);
+    
     const key = parsePrivateName(parser, context, pos);
-    if (parser.token === Token.LeftParen) return parsePrivateMethod(parser, context, key, pos);
+    if (parser.token === Token.LeftParen) return parsePrivateMethod(parser, context, key, pos, decorators);
     let value: any = null;
     if (consume(parser, context, Token.Assign)) {
         if (parser.token & Token.IsEvalOrArguments) tolerant(parser, context, Errors.StrictEvalArguments);
@@ -1951,10 +1953,10 @@ function parsePrivateFields(parser: Parser, context: Context, pos: Location, dec
     });
 }
 
-function parsePrivateMethod(parser: Parser, context: Context, key: any, pos: Location): ESTree.MethodDefinition {
+function parsePrivateMethod(parser: Parser, context: Context, key: any, pos: Location, decorators: ESTree.Decorator[] | null): ESTree.MethodDefinition {
     const value = parseMethodDeclaration(parser, context | Context.Strict, ObjectState.None);
     parser.flags &= ~(Flags.AllowDestructuring | Flags.AllowBinding);
-    return parseMethodDefinition(parser, context, key, value, ObjectState.Method, pos);
+    return parseMethodDefinition(parser, context, key, value, ObjectState.Method, pos, decorators);
 }
 
 /**
