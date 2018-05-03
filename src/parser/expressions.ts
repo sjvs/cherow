@@ -1750,13 +1750,14 @@ export function parseClassElement(parser: Parser, context: Context, state: Objec
 
     const pos = getLocation(parser);
 
-    if (context & Context.OptionsNext && parser.token === Token.Hash) {
-        return parsePrivateFields(parser, context, pos);
-    }
     let decorators: any;
   if (context & Context.OptionsExperimental) {
      decorators = parseDecoratorList(parser, context)
   }
+    if (context & Context.OptionsNext && parser.token === Token.Hash) {
+        return parsePrivateFields(parser, context, pos, decorators);
+    }
+
     let { tokenValue, token } = parser;
     const isEscaped = !!(parser.flags & Flags.EscapedKeyword);
 
@@ -1829,7 +1830,7 @@ export function parseClassElement(parser: Parser, context: Context, state: Objec
         value = parseMethodDeclaration(parser, context, state);
     } else {
         // Class fields - Stage 3 proposal
-        if (context & Context.OptionsNext) return parseFieldDefinition(parser, context, key, state, pos);
+        if (context & Context.OptionsNext) return parseFieldDefinition(parser, context, key, state, pos, decorators);
         tolerant(parser, context, Errors.UnexpectedToken, tokenDesc(token));
     }
 
@@ -1864,7 +1865,7 @@ function parseMethodDefinition(parser: Parser, context: Context, key: any, value
  * @param context Context masks
  */
 
-function parseFieldDefinition(parser: Parser, context: Context, key: any, state: ObjectState, pos: Location): ESTree.FieldDefinition {
+function parseFieldDefinition(parser: Parser, context: Context, key: any, state: ObjectState, pos: Location, decorators?: any): ESTree.FieldDefinition {
     if (state & ObjectState.Constructor) tolerant(parser, context, Errors.Unexpected);
     let value: ESTree.Expression | null = null;
 
@@ -1876,7 +1877,14 @@ function parseFieldDefinition(parser: Parser, context: Context, key: any, state:
 
     consume(parser, context, Token.Comma);
 
-    return finishNode(context, parser, pos, {
+    return finishNode(context, parser, pos, context & Context.OptionsExperimental ? {
+        type: 'FieldDefinition',
+        key,
+        value,
+        computed: !!(state & ObjectState.Computed),
+        static: !!(state & ObjectState.Static),
+        decorators
+    } : {
         type: 'FieldDefinition',
         key,
         value,
@@ -1909,7 +1917,7 @@ function parsePrivateName(parser: Parser, context: Context, pos: Location): ESTr
  * @param parser Parser object
  * @param context Context masks
  */
-function parsePrivateFields(parser: Parser, context: Context, pos: Location): ESTree.FieldDefinition | ESTree.MethodDefinition {
+function parsePrivateFields(parser: Parser, context: Context, pos: Location, decorators?: any): ESTree.FieldDefinition | ESTree.MethodDefinition {
     expect(parser, context | Context.InClass, Token.Hash);
     if (parser.tokenValue === 'constructor') tolerant(parser, context, Errors.PrivateFieldConstructor);
     const key = parsePrivateName(parser, context, pos);
@@ -1922,7 +1930,14 @@ function parsePrivateFields(parser: Parser, context: Context, pos: Location): ES
 
     consume(parser, context, Token.Comma);
 
-    return finishNode(context, parser, pos, {
+    return finishNode(context, parser, pos, context & Context.OptionsExperimental ? {
+        type: 'FieldDefinition',
+        key,
+        value,
+        computed: false,
+        static: false, // Note: This deviates from the ESTree specs. Added to support static field names
+        decorators
+    } : {
         type: 'FieldDefinition',
         key,
         value,
