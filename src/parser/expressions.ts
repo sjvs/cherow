@@ -1721,6 +1721,7 @@ export function parseClassBodyAndElementList(parser: Parser, context: Context, s
     const pos = getLocation(parser);
     expect(parser, context, Token.LeftBrace);
     const body: (ESTree.MethodDefinition | ESTree.FieldDefinition)[] = [];
+  
     while (parser.token !== Token.RightBrace) {
         if (!consume(parser, context, Token.Semicolon)) {
             body.push(parseClassElement(parser, context, state));

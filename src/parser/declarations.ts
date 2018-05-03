@@ -29,6 +29,15 @@ import {
  */
 export function parseClassDeclaration(parser: Parser, context: Context): ESTree.ClassDeclaration {
     const pos = getLocation(parser);
+    const decorators: any[] = [];
+    if (context & Context.OptionsExperimental) {
+        while (consume(parser, context, Token.At)) {
+            decorators.push(finishNode(context, parser, pos, {
+                type: 'Decorator',
+                expression: parseLeftHandSideExpression(parser, context, getLocation(parser))
+            }));
+        }
+    }
     expect(parser, context | Context.DisallowEscapedKeyword, Token.ClassKeyword);
     const id = (context & Context.RequireIdentifier && (parser.token !== Token.Identifier))
         ? null :
@@ -39,12 +48,20 @@ export function parseClassDeclaration(parser: Parser, context: Context): ESTree.
         superClass = parseLeftHandSideExpression(parser, context | Context.Strict, pos);
         state |= ObjectState.Heritage;
     }
+    
+    const body = parseClassBodyAndElementList(parser, context & ~Context.RequireIdentifier | Context.Strict | Context.InClass, state);
 
-    return finishNode(context, parser, pos, {
+    return finishNode(context, parser, pos, context & Context.OptionsExperimental ? {
         type: 'ClassDeclaration',
         id,
         superClass,
-        body: parseClassBodyAndElementList(parser, context & ~Context.RequireIdentifier | Context.Strict | Context.InClass, state),
+        body,
+        decorators 
+    } : {
+        type: 'ClassDeclaration',
+        id,
+        superClass,
+        body
     });
 }
 
