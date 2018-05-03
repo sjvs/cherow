@@ -1722,11 +1722,6 @@ export function parseClassBodyAndElementList(parser: Parser, context: Context, s
     expect(parser, context, Token.LeftBrace);
     const body: (ESTree.MethodDefinition | ESTree.FieldDefinition)[] = [];
     let decorators: any;
-    if (context & Context.OptionsExperimental) {
-        parser.flags |= Flags.AllowDecorators;
-        decorators = parseDecoratorList(parser, context)
-        parser.flags &= ~Flags.AllowDecorators;
-    }
     while (parser.token !== Token.RightBrace) {
         if (!consume(parser, context, Token.Semicolon)) {
             body.push(parseClassElement(parser, context, state));
@@ -1735,11 +1730,7 @@ export function parseClassBodyAndElementList(parser: Parser, context: Context, s
 
     expect(parser, context, Token.RightBrace);
 
-    return finishNode(context, parser, pos, context & Context.OptionsExperimental ? {
-        type: 'ClassBody',
-        body,
-        decorators
-    } : {
+    return finishNode(context, parser, pos, {
         type: 'ClassBody',
         body,
     });
@@ -1762,7 +1753,10 @@ export function parseClassElement(parser: Parser, context: Context, state: Objec
     if (context & Context.OptionsNext && parser.token === Token.Hash) {
         return parsePrivateFields(parser, context, pos);
     }
-    
+    let decorators: any;
+  if (context & Context.OptionsExperimental) {
+     decorators = parseDecoratorList(parser, context)
+  }
     let { tokenValue, token } = parser;
     const isEscaped = !!(parser.flags & Flags.EscapedKeyword);
 
@@ -1839,11 +1833,20 @@ export function parseClassElement(parser: Parser, context: Context, state: Objec
         tolerant(parser, context, Errors.UnexpectedToken, tokenDesc(token));
     }
 
-    return parseMethodDefinition(parser, context, key, value, state, pos);
+    return parseMethodDefinition(parser, context, key, value, state, pos, decorators);
 }
 
-function parseMethodDefinition(parser: Parser, context: Context, key: any, value: any, state: ObjectState, pos: Location): ESTree.MethodDefinition {
-    return finishNode(context, parser, pos, {
+function parseMethodDefinition(parser: Parser, context: Context, key: any, value: any, state: ObjectState, pos: Location, decorators?: any): ESTree.MethodDefinition {
+    return finishNode(context, parser, pos, context & Context.OptionsExperimental ? {
+        type: 'MethodDefinition',
+        kind: (state & ObjectState.Constructor) ? 'constructor' : (state & ObjectState.Getter) ? 'get' :
+            (state & ObjectState.Setter) ? 'set' : 'method',
+        static: !!(state & ObjectState.Static),
+        computed: !!(state & ObjectState.Computed),
+        key,
+        value,
+        decorators
+    } : {
         type: 'MethodDefinition',
         kind: (state & ObjectState.Constructor) ? 'constructor' : (state & ObjectState.Getter) ? 'get' :
             (state & ObjectState.Setter) ? 'set' : 'method',

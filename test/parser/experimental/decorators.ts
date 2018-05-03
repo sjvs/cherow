@@ -17,6 +17,65 @@ describe('Experimental - Decorators', () => {
     });
 
     describe('Pass', () => {
+
+        pass(`class Foo {
+            @d1 method1(){};
+          }`, Context.OptionsExperimental, {
+            source: `class Foo {
+                @d1 method1(){};
+              }`,
+            expected: {
+                  "body": [
+                    {
+                      "body": {
+                        "body": [
+                          {
+                            "computed": false,
+                            "decorators": [
+                              {
+                                "expression": {
+                                  "name": "d1",
+                                  "type": "Identifier",
+                                },
+                                "type": "Decorator",
+                              },
+                            ],
+                           "key": {
+                              "name": "method1",
+                              "type": "Identifier",
+                            },
+                            "kind": "method",
+                            "static": false,
+                            "type": "MethodDefinition",
+                            "value": {
+                              "async": false,
+                              "body": {
+                                "body": [],
+                                "type": "BlockStatement",
+                              },
+                              "expression": false,
+                              "generator": false,
+                              "id": null,
+                              "params": [],
+                              "type": "FunctionExpression"
+                            }
+                          }
+                        ],
+                        "type": "ClassBody",
+                      },
+                      "decorators": [],
+                      "id": {
+                        "name": "Foo",
+                        "type": "Identifier",
+                     },
+                      "superClass": null,
+                      "type": "ClassDeclaration",
+                    },
+                  ],
+                  "sourceType": "script",
+                  "type": "Program"
+                }
+        });
         
         pass(`@deco1 @deco2() @deco3(foo, bar) @deco4({foo, bar}) class Foo {}`, Context.OptionsExperimental, {
             source: `@deco1 @deco2() @deco3(foo, bar) @deco4({foo, bar}) class Foo {}`,
@@ -25,7 +84,6 @@ describe('Experimental - Decorators', () => {
                     {
                       "body": {
                         "body": [],
-                        "decorators": [],
                         "type": "ClassBody"
                       },
                      "decorators": [
@@ -138,7 +196,6 @@ describe('Experimental - Decorators', () => {
                     {
                       "body": {
                         "body": [],
-                        "decorators": [],
                         "type": "ClassBody"
                       },
                       "decorators": [
