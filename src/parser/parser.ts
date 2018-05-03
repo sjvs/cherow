@@ -102,7 +102,6 @@ export function parse(source: string, options: Options | void, context: Context)
         if (options.node) context |= Context.OptionsNode;
         // Accepts a callback function to be invoked for each syntax node (as the node is constructed)
         if (typeof options.delegate === 'function') {
-            context |= Context.OptionsDelegate;
             delegate = options.delegate;
         }
     }

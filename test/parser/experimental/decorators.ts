@@ -7,18 +7,116 @@ describe('Experimental - Decorators', () => {
 
     describe('Failure', () => {
 
-        fail(`@decorate`, Context.OptionsExperimental, {
-            source: `@decorate`,
-        });
+        const inValidSyntax = [
+            `class A {  constructor(@foo x) {} }`,
+            `@decorate`,
+            `class A { @dec name = 0 }`,
+            `class Foo {
+                @bar[bizz]
+                abc() {
+              
+                }
+    }`,/*
+            `class A {
+                @abc
+            constructor(){}
+        }`, */
+            `var o = {
+                @baz
+                foo() {
+                }
+              }`,
+            `class A {
+                @a;
+                m(){}
+              }`,
+            `var obj = {
+                method(@foo x) {}
+              };`,
+            `class A { @dec static name = 0 }`,
+            /*`@(bar.baz)
+            class Foo {}`,
+            `@foo().bar
+            class Baz {}`, */
+            `class A { @dec name = 0 }`,
+            `class A { @dec name = 0 }`,
+            `class A { @dec name = 0 }`,
+            `class A { @dec name = 0 }`,
+            `class A { @dec name = 0 }`,
+            
+        ]
 
-        fail(`@decorate`, Context.OptionsExperimental, {
-            source: `@decorate`,
-        });
+        for (const arg of inValidSyntax) {
+            it(`${arg}`, () => {
+                t.throws(() => {
+                    parse(`${arg}`, undefined, Context.OptionsExperimental);
+                });
+            });
+        }
     });
 
     describe('Pass', () => {
 
-        pass(`@defineElement('num-counter')`, Context.OptionsExperimental | Context.OptionsNext, {
+
+        const validSyntax = [
+            `class A { @foo get getter(){} }`,
+            `class A { @foo set setter(_val){} }`,
+            `class A { @foo async a(){} }`,
+            `@foo('bar')
+            class Foo {}`,
+            `@abc class Foo {}`,
+           /*`var foo = @dec class Bar {
+                @baz
+                bam() {
+                  f();
+                }
+    }`,*/
+            `class A {
+                @dec *m(){}
+              }`,
+            `class A {
+                @a.b.c.d(e, f)
+                m(){}
+              }`,
+         /*   `@outer({
+                store: @inner class Foo {}
+              })
+              class Bar {
+                
+    }`,*/
+         /*   `class Bar{
+                @outer(
+                  @classDec class { 
+                    @inner 
+                    innerMethod() {} 
+                  }
+                )
+                outerMethod() {}
+    }`,*/
+            `class A { @foo async a(){} }`,
+            `class Foo {
+                @dec
+                static bar() {}
+              }`,
+            `class A { @foo async a(){} }`,
+            `class A { @foo async a(){} }`,
+            `class A { @foo async a(){} }`,
+            `class A { @foo async a(){} }`,
+        ];
+
+        for (const arg of validSyntax) {
+            it(`${arg}`, () => {
+                t.doesNotThrow(() => {
+                    parse(`${arg}`, undefined, Context.OptionsExperimental);
+                });
+            });
+        }
+
+/*export default 
+@bar class Foo { }
+*/
+
+       pass(`@defineElement('num-counter')`, Context.OptionsExperimental | Context.OptionsNext, {
             source: `@defineElement('num-counter')
             class Counter extends HTMLElement {
                 @observed #x = 0;

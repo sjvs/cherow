@@ -16,7 +16,7 @@ export const enum Context {
     OptionsJSX              = 1 << 2,
     OptionsRaw              = 1 << 3,
     OptionsLoc              = 1 << 4,
-    OptionsDelegate         = 1 << 5,
+    InsideDecorator         = 1 << 5,
     OptionsGlobalReturn     = 1 << 6,
     OptionsComments         = 1 << 7,
     OptionsShebang          = 1 << 8,
@@ -63,7 +63,6 @@ export const enum Flags {
     HasAwait                = 1 << 13,
     HasYield                = 1 << 14,
     EscapedKeyword          = 1 << 15,
-    AllowDecorators         = 1 << 16,
     AllowBreakOrContinue = InSwitchStatement | InIterationStatement,
 }
 
@@ -235,7 +234,7 @@ export function finishNode < T extends ESTree.Node >(
         if (sourceFile) node.loc.source = sourceFile;
     }
 
-    if (context & Context.OptionsDelegate) (delegate as Delegate)(node, meta.index, index);
+    if (delegate) (delegate as Delegate)(node, meta.index, index);
 
     return node;
 }

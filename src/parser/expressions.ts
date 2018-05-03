@@ -59,6 +59,7 @@ import {
 
 export function parseExpression(parser: Parser, context: Context): ESTree.Expression {
     const pos = getLocation(parser);
+    const saveDecoratorContext = parser.flags;
     const expr = parseExpressionCoverGrammar(parser, context, parseAssignmentExpression);
     return parser.token === Token.Comma ?
         parseSequenceExpression(parser, context, expr, pos) :
@@ -238,7 +239,7 @@ export function parseAssignmentExpression(parser: Parser, context: Context): any
 function parseConditionalExpression(parser: Parser, context: Context, pos: any): ESTree.Expression {
     const test = parseBinaryExpression(parser, context, 0, pos);
     if (!consume(parser, context, Token.QuestionMark)) return test;
-    const consequent = parseExpressionCoverGrammar(parser, context | Context.AllowIn, parseAssignmentExpression);
+    const consequent = parseExpressionCoverGrammar(parser, context & ~Context.InsideDecorator | Context.AllowIn, parseAssignmentExpression);
     expect(parser, context, Token.Colon);
     return finishNode(context, parser, pos, {
         type: 'ConditionalExpression',
@@ -486,7 +487,7 @@ function parseMemberExpression(
             }
 
             case Token.LeftBracket: {
-
+                    if (context & Context.InsideDecorator) return expr;
                     consume(parser, context, Token.LeftBracket);
                     parser.flags = parser.flags & ~Flags.AllowBinding | Flags.AllowDestructuring;
                     const property = parseExpression(parser, context);
@@ -497,7 +498,7 @@ function parseMemberExpression(
                         computed: true,
                         property,
                     });
-
+                
                     continue;
 
                 }
@@ -527,8 +528,6 @@ function parseMemberExpression(
 /**
  * Parse call expression
  *
- * Note! This is really a part of 'CoverCallExpressionAndAsyncArrowHead', but separated because of performance reasons
- *
  * @param parser Parer instance
  * @param context Context masks
  * @param pos Line / Colum info
@@ -539,7 +538,8 @@ function parseCallExpression(parser: Parser, context: Context, pos: Location, ex
     while (true) {
         expr = parseMemberExpression(parser, context, pos, expr);
         if (parser.token !== Token.LeftParen) return expr;
-        const args = parseArgumentList(parser, context);
+        const saveDecoratorContext = parser.flags;
+        const args = parseArgumentList(parser, context & ~Context.InsideDecorator);
         expr = finishNode(context, parser, pos, {
             type: 'CallExpression',
             callee: expr,
@@ -1472,7 +1472,7 @@ function parseArrowBody(parser: Parser, context: Context, params: any, pos: Loca
     for (const i in params) reinterpret(parser, context | Context.InParameter, params[i]);
     const expression = parser.token !== Token.LeftBrace;
     const body = expression ? parseExpressionCoverGrammar(parser, context & ~(Context.Yield | Context.InParameter), parseAssignmentExpression) :
-        swapContext(parser, context & ~Context.Yield | Context.InFunctionBody, state, parseFunctionBody);
+        swapContext(parser, context & ~(Context.Yield | Context.InsideDecorator) | Context.InFunctionBody, state, parseFunctionBody);
     return finishNode(context, parser, pos, {
         type: 'ArrowFunctionExpression',
         body,
@@ -1498,7 +1498,7 @@ export function parseFormalListAndBody(parser: Parser, context: Context, state: 
     const paramList = parseFormalParameters(parser, context | Context.InParameter, state);
     const args = paramList.args;
     const params = paramList.params;
-    const body = parseFunctionBody(parser, context | Context.InFunctionBody, args);
+    const body = parseFunctionBody(parser, context & ~Context.InsideDecorator | Context.InFunctionBody, args);
     return { params, body };
 }
 
@@ -2195,14 +2195,19 @@ function parseTemplateSpans(parser: Parser, context: Context, pos: Location = ge
     });
 }
 
+export function parseDecorator(parser: Parser, context: Context) {
+    const pos = getLocation(parser);
+    return finishNode(context, parser, pos, {
+            type: 'Decorator',
+            expression: parseLeftHandSideExpression(parser, context, pos)
+        });
+}
+
 export function parseDecoratorList(parser: Parser, context: Context) {
     const pos = getLocation(parser);
     let decoratorList: any = [];
     while (consume(parser, context, Token.At)) {
-        decoratorList.push(finishNode(context, parser, pos, {
-            type: 'Decorator',
-            expression: parseLeftHandSideExpression(parser, context, getLocation(parser))
-        }));
+       decoratorList.push(parseDecorator(parser, context | Context.InsideDecorator));
     }
     return decoratorList
 }
