@@ -538,7 +538,6 @@ function parseCallExpression(parser: Parser, context: Context, pos: Location, ex
     while (true) {
         expr = parseMemberExpression(parser, context, pos, expr);
         if (parser.token !== Token.LeftParen) return expr;
-        const saveDecoratorContext = parser.flags;
         const args = parseArgumentList(parser, context & ~Context.InsideDecorator);
         expr = finishNode(context, parser, pos, {
             type: 'CallExpression',
@@ -2195,7 +2194,13 @@ function parseTemplateSpans(parser: Parser, context: Context, pos: Location = ge
     });
 }
 
-export function parseDecorator(parser: Parser, context: Context) {
+/**
+ * Parses decorators
+ * 
+ * @param parser Parser object
+ * @param context Context masks
+ */
+export function parseDecorator(parser: Parser, context: Context): ESTree.Decorator {
     const pos = getLocation(parser);
     return finishNode(context, parser, pos, {
             type: 'Decorator',
@@ -2203,9 +2208,15 @@ export function parseDecorator(parser: Parser, context: Context) {
         });
 }
 
-export function parseDecoratorList(parser: Parser, context: Context) {
+/**
+ * Parses a list of decorators
+ * 
+ * @param parser Parser object
+ * @param context Context masks
+ */
+export function parseDecoratorList(parser: Parser, context: Context): ESTree.Decorator[] {
     const pos = getLocation(parser);
-    let decoratorList: any = [];
+    let decoratorList: ESTree.Decorator[] = [];
     while (consume(parser, context, Token.At)) {
        decoratorList.push(parseDecorator(parser, context | Context.InsideDecorator));
     }

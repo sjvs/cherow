@@ -235,6 +235,8 @@ function parseExportDefault(parser: Parser, context: Context, pos: Location): ES
             break;
 
             // export default ClassDeclaration[Default]
+            // export default  @decl ClassDeclaration[Default]
+        case Token.At:
         case Token.ClassKeyword:
             declaration = parseClassDeclaration(parser, context & ~Context.AllowIn | Context.RequireIdentifier);
             break;

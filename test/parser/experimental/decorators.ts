@@ -57,7 +57,6 @@ describe('Experimental - Decorators', () => {
 
     describe('Pass', () => {
 
-
         const validSyntax = [
             `class A { @foo get getter(){} }`,
             `class A { @foo set setter(_val){} }`,
@@ -65,12 +64,6 @@ describe('Experimental - Decorators', () => {
             `@foo('bar')
             class Foo {}`,
             `@abc class Foo {}`,
-           /*`var foo = @dec class Bar {
-                @baz
-                bam() {
-                  f();
-                }
-    }`,*/
             `class A {
                 @dec *m(){}
               }`,
@@ -78,30 +71,11 @@ describe('Experimental - Decorators', () => {
                 @a.b.c.d(e, f)
                 m(){}
               }`,
-         /*   `@outer({
-                store: @inner class Foo {}
-              })
-              class Bar {
-                
-    }`,*/
-         /*   `class Bar{
-                @outer(
-                  @classDec class { 
-                    @inner 
-                    innerMethod() {} 
-                  }
-                )
-                outerMethod() {}
-    }`,*/
             `class A { @foo async a(){} }`,
             `class Foo {
                 @dec
                 static bar() {}
-              }`,
-            `class A { @foo async a(){} }`,
-            `class A { @foo async a(){} }`,
-            `class A { @foo async a(){} }`,
-            `class A { @foo async a(){} }`,
+              }`
         ];
 
         for (const arg of validSyntax) {
@@ -111,10 +85,6 @@ describe('Experimental - Decorators', () => {
                 });
             });
         }
-
-/*export default 
-@bar class Foo { }
-*/
 
        pass(`@defineElement('num-counter')`, Context.OptionsExperimental | Context.OptionsNext, {
             source: `@defineElement('num-counter')
@@ -488,6 +458,43 @@ describe('Experimental - Decorators', () => {
                     }
                   ],
                   "sourceType": "script",
+                  "type": "Program"
+                }
+        });
+
+        pass(`export default 
+        @bar class Foo { }
+          }`, Context.OptionsExperimental | Context.Module, {
+            source: `export default 
+            @bar class Foo { }`,
+            expected: {
+                  "body": [
+                    {
+                      "declaration": {
+                        "body": {
+                          "body": [],
+                          "type": "ClassBody",
+                        },
+                        "decorators": [
+                         {
+                            "expression": {
+                              "name": "bar",
+                              "type": "Identifier",
+                            },
+                            "type": "Decorator",
+                          },
+                        ],
+                        "id": {
+                          "name": "Foo",
+                          "type": "Identifier",
+                       },
+                        "superClass": null,
+                        "type": "ClassDeclaration"
+                      },
+                      "type": "ExportDefaultDeclaration"
+                    }
+                  ],
+                  "sourceType": "module",
                   "type": "Program"
                 }
         });
