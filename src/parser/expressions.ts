@@ -1721,7 +1721,10 @@ export function parseClassBodyAndElementList(parser: Parser, context: Context, s
     const pos = getLocation(parser);
     expect(parser, context, Token.LeftBrace);
     const body: (ESTree.MethodDefinition | ESTree.FieldDefinition)[] = [];
-  
+    let decorators: any;
+    if (context & Context.OptionsExperimental) {
+        decorators = parseDecoratorList(parser, context)
+    }
     while (parser.token !== Token.RightBrace) {
         if (!consume(parser, context, Token.Semicolon)) {
             body.push(parseClassElement(parser, context, state));
@@ -1730,7 +1733,11 @@ export function parseClassBodyAndElementList(parser: Parser, context: Context, s
 
     expect(parser, context, Token.RightBrace);
 
-    return finishNode(context, parser, pos, {
+    return finishNode(context, parser, pos, context & Context.OptionsExperimental ? {
+        type: 'ClassBody',
+        body,
+        decorators
+    } : {
         type: 'ClassBody',
         body,
     });
@@ -1753,7 +1760,7 @@ export function parseClassElement(parser: Parser, context: Context, state: Objec
     if (context & Context.OptionsNext && parser.token === Token.Hash) {
         return parsePrivateFields(parser, context, pos);
     }
-
+    
     let { tokenValue, token } = parser;
     const isEscaped = !!(parser.flags & Flags.EscapedKeyword);
 
@@ -2172,8 +2179,10 @@ export function parseDecoratorList(parser: Parser, context: Context) {
     const pos = getLocation(parser);
     let decoratorList: any = [];
     while (consume(parser, context, Token.At)) {
-        decoratorList.push(parseLeftHandSideExpression(parser, context, getLocation(parser)));
+        decoratorList.push(finishNode(context, parser, pos, {
+            type: 'Decorator',
+            expression: parseLeftHandSideExpression(parser, context, getLocation(parser))
+        }));
     }
-
     return decoratorList
 }

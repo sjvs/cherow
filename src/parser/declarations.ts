@@ -4,7 +4,7 @@ import { Errors, tolerant } from '../errors';
 import { parseBindingIdentifierOrPattern, parseBindingIdentifier } from './pattern';
 import { parseAssignmentExpression, parseFormalListAndBody } from './expressions';
 import { Parser, Location } from '../types';
-import { parseClassBodyAndElementList,  parseLeftHandSideExpression } from './expressions';
+import { parseClassBodyAndElementList,  parseLeftHandSideExpression, parseDecoratorList } from './expressions';
 import {
     expect,
     Context,
@@ -14,7 +14,7 @@ import {
     ModifierState,
     swapContext,
     ObjectState,
-    parseExpressionCoverGrammar,
+    parseExpressionCoverGrammar
 } from '../utilities';
 
 // Declarations
@@ -29,14 +29,9 @@ import {
  */
 export function parseClassDeclaration(parser: Parser, context: Context): ESTree.ClassDeclaration {
     const pos = getLocation(parser);
-    const decorators: any[] = [];
+    let decorators: any[] = [];
     if (context & Context.OptionsExperimental) {
-        while (consume(parser, context, Token.At)) {
-            decorators.push(finishNode(context, parser, pos, {
-                type: 'Decorator',
-                expression: parseLeftHandSideExpression(parser, context, getLocation(parser))
-            }));
-        }
+        decorators = parseDecoratorList(parser, context)
     }
     expect(parser, context | Context.DisallowEscapedKeyword, Token.ClassKeyword);
     const id = (context & Context.RequireIdentifier && (parser.token !== Token.Identifier))
