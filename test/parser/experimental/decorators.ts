@@ -29,16 +29,8 @@ describe('Experimental - Decorators', () => {
               method(@foo x) {}
             };`,
             `class A { @dec static name = 0 }`,
-            /*`@(bar.baz)
+            `@foo(@bar class Bar{})
             class Foo {}`,
-            `@foo().bar
-            class Baz {}`, */
-            `class A { @dec name = 0 }`,
-            `class A { @dec name = 0 }`,
-            `class A { @dec name = 0 }`,
-            `class A { @dec name = 0 }`,
-            `class A { @dec name = 0 }`,
-
         ];
 
         for (const arg of inValidSyntax) {
@@ -54,8 +46,8 @@ describe('Experimental - Decorators', () => {
 
         const validSyntax = [
             `class A { @foo get getter(){} }`,
-            `class A { @foo set setter(_val){} }`,
-            `class A { @foo async a(){} }`,
+            `class A { @foo set setter(bar){} }`,
+            `class A { @foo async bar(){} }`, // allowed?
             '@foo class Foo {}',
             'class Foo { @foo @bar bar() {} }',
             'class Foo { @foo bar() {} }',
@@ -83,6 +75,346 @@ describe('Experimental - Decorators', () => {
                 });
             });
         }
+
+        pass(`@foo(class Bar{})
+        class Foo {}`, Context.OptionsExperimental | Context.OptionsNext, {
+            source: `@foo(class Bar{})
+            class Foo {}`,
+            expected: {
+                type: 'Program',
+                sourceType: 'script',
+                body: [{
+                    type: 'ClassDeclaration',
+                    id: {
+                        type: 'Identifier',
+                        name: 'Foo'
+                    },
+                    superClass: null,
+                    body: {
+                        type: 'ClassBody',
+                        body: []
+                    },
+                    decorators: [{
+                        type: 'Decorator',
+                        expression: {
+                            type: 'CallExpression',
+                            callee: {
+                                type: 'Identifier',
+                                name: 'foo'
+                            },
+                            arguments: [{
+                                type: 'ClassExpression',
+                                id: {
+                                    type: 'Identifier',
+                                    name: 'Bar'
+                                },
+                                superClass: null,
+                                body: {
+                                    type: 'ClassBody',
+                                    body: []
+                                }
+                            }]
+                        }
+                    }]
+                }]
+            }
+        });
+
+        pass(`class Foo {
+            @deco1
+            prop1
+
+            @deco2
+            prop2
+          }`, Context.OptionsExperimental | Context.OptionsNext, {
+            source: `class Foo {
+                @deco1
+                prop1
+
+                @deco2
+                prop2
+              }`,
+            expected: {
+                type: 'Program',
+                sourceType: 'script',
+                body: [{
+                    type: 'ClassDeclaration',
+                    id: {
+                        type: 'Identifier',
+                        name: 'Foo'
+                    },
+                    superClass: null,
+                    body: {
+                        type: 'ClassBody',
+                        body: [{
+                                type: 'FieldDefinition',
+                                key: {
+                                    type: 'Identifier',
+                                    name: 'prop1'
+                                },
+                                value: null,
+                                computed: false,
+                                static: false,
+                                decorators: [{
+                                    type: 'Decorator',
+                                    expression: {
+                                        type: 'Identifier',
+                                        name: 'deco1'
+                                    }
+                                }]
+                            },
+                            {
+                                type: 'FieldDefinition',
+                                key: {
+                                    type: 'Identifier',
+                                    name: 'prop2'
+                                },
+                                value: null,
+                                computed: false,
+                                static: false,
+                                decorators: [{
+                                    type: 'Decorator',
+                                    expression: {
+                                        type: 'Identifier',
+                                        name: 'deco2'
+                                    }
+                                }]
+                            }
+                        ]
+                    },
+                    decorators: []
+                }]
+            }
+        });
+
+        pass(`@d1 @d2 @d3 class Foo {
+            @d1 @d2 @d3 prop1;
+            @d1 @d2 @d3 prop2;
+            constructor(){}
+            @d1 @d2 @d3 method1(){};
+            @d1 @d2 @d3 method2(){};
+          }`, Context.OptionsExperimental | Context.OptionsNext, {
+            source: `@d1 @d2 @d3 class Foo {
+                @d1 @d2 @d3 prop1;
+                @d1 @d2 @d3 prop2;
+                constructor(){}
+                @d1 @d2 @d3 method1(){};
+                @d1 @d2 @d3 method2(){};
+              }`,
+            expected: {
+                type: 'Program',
+                sourceType: 'script',
+                body: [{
+                    type: 'ClassDeclaration',
+                    id: {
+                        type: 'Identifier',
+                        name: 'Foo'
+                    },
+                    superClass: null,
+                    body: {
+                        type: 'ClassBody',
+                        body: [{
+                                type: 'FieldDefinition',
+                                key: {
+                                    type: 'Identifier',
+                                    name: 'prop1'
+                                },
+                                value: null,
+                                computed: false,
+                                static: false,
+                                decorators: [{
+                                        type: 'Decorator',
+                                        expression: {
+                                            type: 'Identifier',
+                                            name: 'd1'
+                                        }
+                                    },
+                                    {
+                                        type: 'Decorator',
+                                        expression: {
+                                            type: 'Identifier',
+                                            name: 'd2'
+                                        }
+                                    },
+                                    {
+                                        type: 'Decorator',
+                                        expression: {
+                                            type: 'Identifier',
+                                            name: 'd3'
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                type: 'FieldDefinition',
+                                key: {
+                                    type: 'Identifier',
+                                    name: 'prop2'
+                                },
+                                value: null,
+                                computed: false,
+                                static: false,
+                                decorators: [{
+                                        type: 'Decorator',
+                                        expression: {
+                                            type: 'Identifier',
+                                            name: 'd1'
+                                        }
+                                    },
+                                    {
+                                        type: 'Decorator',
+                                        expression: {
+                                            type: 'Identifier',
+                                            name: 'd2'
+                                        }
+                                    },
+                                    {
+                                        type: 'Decorator',
+                                        expression: {
+                                            type: 'Identifier',
+                                            name: 'd3'
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                type: 'MethodDefinition',
+                                kind: 'constructor',
+                                static: false,
+                                computed: false,
+                                key: {
+                                    type: 'Identifier',
+                                    name: 'constructor'
+                                },
+                                value: {
+                                    type: 'FunctionExpression',
+                                    params: [],
+                                    body: {
+                                        type: 'BlockStatement',
+                                        body: []
+                                    },
+                                    async: false,
+                                    generator: false,
+                                    expression: false,
+                                    id: null
+                                },
+                                decorators: []
+                            },
+                            {
+                                type: 'MethodDefinition',
+                                kind: 'method',
+                                static: false,
+                                computed: false,
+                                key: {
+                                    type: 'Identifier',
+                                    name: 'method1'
+                                },
+                                value: {
+                                    type: 'FunctionExpression',
+                                    params: [],
+                                    body: {
+                                        type: 'BlockStatement',
+                                        body: []
+                                    },
+                                    async: false,
+                                    generator: false,
+                                    expression: false,
+                                    id: null
+                                },
+                                decorators: [{
+                                        type: 'Decorator',
+                                        expression: {
+                                            type: 'Identifier',
+                                            name: 'd1'
+                                        }
+                                    },
+                                    {
+                                        type: 'Decorator',
+                                        expression: {
+                                            type: 'Identifier',
+                                            name: 'd2'
+                                        }
+                                    },
+                                    {
+                                        type: 'Decorator',
+                                        expression: {
+                                            type: 'Identifier',
+                                            name: 'd3'
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                type: 'MethodDefinition',
+                                kind: 'method',
+                                static: false,
+                                computed: false,
+                                key: {
+                                    type: 'Identifier',
+                                    name: 'method2'
+                                },
+                                value: {
+                                    type: 'FunctionExpression',
+                                    params: [],
+                                    body: {
+                                        type: 'BlockStatement',
+                                        body: []
+                                    },
+                                    async: false,
+                                    generator: false,
+                                    expression: false,
+                                    id: null
+                                },
+                                decorators: [{
+                                        type: 'Decorator',
+                                        expression: {
+                                            type: 'Identifier',
+                                            name: 'd1'
+                                        }
+                                    },
+                                    {
+                                        type: 'Decorator',
+                                        expression: {
+                                            type: 'Identifier',
+                                            name: 'd2'
+                                        }
+                                    },
+                                    {
+                                        type: 'Decorator',
+                                        expression: {
+                                            type: 'Identifier',
+                                            name: 'd3'
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    decorators: [{
+                            type: 'Decorator',
+                            expression: {
+                                type: 'Identifier',
+                                name: 'd1'
+                            }
+                        },
+                        {
+                            type: 'Decorator',
+                            expression: {
+                                type: 'Identifier',
+                                name: 'd2'
+                            }
+                        },
+                        {
+                            type: 'Decorator',
+                            expression: {
+                                type: 'Identifier',
+                                name: 'd3'
+                            }
+                        }
+                    ]
+                }]
+            }
+        });
 
         pass(`@defineElement('num-counter')`, Context.OptionsExperimental | Context.OptionsNext, {
             source: `@defineElement('num-counter')

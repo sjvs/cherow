@@ -1110,9 +1110,9 @@ function parseCoverParenthesizedExpressionAndArrowParameterList(parser: Parser, 
                     } else if (!(parser.flags & Flags.AllowBinding)) {
                         tolerant(parser, context, Errors.NotBindable);
                     } else if (parser.flags & Flags.HasYield) {
-                        tolerant(parser, context, parser.flags & Flags.HasYield ? Errors.YieldInParameter : Errors.AwaitInParameter);
+                        tolerant(parser, context, Errors.YieldInParameter);
                     } else if (context & Context.Async && parser.flags & Flags.HasAwait) {
-                        tolerant(parser, context, parser.flags & Flags.HasYield ? Errors.YieldInParameter : Errors.AwaitInParameter);
+                        tolerant(parser, context,Errors.AwaitInParameter);
                     }
                     
                     parser.flags &= ~(Flags.AllowBinding | Flags.HasAwait | Flags.HasYield);
@@ -1719,10 +1719,17 @@ export function parseClassBodyAndElementList(parser: Parser, context: Context, s
     const pos = getLocation(parser);
     expect(parser, context, Token.LeftBrace);
     const body: (ESTree.MethodDefinition | ESTree.FieldDefinition)[] = [];
-    let decorators: ESTree.Decorator[] | null;
+    let decorators: ESTree.Decorator[] | null = [];
     while (parser.token !== Token.RightBrace) {
         if (!consume(parser, context, Token.Semicolon)) {
-            body.push(parseClassElement(parser, context, state));
+            if (context & Context.OptionsExperimental) {
+                decorators = parseDecoratorList(parser, context)
+                if (parser.token === Token.RightBrace) report(parser, Errors.TrailingDecorators)
+                if (decorators.length !== 0 && parser.tokenValue === 'constructor') {
+                    report(parser, Errors.GeneratorConstructor)
+                }
+            }
+            body.push(parseClassElement(parser, context, state, decorators));
         }
     }
 
@@ -1744,27 +1751,21 @@ export function parseClassBodyAndElementList(parser: Parser, context: Context, s
  * @param context Context masks
  */
 
-export function parseClassElement(parser: Parser, context: Context, state: ObjectState): ESTree.MethodDefinition | ESTree.FieldDefinition {
+export function parseClassElement(
+    parser: Parser, 
+    context: Context, 
+    state: ObjectState, 
+    decorators: ESTree.Decorator[]
+): ESTree.MethodDefinition | ESTree.FieldDefinition {
 
     const pos = getLocation(parser);
     
-    let decorators: ESTree.Decorator[] | null = null;
-  
-    if (context & Context.OptionsExperimental) {
-        decorators = parseDecoratorList(parser, context)
-        if (parser.token === Token.RightBrace) {
-            report(parser, Errors.TrailingDecorators)
-        } else if (decorators.length !== 0 && parser.tokenValue === 'constructor') {
-            report(parser, Errors.GeneratorConstructor)
-        }
-    }
-
-    if (context & Context.OptionsNext && parser.token === Token.Hash) {
-        return parsePrivateFields(parser, context, pos, decorators);
-    }
-
     let { tokenValue, token } = parser;
     const isEscaped = !!(parser.flags & Flags.EscapedKeyword);
+
+    if (context & Context.OptionsNext && token === Token.Hash) {
+        return parsePrivateFields(parser, context, pos, decorators);
+    }
 
     if (consume(parser, context, Token.Multiply)) state |= ObjectState.Generator;
 
