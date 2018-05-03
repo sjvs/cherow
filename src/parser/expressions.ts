@@ -1723,7 +1723,9 @@ export function parseClassBodyAndElementList(parser: Parser, context: Context, s
     const body: (ESTree.MethodDefinition | ESTree.FieldDefinition)[] = [];
     let decorators: any;
     if (context & Context.OptionsExperimental) {
+        parser.flags |= Flags.AllowDecorators;
         decorators = parseDecoratorList(parser, context)
+        parser.flags &= ~Flags.AllowDecorators;
     }
     while (parser.token !== Token.RightBrace) {
         if (!consume(parser, context, Token.Semicolon)) {
