@@ -1749,9 +1749,15 @@ export function parseClassElement(parser: Parser, context: Context, state: Objec
     const pos = getLocation(parser);
     
     let decorators: ESTree.Decorator[] | null = null;
-  if (context & Context.OptionsExperimental) {
-     decorators = parseDecoratorList(parser, context)
-  }
+  
+    if (context & Context.OptionsExperimental) {
+        decorators = parseDecoratorList(parser, context)
+        if (parser.token === Token.RightBrace) {
+            report(parser, Errors.TrailingDecorators)
+        } else if (decorators.length !== 0 && parser.tokenValue === 'constructor') {
+            report(parser, Errors.GeneratorConstructor)
+        }
+    }
 
     if (context & Context.OptionsNext && parser.token === Token.Hash) {
         return parsePrivateFields(parser, context, pos, decorators);

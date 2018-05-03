@@ -11,11 +11,11 @@ describe('Experimental - Decorators', () => {
             `class A {  constructor(@foo x) {} }`,
             `@decorate`,
             `class A { @dec name = 0 }`,
- /*
-            `class A {
+            `class A { @abc @abc @abc }`,
+             `class A {
                 @abc
             constructor(){}
-        }`, */
+        }`,
             `var o = {
                 @baz
                 foo() {
