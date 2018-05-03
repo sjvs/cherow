@@ -29,7 +29,7 @@ import {
  */
 export function parseClassDeclaration(parser: Parser, context: Context): ESTree.ClassDeclaration {
     const pos = getLocation(parser);
-    let decorators: any[] = [];
+    let decorators: ESTree.Decorator[] = [];
     if (context & Context.OptionsExperimental) {
         decorators = parseDecoratorList(parser, context)
     }

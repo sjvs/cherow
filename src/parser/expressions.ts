@@ -487,7 +487,6 @@ function parseMemberExpression(
             }
 
             case Token.LeftBracket: {
-                    if (context & Context.InsideDecorator) return expr;
                     consume(parser, context, Token.LeftBracket);
                     parser.flags = parser.flags & ~Flags.AllowBinding | Flags.AllowDestructuring;
                     const property = parseExpression(parser, context);
@@ -1748,11 +1747,12 @@ export function parseClassBodyAndElementList(parser: Parser, context: Context, s
 export function parseClassElement(parser: Parser, context: Context, state: ObjectState): ESTree.MethodDefinition | ESTree.FieldDefinition {
 
     const pos = getLocation(parser);
-
-    let decorators: any;
+    
+    let decorators: ESTree.Decorator[] | null = null;
   if (context & Context.OptionsExperimental) {
      decorators = parseDecoratorList(parser, context)
   }
+
     if (context & Context.OptionsNext && parser.token === Token.Hash) {
         return parsePrivateFields(parser, context, pos, decorators);
     }
@@ -1770,9 +1770,9 @@ export function parseClassElement(parser: Parser, context: Context, state: Objec
     }
 
     let key = parsePropertyName(parser, context);
-
+    
     if (context & Context.OptionsNext && isInstanceField(parser)) {
-        return parseFieldDefinition(parser, context, key, state, pos);
+        return parseFieldDefinition(parser, context, key, state, pos, decorators);
     }
 
     let value;
@@ -1793,7 +1793,7 @@ export function parseClassElement(parser: Parser, context: Context, state: Objec
             key = parsePropertyName(parser, context);
             if (context & Context.OptionsNext && isInstanceField(parser)) {
                 if (tokenValue === 'constructor') tolerant(parser, context, Errors.UnexpectedToken, tokenDesc(parser.token));
-                return parseFieldDefinition(parser, context, key, state, pos);
+                return parseFieldDefinition(parser, context, key, state, pos, decorators);
             }
         }
 
