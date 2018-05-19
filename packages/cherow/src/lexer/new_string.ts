@@ -1,7 +1,7 @@
 import { Parser } from '../types';
 import { Token } from '../token';
 import { Chars } from '../chars';
-import { Context } from '../utilities';
+import { Context, Flags } from '../utilities';
 import { peekUnicodeEscape, scanHexNumber } from './identifier';
 import { nextUnicodeChar, fromCodePoint } from './common';
 
@@ -63,14 +63,17 @@ export function scanString(parser: Parser, context: Context, quote: number): Tok
             case Chars.ParagraphSeparator:
             case Chars.CarriageReturn:
             case Chars.LineFeed:
-                // falls through
+                parser.flags |= Flags.Unterminated;
+                return Token.Illegal;
             default:
                 parser.index++;
                 parser.column++;
         }
     }
 
-    return handleRecoveryErrors(parser, Recovery.Unterminated);
+    // Unterminated string literal
+    parser.flags |= Flags.Unterminated;
+    return Token.Illegal;
 }
 
 /**
@@ -97,13 +100,6 @@ function handleRecoveryErrors(parser: Parser, code: Recovery): Token {
 }
 
 export const table = new Array<(parser: Parser, context: Context, first: number) => number> (128).fill(nextUnicodeChar);
-
-table[Chars.LowerB] = () => Chars.Backspace;
-table[Chars.LowerF] = () => Chars.FormFeed;
-table[Chars.LowerR] = () => Chars.CarriageReturn;
-table[Chars.LowerN] = () => Chars.LineFeed;
-table[Chars.LowerT] = () => Chars.Tab;
-table[Chars.LowerV] = () => Chars.VerticalTab;
 
 table[Chars.CarriageReturn] = (parser: Parser) => {
     parser.column = -1;
@@ -142,8 +138,10 @@ table[Chars.Zero] =
             const next = parser.source.charCodeAt(index);
 
             if (next < Chars.Zero || next > Chars.Seven) {
-                // Verify that it's `\0` if we're in strict mode.
-                if (code !== 0 && context & Context.Strict) return Recovery.StrictOctal;
+                // Strict mode code allows only \0, then a non-digit.
+              if (code !== 0 || next === Chars.Eight || next === Chars.Nine) {
+                  if (context & Context.Strict) return Recovery.StrictOctal;
+              }
             } else if (context & Context.Strict) {
                 // This happens in cases like `\00` in strict mode.
                 return Recovery.StrictOctal;
@@ -205,3 +203,11 @@ table[Chars.LowerX] = (parser, context, first) => {
     parser.index++; parser.column++;
     return scanHexNumber(parser, 2);
 };
+
+
+table[Chars.LowerB] = () => Chars.Backspace;
+table[Chars.LowerF] = () => Chars.FormFeed;
+table[Chars.LowerR] = () => Chars.CarriageReturn;
+table[Chars.LowerN] = () => Chars.LineFeed;
+table[Chars.LowerT] = () => Chars.Tab;
+table[Chars.LowerV] = () => Chars.VerticalTab;
