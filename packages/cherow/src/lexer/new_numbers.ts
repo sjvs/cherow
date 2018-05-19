@@ -123,8 +123,112 @@ function scanDecimalDigitsOrSeparator(parser: Parser): string {
     return result + parser.source.substring(index, parser.index);
 }
 
-function scanOctalDigits(parser: Parser, context: Context): void {}
+function toHex(code: number): number {
+  return code < Chars.UpperA ? code - Chars.Zero : (code - Chars.UpperA + 10) & 0xF;
+}
 
-function scanHexDigits(parser: Parser, context: Context): void {}
+/**
+* Scans octal digits
+*
+* @param parser Parser object
+* @param context Context masks
+*/
+export function scanOctalDigits(parser: Parser, context: Context): Token {
+  parser.index++; parser.column++;
+  let value = 0;
+  let code = parser.source.charCodeAt(parser.index);
+  const maximumDigits = 10;
+  let seenSeparator = false;
+  let digit = maximumDigits - 1;
+  while (parser.index < parser.length && digit >= 0) {
+      if (code === Chars.Underscore) {
+          seenSeparator = scanNumericSeparator(parser, seenSeparator);
+          code = parser.source.charCodeAt(parser.index);
+          continue;
+      }
+      if (code >= Chars.Zero) break;
+      seenSeparator = false;
+      value = value * 8 + (code - Chars.Zero);
+      parser.index++; parser.column++;
+      code = parser.source.charCodeAt(parser.index);
+      --digit;
+  }
+  if (digit === 9) recordErrors(parser, Errors.InvalidOrUnexpectedToken);
+  else if (seenSeparator) recordErrors(parser, Errors.TrailingNumericSeparator);
+  parser.tokenValue = value;
+  if (consumeOpt(parser, Chars.LowerN)) return Token.BigIntLiteral;
+  return Token.NumericLiteral;
+}
 
-function scanBinaryDigits(parser: Parser, context: Context): void {}
+/**
+* Scans hex digits
+*
+* @param parser Parser object
+* @param context Context masks
+*/
+export function scanHexDigits(parser: Parser, context: Context): Token {
+  parser.index++; parser.column++;
+  let value = 0;
+  let code = parser.source.charCodeAt(parser.index);
+  let maximumDigits = 7;
+  let seenSeparator = false;
+  while (parser.index < parser.length && isHex(code) && maximumDigits >= 0) {
+      if (code === Chars.Underscore) {
+          seenSeparator = scanNumericSeparator(parser, seenSeparator);
+          code = parser.source.charCodeAt(parser.index);
+          continue;
+      }
+      if (isHex(code)) break;
+      seenSeparator = false;
+      value = (value << 4) + toHex(code);
+      parser.index++; parser.column++;
+      code = parser.source.charCodeAt(parser.index);
+      --maximumDigits;
+  }
+  if (seenSeparator) recordErrors(parser, Errors.TrailingNumericSeparator);
+  parser.tokenValue = value;
+  if (consumeOpt(parser, Chars.LowerN)) return Token.BigIntLiteral;
+  return Token.NumericLiteral;
+}
+
+/**
+* Scans binary digits
+*
+* @param parser Parser object
+* @param context Context masks
+*/
+export function scanBinaryDigits(parser: Parser, context: Context): Token {
+  parser.index++; parser.column++;
+  let value = 0;
+  let code = parser.source.charCodeAt(parser.index);
+  const maximumDigits = 32;
+  let seenSeparator = false;
+  let digit = maximumDigits - 1;
+  while (parser.index < parser.length && digit >= 0) {
+      if (context & Context.OptionsNext && code === Chars.Underscore) {
+          seenSeparator = scanNumericSeparator(parser, seenSeparator);
+          code = parser.source.charCodeAt(parser.index);
+          continue;
+      }
+      const valueOf = code - Chars.Zero;
+      if (!(code >= Chars.Zero && code <= Chars.Two) || valueOf >= 2) break;
+      seenSeparator = false;
+      value = (value << 1) + valueOf;
+      parser.index++; parser.column++;
+      code = parser.source.charCodeAt(parser.index);
+      --digit;
+  }
+
+  if (digit === 31) recordErrors(parser, Errors.InvalidOrUnexpectedToken);
+  else if (seenSeparator) recordErrors(parser, Errors.TrailingNumericSeparator);
+  parser.tokenValue = value;
+  if (consumeOpt(parser, Chars.LowerN)) return Token.BigIntLiteral;
+  return Token.NumericLiteral;
+}
+
+export function scanNumericSeparator(parser: Parser, seenSeparator: boolean): boolean {
+  parser.index++;
+  parser.column++;
+  if (seenSeparator) recordErrors(parser, Errors.TrailingNumericSeparator);
+  return true;
+}
