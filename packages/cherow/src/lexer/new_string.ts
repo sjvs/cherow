@@ -4,14 +4,12 @@ import { Chars } from '../chars';
 import { Context, Flags } from '../utilities';
 import { peekUnicodeEscape, scanHexNumber } from './identifier';
 import { nextUnicodeChar, fromCodePoint } from './common';
+import { Errors, recordErrors } from './errors';
 
 const enum Recovery {
     Empty = -1,
-        StrictOctal = -2,
-        EightOrNine = -3,
-        InvalidHex = -4,
-        OutOfRange = -5,
-        Unterminated = -6,
+    StrictOctal = -2,
+    EightOrNine = -3
 }
 /**
  * Scan string literal
@@ -64,6 +62,7 @@ export function scanString(parser: Parser, context: Context, quote: number): Tok
             case Chars.CarriageReturn:
             case Chars.LineFeed:
                 parser.flags |= Flags.Unterminated;
+                recordErrors(parser, Errors.UnterminatedString);
                 return Token.Illegal;
             default:
                 parser.index++;
@@ -73,6 +72,7 @@ export function scanString(parser: Parser, context: Context, quote: number): Tok
 
     // Unterminated string literal
     parser.flags |= Flags.Unterminated;
+    recordErrors(parser, Errors.UnterminatedString);
     return Token.Illegal;
 }
 
@@ -84,22 +84,30 @@ export function scanString(parser: Parser, context: Context, quote: number): Tok
  */
 function handleRecoveryErrors(parser: Parser, code: Recovery): Token {
     // We have to keep going, so advance
-    parser.index++;
-    parser.column++;
+    parser.index++; parser.column++;
+    let message;
     // TODO: Record errors for this cases
     switch (code) {
-        case Recovery.Unterminated:
         case Recovery.StrictOctal:
+            message = Errors.StrictOctalEscape;
+            break;
         case Recovery.EightOrNine:
-        case Recovery.InvalidHex:
-        case Recovery.OutOfRange:
+            message = Errors.InvalidEightAndNine;
+            break;
         default:
     }
-
+    recordErrors(parser, Errors.UnterminatedString);
     return Token.Illegal;
 }
 
 export const table = new Array<(parser: Parser, context: Context, first: number) => number> (128).fill(nextUnicodeChar);
+
+table[Chars.LowerB] = () => Chars.Backspace;
+table[Chars.LowerF] = () => Chars.FormFeed;
+table[Chars.LowerR] = () => Chars.CarriageReturn;
+table[Chars.LowerN] = () => Chars.LineFeed;
+table[Chars.LowerT] = () => Chars.Tab;
+table[Chars.LowerV] = () => Chars.VerticalTab;
 
 table[Chars.CarriageReturn] = (parser: Parser) => {
     parser.column = -1;
@@ -195,7 +203,6 @@ table[Chars.Eight] = table[Chars.Nine] = () => Recovery.EightOrNine;
 
 table[Chars.LowerU] = (parser, context, prev) => {
     parser.index++; parser.column++;
-    // '\u{DDDDDDDD}'
     return peekUnicodeEscape(parser, context);
 };
 
@@ -203,11 +210,3 @@ table[Chars.LowerX] = (parser, context, first) => {
     parser.index++; parser.column++;
     return scanHexNumber(parser, 2);
 };
-
-
-table[Chars.LowerB] = () => Chars.Backspace;
-table[Chars.LowerF] = () => Chars.FormFeed;
-table[Chars.LowerR] = () => Chars.CarriageReturn;
-table[Chars.LowerN] = () => Chars.LineFeed;
-table[Chars.LowerT] = () => Chars.Tab;
-table[Chars.LowerV] = () => Chars.VerticalTab;
