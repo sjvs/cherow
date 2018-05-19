@@ -6,6 +6,11 @@ import { nextUnicodeChar, consumeOpt } from './common';
 import { Errors, recordErrors } from './errors';
 import { isIdentifierStart } from '../unicode';
 
+export const enum NumberState {
+    None = 0,
+    HasSeparator = 1 << 0
+}
+
 /**
  * Scans numeric liteal
  *
@@ -134,30 +139,30 @@ function toHex(code: number): number {
 * @param context Context masks
 */
 export function scanOctalDigits(parser: Parser, context: Context): Token {
-  parser.index++; parser.column++;
-  let value = 0;
-  let code = parser.source.charCodeAt(parser.index);
-  const maximumDigits = 10;
-  let seenSeparator = false;
-  let digit = maximumDigits - 1;
-  while (parser.index < parser.length && digit >= 0) {
-      if (code === Chars.Underscore) {
-          seenSeparator = scanNumericSeparator(parser, seenSeparator);
-          code = parser.source.charCodeAt(parser.index);
-          continue;
-      }
-      if (code >= Chars.Zero) break;
-      seenSeparator = false;
-      value = value * 8 + (code - Chars.Zero);
-      parser.index++; parser.column++;
-      code = parser.source.charCodeAt(parser.index);
-      --digit;
-  }
-  if (digit === 9) recordErrors(parser, Errors.InvalidOrUnexpectedToken);
-  else if (seenSeparator) recordErrors(parser, Errors.TrailingNumericSeparator);
-  parser.tokenValue = value;
-  if (consumeOpt(parser, Chars.LowerN)) return Token.BigIntLiteral;
-  return Token.NumericLiteral;
+    parser.index++; parser.column++;
+    let value = 0;
+    let code = parser.source.charCodeAt(parser.index);
+    const maximumDigits = 10;
+    let state = NumberState.None;
+    let digit = maximumDigits - 1;
+    while (parser.index < parser.length && digit >= 0) {
+        if (context & Context.OptionsNext && code === Chars.Underscore) {
+            state = scanNumericSeparator(parser, state);
+            code = parser.source.charCodeAt(parser.index);
+            continue;
+        }
+        if (code >= Chars.Zero) break;
+        state = NumberState.None;
+        value = value * 8 + (code - Chars.Zero);
+        parser.index++;
+        code = parser.source.charCodeAt(parser.index);
+        --digit;
+    }
+    if (digit === 9) recordErrors(parser, Errors.InvalidOrUnexpectedToken);
+    else if (state & NumberState.HasSeparator) recordErrors(parser, Errors.TrailingNumericSeparator);
+    parser.tokenValue = value;
+    if (consumeOpt(parser, Chars.LowerN)) return Token.BigIntLiteral;
+    return Token.NumericLiteral;
 }
 
 /**
@@ -167,28 +172,28 @@ export function scanOctalDigits(parser: Parser, context: Context): Token {
 * @param context Context masks
 */
 export function scanHexDigits(parser: Parser, context: Context): Token {
-  parser.index++; parser.column++;
-  let value = 0;
-  let code = parser.source.charCodeAt(parser.index);
-  let maximumDigits = 7;
-  let seenSeparator = false;
-  while (parser.index < parser.length && isHex(code) && maximumDigits >= 0) {
-      if (code === Chars.Underscore) {
-          seenSeparator = scanNumericSeparator(parser, seenSeparator);
-          code = parser.source.charCodeAt(parser.index);
-          continue;
-      }
-      if (isHex(code)) break;
-      seenSeparator = false;
-      value = (value << 4) + toHex(code);
-      parser.index++; parser.column++;
-      code = parser.source.charCodeAt(parser.index);
-      --maximumDigits;
-  }
-  if (seenSeparator) recordErrors(parser, Errors.TrailingNumericSeparator);
-  parser.tokenValue = value;
-  if (consumeOpt(parser, Chars.LowerN)) return Token.BigIntLiteral;
-  return Token.NumericLiteral;
+    parser.index++; parser.column++;
+    let value = 0;
+    let code = parser.source.charCodeAt(parser.index);
+    let maximumDigits = 7;
+    let state = NumberState.None;
+    while (parser.index < parser.length && isHex(code) && maximumDigits >= 0) {
+        if (context & Context.OptionsNext && code === Chars.Underscore) {
+            state = scanNumericSeparator(parser, state);
+            code = parser.source.charCodeAt(parser.index);
+            continue;
+        }
+        if (!isHex(code)) break;
+        state = NumberState.None;
+        value = (value << 4) + toHex(code);
+        parser.index++;
+        code = parser.source.charCodeAt(parser.index);
+        --maximumDigits;
+    }
+    if (state & NumberState.HasSeparator) recordErrors(parser, Errors.TrailingNumericSeparator);
+    parser.tokenValue = value;
+    if (consumeOpt(parser, Chars.LowerN)) return Token.BigIntLiteral;
+    return Token.NumericLiteral;
 }
 
 /**
@@ -198,37 +203,36 @@ export function scanHexDigits(parser: Parser, context: Context): Token {
 * @param context Context masks
 */
 export function scanBinaryDigits(parser: Parser, context: Context): Token {
-  parser.index++; parser.column++;
-  let value = 0;
-  let code = parser.source.charCodeAt(parser.index);
-  const maximumDigits = 32;
-  let seenSeparator = false;
-  let digit = maximumDigits - 1;
-  while (parser.index < parser.length && digit >= 0) {
-      if (context & Context.OptionsNext && code === Chars.Underscore) {
-          seenSeparator = scanNumericSeparator(parser, seenSeparator);
-          code = parser.source.charCodeAt(parser.index);
-          continue;
-      }
-      const valueOf = code - Chars.Zero;
-      if (!(code >= Chars.Zero && code <= Chars.Two) || valueOf >= 2) break;
-      seenSeparator = false;
-      value = (value << 1) + valueOf;
-      parser.index++; parser.column++;
-      code = parser.source.charCodeAt(parser.index);
-      --digit;
-  }
+    parser.index++; parser.column++;
+    let value = 0;
+    let code = parser.source.charCodeAt(parser.index);
+    let state = NumberState.None;
+    const maximumDigits = 32;
+    let digit = maximumDigits - 1;
+    while (parser.index < parser.length && digit >= 0) {
+        if (context & Context.OptionsNext && code === Chars.Underscore) {
+            state = scanNumericSeparator(parser, state);
+            code = parser.source.charCodeAt(parser.index);
+            continue;
+        }
+        const valueOf = code - Chars.Zero;
+        if (!(code >= Chars.Zero && code <= Chars.Two) || valueOf >= 2) break;
+        state = NumberState.None;
+        value = (value << 1) + valueOf;
+        parser.index++;
+        code = parser.source.charCodeAt(parser.index);
+        --digit;
+    }
 
-  if (digit === 31) recordErrors(parser, Errors.InvalidOrUnexpectedToken);
-  else if (seenSeparator) recordErrors(parser, Errors.TrailingNumericSeparator);
-  parser.tokenValue = value;
-  if (consumeOpt(parser, Chars.LowerN)) return Token.BigIntLiteral;
-  return Token.NumericLiteral;
+    if (digit === 31) recordErrors(parser, Errors.InvalidOrUnexpectedToken);
+    else if (state & NumberState.HasSeparator) recordErrors(parser, Errors.TrailingNumericSeparator);
+    parser.tokenValue = value;
+    if (consumeOpt(parser, Chars.LowerN)) return Token.BigIntLiteral;
+    return Token.NumericLiteral;
 }
 
-export function scanNumericSeparator(parser: Parser, seenSeparator: boolean): boolean {
-  parser.index++;
-  parser.column++;
-  if (seenSeparator) recordErrors(parser, Errors.TrailingNumericSeparator);
-  return true;
+export function scanNumericSeparator(parser: Parser, state: NumberState): NumberState {
+    parser.index++; parser.column++;
+    if (state & NumberState.HasSeparator) recordErrors(parser, Errors.TrailingNumericSeparator);
+    return NumberState.HasSeparator;
 }
