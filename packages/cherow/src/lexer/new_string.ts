@@ -58,6 +58,8 @@ export function scanString(parser: Parser, context: Context, quote: number): Tok
                 return Token.StringLiteral;
 
             case Chars.LineSeparator:
+                if (context & Context.OptionsNext) continue;
+                // falls through
             case Chars.ParagraphSeparator:
             case Chars.CarriageReturn:
             case Chars.LineFeed:
