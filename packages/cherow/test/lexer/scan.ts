@@ -6,8 +6,7 @@ import { parseSource, parse } from '../../src/cherow';
 import { Token, tokenDesc } from '../../src/token';
 import * as assert from 'clean-assert';
 
-// TODO: Test for strict mode
-
+// TODO: Test for line / column
 describe("Lexer - Numeric literals", () => {
 
     describe("Editor mode", () => {
@@ -29,19 +28,31 @@ describe("Lexer - Numeric literals", () => {
     // should recover from this (invalid input)
     describe("Fails", () => {
 
-        const tokens: any = [
+        const inputData: any = [
             // Hex
             [Context.OptionsNext, '0x1:0', Token.NumericLiteral],
+            [Context.OptionsNext, '0B12', Token.NumericLiteral],
+            [Context.OptionsNext, '0B12', Token.NumericLiteral],
+
             // Binary
             [Context.OptionsNext, '0b01010:11', Token.NumericLiteral],
-            //[Context.OptionsNext, '123:', 16, Token.NumericLiteral],
+            [Context.OptionsNext, '0b1a', Token.NumericLiteral],
+            [Context.OptionsNext, '0b9', Token.NumericLiteral],
+            [Context.OptionsNext, '0b18', Token.NumericLiteral],
+            [Context.OptionsNext, '0B12', Token.NumericLiteral],
+
             // Octal
             [Context.OptionsNext, '0O0:77', Token.NumericLiteral],
+            [Context.OptionsNext, '0o18', Token.NumericLiteral],
+            [Context.OptionsNext, '0O', Token.NumericLiteral],
+            [Context.OptionsNext, '0O9', Token.NumericLiteral],
+            [Context.OptionsNext, '0O', Token.NumericLiteral],
+
             // Implicit octal
             [Context.OptionsNext, '001234:11', Token.NumericLiteral],
         ];
 
-        for (const [ctx, input, token] of tokens) {
+        for (const [ctx, input, token] of inputData) {
             it(`scans invalid input - '${input}'`, () => {
                 const parser = createParserObject(input, undefined);
                 const found = scan(parser, ctx);
@@ -50,14 +61,14 @@ describe("Lexer - Numeric literals", () => {
                     recovery: parser.recovery,
                 }, {
                     token: tokenDesc(token),
-                    recovery: Recovery.Invalid,
+                    recovery: Recovery.InvalidInput,
                 });
             });
         }
     });
 
     describe("Pass", () => {
-        const tokens: any = [
+        const inputData: any = [
             [Context.Empty, '0', 0, Token.NumericLiteral],
             [Context.Empty, '1', 1, Token.NumericLiteral],
             [Context.Empty, '123', 123, Token.NumericLiteral],
@@ -69,11 +80,11 @@ describe("Lexer - Numeric literals", () => {
             [Context.Empty, '7.E1', 70, Token.NumericLiteral],
             [Context.Empty, '0.8', 0.8, Token.NumericLiteral],
             [Context.Empty, '7.E1', 70, Token.NumericLiteral],
-            [Context.Empty, '7.E1', 70, Token.NumericLiteral],
-            [Context.Empty, '7.E1', 70, Token.NumericLiteral],
-            [Context.Empty, '7.E1', 70, Token.NumericLiteral],
-            [Context.Empty, '7.E1', 70, Token.NumericLiteral],
-            [Context.Empty, '7.E1', 70, Token.NumericLiteral],
+            [Context.Empty, '6.', 6, Token.NumericLiteral],
+            [Context.Empty, '3.14159', 3.14159, Token.NumericLiteral],
+            [Context.Empty, '6.02214179e+23', 6.02214179e+23, Token.NumericLiteral],
+            [Context.Empty, '1.492417830e-10', 1.49241783e-10, Token.NumericLiteral],
+            [Context.Empty, '0e+100', 0, Token.NumericLiteral],
             [Context.Empty, '1.34', 1.34, Token.NumericLiteral],
             [Context.Empty, '.44', 0.44, Token.NumericLiteral],
 
@@ -81,6 +92,9 @@ describe("Lexer - Numeric literals", () => {
 
             [Context.Empty, '0b10', 2, Token.NumericLiteral],
             [Context.Empty, '0B011', 3, Token.NumericLiteral],
+            [Context.Empty, '0B010', 2, Token.NumericLiteral],
+            [Context.Empty, '0B0', 0, Token.NumericLiteral],
+            [Context.Empty, '0b10', 2, Token.NumericLiteral],
             [Context.Empty, '0B010', 2, Token.NumericLiteral],
             [Context.Empty, '0b0101011', 43, Token.NumericLiteral],
             [Context.Empty, '0b010101101011', 1387, Token.NumericLiteral],
@@ -90,6 +104,10 @@ describe("Lexer - Numeric literals", () => {
             // Hex
             [Context.Empty, '0x10', 16, Token.NumericLiteral],
             [Context.Empty, '0x100', 256, Token.NumericLiteral],
+            [Context.Empty, '0xabc', 2748, Token.NumericLiteral],
+            [Context.Empty, '0xdef', 3567, Token.NumericLiteral],
+            [Context.Empty, '0X04', 4, Token.NumericLiteral],
+            [Context.Empty, '0X1A', 26, Token.NumericLiteral],
             [Context.Empty, '0x1000', 4096, Token.NumericLiteral],
             [Context.Empty, '0x10000000', 268435456, Token.NumericLiteral],
             [Context.Empty, '0x100000000000', 17592186044416, Token.NumericLiteral],
@@ -101,14 +119,22 @@ describe("Lexer - Numeric literals", () => {
 
             [Context.Empty, '001234', 668, Token.NumericLiteral],
             [Context.Empty, '0564', 372, Token.NumericLiteral],
+            [Context.Empty, '012', 10, Token.NumericLiteral],
+            [Context.Empty, '0012', 10, Token.NumericLiteral],
+            [Context.Empty, '\n    0\n\n', 0, Token.NumericLiteral],
+            [Context.Empty, '0.', 0, Token.NumericLiteral],
             [Context.Empty, '0789', 789, Token.NumericLiteral],
             [Context.Empty, '00009', 9, Token.NumericLiteral],
             [Context.Empty, '00008', 8, Token.NumericLiteral],
             [Context.Empty, '00008.1', 8.1, Token.NumericLiteral],
             [Context.Empty, '00009.1', 9.1, Token.NumericLiteral],
             [Context.Empty, '00009.1E2-1', 910, Token.NumericLiteral],
+            [Context.Empty, '018', 18, Token.NumericLiteral],
 
             // Octals
+            [Context.Empty, '0o0', 0, Token.NumericLiteral],
+            [Context.Empty, '0o1', 1, Token.NumericLiteral],
+            [Context.Empty, '0O077', 63, Token.NumericLiteral],
             [Context.Empty, '0o7', 7, Token.NumericLiteral],
             [Context.Empty, '0o011', 9, Token.NumericLiteral],
             [Context.Empty, '0O077', 63, Token.NumericLiteral],
@@ -126,6 +152,7 @@ describe("Lexer - Numeric literals", () => {
             [Context.OptionsNext, '0B01_1', 3, Token.NumericLiteral],
             [Context.OptionsNext, '0B_0_1_0', 2, Token.NumericLiteral],
             [Context.OptionsNext, '0b0_1_0_1011', 43, Token.NumericLiteral],
+
             // should recover from this (early error)
             [Context.OptionsNext, '0B___________________010___', 2, Token.NumericLiteral],
             [Context.OptionsNext, '0b_0_1__________0_1011_____', 43, Token.NumericLiteral],
@@ -163,9 +190,6 @@ describe("Lexer - Numeric literals", () => {
             [Context.OptionsNext, '0x1__00____0', 4096, Token.NumericLiteral],
             [Context.OptionsNext, '0x10_0_00______000_____________', 268435456, Token.NumericLiteral],
 
-            // should recover from this (invalid input)
-            // [Context.OptionsNext, '0x1:0', 16, Token.NumericLiteral],
-
             // BigInt
             [Context.OptionsNext, '123n', 123, Token.BigIntLiteral],
 
@@ -198,7 +222,7 @@ describe("Lexer - Numeric literals", () => {
             [Context.OptionsNext, '12_3n', 123, Token.BigIntLiteral],
         ];
 
-        for (const [ctx, raw, parsed, token] of tokens) {
+        for (const [ctx, raw, parsed, token] of inputData) {
             it(`scans '${raw}'`, () => {
                 const parser = createParserObject(raw, undefined);
                 const found = scan(parser, ctx);

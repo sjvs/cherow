@@ -1,14 +1,13 @@
 import { Parser } from '../types';
 import { Token } from '../token';
 import { Chars } from '../chars';
-import { Context } from '../utilities';
+import { Context, Flags } from '../utilities';
 import { nextUnicodeChar, consumeOpt, toHex, isHex, fromCodePoint } from './common';
 import { Errors, recordErrors } from './errors';
 import { isIdentifierStart } from '../unicode';
 
 // TODO:
 //
-// - Strict mode
 // - Simplify
 // - Optimize
 
@@ -88,7 +87,7 @@ export function scanNumeric(parser: Parser, context: Context): Token {
 
   if (code >= Chars.Zero && code <= Chars.Nine ||
       (parser.index >= parser.source.length && isIdentifierStart(parser.source.charCodeAt(parser.index)))) {
-      parser.recovery |= Recovery.Invalid;
+      parser.recovery |= Recovery.InvalidInput;
       recordErrors(parser, Errors.Unexpected);
   }
 
@@ -175,7 +174,7 @@ export function scanOctalDigits(parser: Parser, context: Context): Token {
           continue;
       }
       if (!(code >= Chars.Zero && code <= Chars.Seven)) {
-          parser.recovery |= Recovery.Invalid;
+          parser.recovery |= Recovery.InvalidInput;
           break;
       }
       state = NumberState.None;
@@ -185,8 +184,12 @@ export function scanOctalDigits(parser: Parser, context: Context): Token {
       digits++;
   }
 
-  if (digits === 0) recordErrors(parser, Errors.InvalidOrUnexpectedToken);
-  else if (state & NumberState.HasSeparator) recordErrors(parser, Errors.TrailingNumericSeparator);
+  if (digits === 0) {
+      parser.recovery |= Recovery.InvalidInput;
+      recordErrors(parser, Errors.InvalidOrUnexpectedToken);
+  }
+
+  if (state & NumberState.HasSeparator) recordErrors(parser, Errors.TrailingNumericSeparator);
   parser.tokenValue = value;
   if (consumeOpt(parser, Chars.LowerN)) return Token.BigIntLiteral;
   return Token.NumericLiteral;
@@ -207,7 +210,7 @@ export function scanHexDigits(parser: Parser, context: Context): Token {
       state = NumberState.None;
       const digit = toHex(next);
       if (digit < 0) {
-          parser.recovery |= Recovery.Invalid;
+          parser.recovery |= Recovery.InvalidInput;
           break;
       }
       value = value * 16 + digit;
@@ -237,7 +240,7 @@ export function scanBinaryDigits(parser: Parser, context: Context): Token {
           continue;
       }
       if (!(code >= Chars.Zero && code <= Chars.Two)) {
-          parser.recovery |= Recovery.Invalid;
+          parser.recovery |= Recovery.InvalidInput;
           break;
       }
       state = NumberState.None;
@@ -268,6 +271,9 @@ export function scanImplicitOctalDigits(parser: Parser, context: Context): Token
       let index = parser.index;
       let column = parser.column;
       let digits = 0;
+
+      parser.flags |= Flags.HasOctal;
+
       // Implicit octal, unless there is a non-octal digit.
       // (Annex B.1.1 on Numeric Literals)
       while (index < parser.length) {
@@ -281,7 +287,7 @@ export function scanImplicitOctalDigits(parser: Parser, context: Context): Token
               return scanNumeric(parser, context);
           } else {
               if (!(next >= Chars.Zero && next <= Chars.Seven)) {
-                  parser.recovery |= Recovery.Invalid;
+                  parser.recovery |= Recovery.InvalidInput;
                   break;
               }
               value = value * 8 + (next - Chars.Zero);
