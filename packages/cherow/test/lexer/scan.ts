@@ -6,7 +6,6 @@ import { parseSource, parse } from '../../src/cherow';
 import { Token, tokenDesc } from '../../src/token';
 import * as assert from 'clean-assert';
 
-// TODO: Test for line / column
 describe("Lexer - Numeric literals", () => {
 
     describe("Editor mode", () => {
@@ -25,7 +24,6 @@ describe("Lexer - Numeric literals", () => {
         });
     });
 
-    // should recover from this (invalid input)
     describe("Fails", () => {
 
         const inputData: any = [
@@ -121,7 +119,6 @@ describe("Lexer - Numeric literals", () => {
             [Context.Empty, '0564', 372, Token.NumericLiteral],
             [Context.Empty, '012', 10, Token.NumericLiteral],
             [Context.Empty, '0012', 10, Token.NumericLiteral],
-            [Context.Empty, '\n    0\n\n', 0, Token.NumericLiteral],
             [Context.Empty, '0.', 0, Token.NumericLiteral],
             [Context.Empty, '0789', 789, Token.NumericLiteral],
             [Context.Empty, '00009', 9, Token.NumericLiteral],
@@ -152,7 +149,6 @@ describe("Lexer - Numeric literals", () => {
             [Context.OptionsNext, '0B01_1', 3, Token.NumericLiteral],
             [Context.OptionsNext, '0B_0_1_0', 2, Token.NumericLiteral],
             [Context.OptionsNext, '0b0_1_0_1011', 43, Token.NumericLiteral],
-
             // should recover from this (early error)
             [Context.OptionsNext, '0B___________________010___', 2, Token.NumericLiteral],
             [Context.OptionsNext, '0b_0_1__________0_1011_____', 43, Token.NumericLiteral],
@@ -222,17 +218,21 @@ describe("Lexer - Numeric literals", () => {
             [Context.OptionsNext, '12_3n', 123, Token.BigIntLiteral],
         ];
 
-        for (const [ctx, raw, parsed, token] of inputData) {
-            it(`scans '${raw}'`, () => {
-                const parser = createParserObject(raw, undefined);
+        for (const [ctx, source, parsed, token] of inputData) {
+            it(`scans '${source}'`, () => {
+                const parser = createParserObject(source, undefined);
                 const found = scan(parser, ctx);
 
                 assert.match({
                     token: tokenDesc(found),
                     value: parser.tokenValue,
+                    line: parser.line,
+                    column: parser.column,
                 }, {
                     token: tokenDesc(token),
-                    value: parsed
+                    value: parsed,
+                    line: 1,
+                    column: source.length,
                 });
             });
         }
