@@ -6,24 +6,27 @@ import { parseSource, parse } from '../../src/cherow';
 import { Token, tokenDesc } from '../../src/token';
 import * as assert from 'clean-assert';
 
-// TODO! Not working in current state
+// TODO! Not working in current state, only locale
 
 describe.skip("Lexer - Numeric literals", () => {
 
-    describe("Editor mode", () => {
-
-        it(`should move on if invalid numeric separators at the end`, () => {
-            const errArray: any = [];
-            const res = parse('123__', { next: true}, (err: string, line: number, column: number) => {
-                errArray.push(`Line ${line}, column ${column}: ${err}`);
-            });
-            assert.match(errArray[0], 'Line 1, column 4: Only one underscore is allowed as numeric separator');
-            assert.match(errArray[1], 'Line 1, column 5: Numeric separators are not allowed at the end of numeric literals');
-        });
-    });
+  describe("Editor mode", () => {
+      describe("Early errors", () => {
+          it(`should move on if invalid numeric separators at the end`, () => {
+              const errArray: any = [];
+              const res = parse('123__', {
+                  next: true
+              }, (err: string, line: number, column: number) => {
+                  errArray.push(`Line ${line}, column ${column}: ${err}`);
+              });
+              assert.match(errArray[0], 'Line 1, column 4: Only one underscore is allowed as numeric separator');
+              assert.match(errArray[1], 'Line 1, column 5: Numeric separators are not allowed at the end of numeric literals');
+          });
+      });
+  });
 
     describe("Pass", () => {
-        const tokens: Array < [Context, any, any, Token] > = [
+        const tests: Array < [Context, any, any, Token] > = [
             [Context.Empty, '0', 0, Token.NumericLiteral],
             [Context.Empty, '1', 1, Token.NumericLiteral],
             [Context.Empty, '123', 123, Token.NumericLiteral],
@@ -88,7 +91,7 @@ describe.skip("Lexer - Numeric literals", () => {
             [Context.OptionsNext, '12_3n', 123, Token.BigIntLiteral],
         ]
 
-        for (const [ctx, raw, parsed, token] of tokens) {
+        for (const [ctx, raw, parsed, token] of tests) {
             it(`scans '${raw}'`, () => {
                 const parser = createParserObject(raw, undefined);
                 const found = scan(parser, ctx);
