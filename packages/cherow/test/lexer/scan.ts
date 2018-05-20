@@ -34,7 +34,7 @@ describe("Lexer - Numeric literals", () => {
             [Context.OptionsNext, '0x1:0', Token.NumericLiteral],
             // Binary
             [Context.OptionsNext, '0b01010:11', Token.NumericLiteral],
-
+            //[Context.OptionsNext, '123:', 16, Token.NumericLiteral],
             // Octal
             [Context.OptionsNext, '0O0:77', Token.NumericLiteral],
             // Implicit octal
@@ -57,7 +57,7 @@ describe("Lexer - Numeric literals", () => {
     });
 
     describe("Pass", () => {
-        const input: any = [
+        const tokens: any = [
             [Context.Empty, '0', 0, Token.NumericLiteral],
             [Context.Empty, '1', 1, Token.NumericLiteral],
             [Context.Empty, '123', 123, Token.NumericLiteral],
@@ -163,6 +163,9 @@ describe("Lexer - Numeric literals", () => {
             [Context.OptionsNext, '0x1__00____0', 4096, Token.NumericLiteral],
             [Context.OptionsNext, '0x10_0_00______000_____________', 268435456, Token.NumericLiteral],
 
+            // should recover from this (invalid input)
+            // [Context.OptionsNext, '0x1:0', 16, Token.NumericLiteral],
+
             // BigInt
             [Context.OptionsNext, '123n', 123, Token.BigIntLiteral],
 
@@ -195,7 +198,7 @@ describe("Lexer - Numeric literals", () => {
             [Context.OptionsNext, '12_3n', 123, Token.BigIntLiteral],
         ];
 
-        for (const [ctx, raw, parsed, token] of input) {
+        for (const [ctx, raw, parsed, token] of tokens) {
             it(`scans '${raw}'`, () => {
                 const parser = createParserObject(raw, undefined);
                 const found = scan(parser, ctx);
