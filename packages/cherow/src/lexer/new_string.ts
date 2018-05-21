@@ -21,6 +21,7 @@ const enum Recovery {
  * @param context Context masks
  */
 export function throwStringError(parser: Parser, context: Context, code: Recovery): Token {
+    parser.index++;
     let message: Errors = Errors.Unexpected;
     if (Recovery.Empty) return;
     if (Recovery.StrictOctal) message = Errors.StrictOctalEscape;
@@ -61,7 +62,12 @@ export function scanString(parser: Parser, context: Context, quote: number): Tok
                     } else {
                         const code = table[ch](parser, context, ch);
                         if (code >= 0) ret += fromCodePoint(code);
-                        else throwStringError(parser, context, code as Recovery);
+                        // recovers from invalid escapes
+                        else if (code !== Recovery.Empty) {
+                            ret = undefined;
+                            ch = scanBadString(parser, quote, ch);
+                            break loop;
+                        } else return throwStringError(parser, context, code as Recovery);
                         index = parser.index + 1;
                         column = parser.column + 1;
                     }
@@ -81,6 +87,20 @@ export function scanString(parser: Parser, context: Context, quote: number): Tok
     parser.flags |= Flags.Unterminated;
     recordErrors(parser, Errors.UnterminatedString);
     return Token.Illegal;
+}
+
+/**
+ * Scans invalid escaped string values
+ *
+ * @param parser Parser object
+ * @param quite Number
+ * @param ch codepoint
+ */
+function scanBadString(parser: Parser, quote: number, ch: number): number {
+    while (ch !== quote) {
+        ch = readNext(parser, ch);
+        return ch;
+    }
 }
 
 const table = new Array<(parser: Parser, context: Context, first: number) => number>(128).fill(nextUnicodeChar);
