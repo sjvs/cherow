@@ -15,22 +15,6 @@ const enum Recovery {
 }
 
 /**
- * Throws a string error for either string or template literal
- *
- * @param parser Parser object
- * @param context Context masks
- */
-export function throwStringError(parser: Parser, context: Context, code: Recovery): Token {
-    parser.index++;
-    let message: Errors = Errors.Unexpected;
-    if (Recovery.Empty) return;
-    if (Recovery.StrictOctal) message = Errors.StrictOctalEscape;
-    if (Recovery.EightOrNine) message = Errors.InvalidEightAndNine;
-    recordErrors(parser, Errors.UnterminatedString);
-    return Token.Illegal;
-}
-
-/**
  * Scan a string literal
  *
  * @see [Link](https://tc39.github.io/ecma262/#sec-literals-string-literals)
@@ -65,9 +49,10 @@ export function scanString(parser: Parser, context: Context, quote: number): Tok
                         // recovers from invalid escapes
                         else if (code !== Recovery.Empty) {
                             ret = undefined;
+                            recordStringErrors(parser, context, code as Recovery);
                             ch = scanBadString(parser, quote, ch);
                             break loop;
-                        } else return throwStringError(parser, context, code as Recovery);
+                        } else return recordStringErrors(parser, context, code as Recovery);
                         index = parser.index + 1;
                         column = parser.column + 1;
                     }
@@ -101,6 +86,24 @@ function scanBadString(parser: Parser, quote: number, ch: number): number {
         ch = readNext(parser, ch);
         return ch;
     }
+}
+
+/**
+ * Throws a string error for either string or template literal
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+export function recordStringErrors(parser: Parser, context: Context, code: Recovery): Token {
+    let message: Errors = Errors.Unexpected;
+    if (Recovery.Empty) return;
+    if (Recovery.StrictOctal) message = Errors.StrictOctalEscape;
+    if (Recovery.EightOrNine) message = Errors.InvalidEightAndNine;
+    if (Recovery.InvalidHex) message = Errors.StrictOctalEscape;
+    if (Recovery.OutOfRange) message = Errors.InvalidEightAndNine;
+
+    recordErrors(parser, Errors.UnterminatedString);
+    return Token.Illegal;
 }
 
 const table = new Array<(parser: Parser, context: Context, first: number) => number>(128).fill(nextUnicodeChar);

@@ -51,11 +51,8 @@ describe('Lexer - String literals', () => {
 
         const inputData: any = [
 
-            // Implicit octal
             [Context.OptionsNext, '"\\8"', Token.Illegal],
             [Context.OptionsNext, '"\\9"', Token.Illegal],
-
-            // Implicit octal
             [Context.OptionsNext, '"\\u{2028"', Token.Illegal],
             [Context.OptionsNext, '"\\u"', Token.Illegal],
             [Context.OptionsNext, '"\\x"', Token.Illegal],
