@@ -46,6 +46,37 @@ describe('Lexer - String literals', () => {
         });
     });
 
+    // should recover from this (invalid input)
+    describe("Fails", () => {
+
+        const inputData: any = [
+
+            // Implicit octal
+            [Context.OptionsNext, '"\\8"', Token.Illegal],
+            [Context.OptionsNext, '"\\9"', Token.Illegal],
+
+            // Implicit octal
+            [Context.OptionsNext, '"\\u{2028"', Token.Illegal],
+            [Context.OptionsNext, '"\\u"', Token.Illegal],
+            [Context.OptionsNext, '"\\x"', Token.Illegal],
+            [Context.OptionsNext, '"\\u{110000}"', Token.Illegal],
+            [Context.OptionsNext, '"\\u{FFFFFFF}"', Token.Illegal],
+        ];
+
+        for (const [ctx, input, token] of inputData) {
+            it(`scans invalid input - '${input}'`, () => {
+                const parser = createParserObject(input, undefined);
+                const found = scan(parser, ctx);
+                assert.match({
+                    token: tokenDesc(found),
+                    value: parser.tokenValue
+                }, {
+                    token: tokenDesc(token),
+                    value: undefined
+                });
+            });
+        }
+    });
     describe('Pass', () => {
 
         function pass(name: string, opts: any) {
@@ -185,8 +216,6 @@ describe('Lexer - String literals', () => {
             [Context.Empty, '"\\3"', '\u0003', Token.StringLiteral],
             [Context.Empty, '"\\4"', '\u0004', Token.StringLiteral],
             [Context.Empty, '"\\5"', '\u0005', Token.StringLiteral],
-            // [Context.Empty, '"\\8"', "\u0008", Token.StringLiteral],
-            // [Context.Empty, '"\\9"', "\u0009", Token.StringLiteral],
             [Context.Empty, '"\\777"', '?7', Token.StringLiteral],
             [Context.Empty, '"\\123"', 'S', Token.StringLiteral],
             [Context.Empty, '"\\456"', '%6', Token.StringLiteral],
