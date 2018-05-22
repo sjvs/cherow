@@ -4,7 +4,10 @@ import { Context, Flags } from '../common';
 import { advanceNewline, consumeOpt } from './common';
 import { Chars } from '../chars';
 import { scanIdentifier } from './identifier';
-import { skipSingleLineComment, skipMultilineComment } from './comments';
+import { skipSingleHTMLComment, skipSingleLineComment, skipMultilineComment } from './comments';
+
+// Note: This is ab experimental lexer code. It's way faster than Acorn's lexer,
+// and also faster than current Cherow, but it's far from optimized!
 
 function scanNumeric(parser: Parser, context: Context) {
     return Token.EndOfSource;
@@ -16,7 +19,7 @@ table[Chars.Space] =
 table[Chars.Tab] =
 table[Chars.FormFeed] =
 table[Chars.VerticalTab] =
-table[Chars.FormFeed] = (parser: Parser, context: Context, first: number) => {
+table[Chars.FormFeed] = () => {
     return Token.WhiteSpace;
 };
 
@@ -156,9 +159,13 @@ table[Chars.Plus] = (parser: Parser) => {
 
 // `-`, `--`, `-=`
 table[Chars.Hyphen] = (parser: Parser) => {
-    if (parser.index < parser.source.length) {
-        const next = parser.source.charCodeAt(parser.index);
-
+    const next = parser.source.charCodeAt(parser.index);
+    if (!(parser.index >= parser.length + 1) &&
+        next === Chars.Hyphen &&
+        parser.source.charCodeAt(parser.index + 1) === Chars.GreaterThan) {
+            skipSingleHTMLComment(parser);
+            return Token.HTMLComment;
+    } else if (parser.index < parser.source.length) {
         if (next === Chars.Hyphen) {
             parser.index++; parser.column++;
             return Token.Decrement;
@@ -173,7 +180,7 @@ table[Chars.Hyphen] = (parser: Parser) => {
 
 // `.`, `...`, `.123` (numeric literal)
 table[Chars.Period] = (parser: Parser, context: Context) => {
- 
+
     if (parser.index < parser.source.length) {
         const next = parser.source.charCodeAt(parser.index);
         if (next === Chars.Period) {
@@ -194,9 +201,15 @@ for (let i = Chars.Zero; i < Chars.Nine; i++) {
     table[i] = scanNumeric;
 }
 
-// `<`, `<=`, `<<`, `<<=`, `</`
+// `<`, `<=`, `<<`, `<<=`, `</`,  <!--
 table[Chars.LessThan] = (parser: Parser, context: Context) => {
     if (parser.index < parser.source.length) {
+
+        if (parser.source.charCodeAt(parser.index) === Chars.Exclamation
+            && parser.source.charCodeAt(parser.index + 1) === Chars.Hyphen
+            && parser.source.charCodeAt(parser.index + 2) === Chars.Hyphen) {
+                return skipSingleHTMLComment(parser);
+            }
         switch (parser.source.charCodeAt(parser.index)) {
             case Chars.LessThan:
                 parser.index++; parser.column++;
