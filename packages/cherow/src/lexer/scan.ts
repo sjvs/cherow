@@ -6,10 +6,7 @@ import { Chars } from '../chars';
 import { scanIdentifier } from './identifier';
 import { skipSingleHTMLComment, skipSingleLineComment, skipMultilineComment } from './comments';
 import { scanStringLiteral } from './string';
-import { scanNumeric } from './numeric';
-
-// Note: This is an experimental lexer code. It's way faster than Acorn's lexer,
-// and also faster than current Cherow, but it's far from optimized!
+import { scanNumeric, parseFloatingNumber } from './numeric';
 
 const table = new Array(128).fill(() => Token.EndOfSource) as any;
 
@@ -193,15 +190,14 @@ table[Chars.Period] = (parser: Parser, context: Context) => {
 
     if (parser.index < parser.source.length) {
         const next = parser.source.charCodeAt(parser.index);
-        if (next === Chars.Period) {
+        if (next >= Chars.Zero && next <= Chars.Nine) {
+            return parseFloatingNumber(parser, context);
+        } else if (next === Chars.Period) {
             if (parser.index + 1 < parser.source.length && parser.source.charCodeAt(parser.index) === Chars.Period) {
                 parser.index += 2;
                 parser.column += 2;
                 return Token.Ellipsis;
             }
-        } else if (next >= Chars.Zero && next <= Chars.Nine) {
-            scanNumeric(parser, context);
-            return Token.NumericLiteral;
         }
     }
     return Token.Period;

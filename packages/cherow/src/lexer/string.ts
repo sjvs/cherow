@@ -176,7 +176,7 @@ table[Chars.Three] = (parser, context, first) =>   {
     }
 
     return code;
-}
+};
 
 table[Chars.Four] =
 table[Chars.Five] =
