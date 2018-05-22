@@ -9,28 +9,34 @@ import { skipSingleLineComment } from './comments';
 function scanNumeric(parser: Parser, context: Context) {
     return Token.EndOfSource;
 }
-function invalid(parser: Parser, context: Context, first: number) {
-    return Token.EndOfSource;
-}
 
-const table = new Array(128).fill(invalid) as any;
+const table = new Array(128).fill(() => Token.EndOfSource) as any;
 
-table[Chars.Space] = (parser: Parser, context: Context, first: number) => {
-    return Token.WhiteSpace;
-};
-
-table[Chars.Tab] = (parser: Parser, context: Context, first: number) => {
+// TODO: Refactor this, and optimize
+table[Chars.Space] =
+table[Chars.Tab] =
+table[Chars.VerticalTab] =
+table[Chars.FormFeed] = (parser: Parser, context: Context, first: number) => {
     return Token.WhiteSpace;
 };
 
 table[Chars.CarriageReturn] = (parser: Parser, context: Context, first: number) => {
-    return parser.index < parser.length && parser.source.charCodeAt(parser.index) === Chars.LineFeed ?
-        Token.LineFeed :
-        Token.CarriageReturn;
+    parser.column = 0;
+    parser.line++;
+    if (parser.index < parser.length &&
+        parser.source.charCodeAt(parser.index) === Chars.LineFeed) {
+        parser.index++;
+    }
+    parser.flags |= Flags.NewLine;
+    return Token.CarriageReturn;
 };
 
+table[Chars.LineSeparator] =
+table[Chars.ParagraphSeparator] =
 table[Chars.LineFeed] = (parser: Parser, context: Context, first: number) => {
-    parser.flags |= Flags.ConsumedNewline;
+    parser.flags |= Flags.NewLine;
+    parser.column = 0;
+    parser.line++;
     return Token.LineFeed;
 };
 
@@ -178,7 +184,7 @@ table[Chars.Hyphen] = (parser: Parser) => {
 
 // `.`, `...`, `.123` (numeric literal)
 table[Chars.Period] = (parser: Parser, context: Context) => {
-
+ 
     if (parser.index < parser.source.length) {
         const next = parser.source.charCodeAt(parser.index);
         if (next === Chars.Period) {
