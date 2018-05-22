@@ -1,10 +1,10 @@
 import { Parser } from '../types';
 import { Token, tokenDesc } from '../token';
 import { Context, Flags } from '../common';
-import { consumeOpt } from './common';
+import { advanceNewline, consumeOpt } from './common';
 import { Chars } from '../chars';
 import { scanIdentifier } from './identifier';
-import { skipSingleLineComment } from './comments';
+import { skipSingleLineComment, skipMultilineComment } from './comments';
 
 function scanNumeric(parser: Parser, context: Context) {
     return Token.EndOfSource;
@@ -12,32 +12,21 @@ function scanNumeric(parser: Parser, context: Context) {
 
 const table = new Array(128).fill(() => Token.EndOfSource) as any;
 
-// TODO: Refactor this, and optimize
 table[Chars.Space] =
 table[Chars.Tab] =
+table[Chars.FormFeed] =
 table[Chars.VerticalTab] =
 table[Chars.FormFeed] = (parser: Parser, context: Context, first: number) => {
     return Token.WhiteSpace;
 };
 
-table[Chars.CarriageReturn] = (parser: Parser, context: Context, first: number) => {
-    parser.column = 0;
-    parser.line++;
-    if (parser.index < parser.length &&
-        parser.source.charCodeAt(parser.index) === Chars.LineFeed) {
-        parser.index++;
-    }
-    parser.flags |= Flags.NewLine;
-    return Token.CarriageReturn;
-};
-
 table[Chars.LineSeparator] =
 table[Chars.ParagraphSeparator] =
-table[Chars.LineFeed] = (parser: Parser, context: Context, first: number) => {
+table[Chars.LineFeed] =
+table[Chars.CarriageReturn] = (parser: Parser, context: Context, first: number) => {
+    advanceNewline(parser, first);
     parser.flags |= Flags.NewLine;
-    parser.column = 0;
-    parser.line++;
-    return Token.LineFeed;
+    return Token.WhiteSpace; // TODO: LineTerminators?
 };
 
 /** Punctuators */
@@ -81,7 +70,7 @@ table[Chars.Slash] = (parser: Parser, context: Context, first: number) => {
     if (next === Chars.Slash) {
         return skipSingleLineComment(parser);
     } else if (next === Chars.Asterisk) {
-        //   return skipBlockComment(parser, state);
+      return skipMultilineComment(parser);
     } else if (next === Chars.EqualSign) {
         parser.index++; parser.column++;
         return Token.DivideAssign;
