@@ -42,16 +42,13 @@ export function skipToNewline(parser: Parser): boolean {
   while (parser.index < parser.length) {
       const ch = parser.source.charCodeAt(parser.index);
       switch (ch) {
-          case Chars.CarriageReturn:
-          case Chars.LineFeed:
-          case Chars.LineSeparator:
-          case Chars.ParagraphSeparator:
+        case Chars.CarriageReturn: case Chars.LineFeed: case Chars.LineSeparator:
+        case Chars.ParagraphSeparator:
               parser.index++;
               advanceNewline(parser, ch);
               return true;
           default:
-              parser.index++;
-              parser.column++;
+              parser.index++;  parser.column++;
       }
   }
 
