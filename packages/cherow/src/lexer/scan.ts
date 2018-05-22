@@ -5,12 +5,11 @@ import { advanceNewline, consumeOpt } from './common';
 import { Chars } from '../chars';
 import { scanIdentifier } from './identifier';
 import { skipSingleHTMLComment, skipSingleLineComment, skipMultilineComment } from './comments';
+import { scanStringLiteral } from './string';
+import { scanNumeric } from './numeric';
 
-// Note: This is ab experimental lexer code. It's way faster than Acorn's lexer,
+// Note: This is an experimental lexer code. It's way faster than Acorn's lexer,
 // and also faster than current Cherow, but it's far from optimized!
-function scanNumeric(parser: Parser, context: Context) {
-    return Token.EndOfSource;
-}
 
 const table = new Array(128).fill(() => Token.EndOfSource) as any;
 
@@ -64,6 +63,9 @@ table[Chars.LeftParen] = () => Token.LeftParen;
 
 // `)`
 table[Chars.RightParen] = () => Token.RightParen;
+
+// `"`, `'`
+table[Chars.SingleQuote] = table[Chars.DoubleQuote] = () => scanStringLiteral;
 
 // `/`, `/=`, `/>`
 table[Chars.Slash] = (parser: Parser, context: Context, first: number) => {
@@ -250,7 +252,7 @@ table[Chars.LessThan] = (parser: Parser, context: Context) => {
                         if (next === Chars.Asterisk || next === Chars.Slash) break;
                     }
 
-                    parser.index++;parser.column++;
+                    parser.index++; parser.column++;
                     return Token.JSXClose;
                 }
 

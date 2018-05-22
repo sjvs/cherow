@@ -5,18 +5,20 @@ export const enum Context {
     Empty            = 0,
     OptionsTokenize = 1 << 0,
     OptionsJSX      = 1 << 1,
-    Strict          = 1 << 2,
-    Module          = 1 << 3,
-    Async           = 1 << 4,
-    Yield           = 1 << 5,
-    Template        = 1 << 6,
-    In              = 1 << 7,
+    OptionsRaw      = 1 << 2,
+    Strict          = 1 << 3,
+    Module          = 1 << 4,
+    Async           = 1 << 5,
+    Yield           = 1 << 6,
+    Template        = 1 << 7,
+    In              = 1 << 8,
 }
 
 /* Mutual parser flags */
 export const enum Flags {
     Empty   = 0,
     NewLine = 1 << 0,
+    HasOctal = 1 << 1,
 }
 
 /* Recovery state */
