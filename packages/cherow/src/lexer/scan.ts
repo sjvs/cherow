@@ -6,7 +6,7 @@ import { Chars } from '../chars';
 import { scanIdentifier } from './identifier';
 import { skipSingleHTMLComment, skipSingleLineComment, skipMultilineComment } from './comments';
 import { scanStringLiteral } from './string';
-import { scanNumeric, parseFloatingNumber } from './numeric';
+import { scanNumeric, parseFractionalNumber, parseLeadingZero } from './numeric';
 
 const table = new Array(128).fill(() => Token.EndOfSource) as any;
 
@@ -63,6 +63,9 @@ table[Chars.RightParen] = () => Token.RightParen;
 
 // `"`, `'`
 table[Chars.SingleQuote] = table[Chars.DoubleQuote] = () => scanStringLiteral;
+
+// `0`
+table[Chars.Zero] = parseLeadingZero;
 
 // `/`, `/=`, `/>`
 table[Chars.Slash] = (parser: Parser, context: Context, first: number) => {
@@ -191,7 +194,7 @@ table[Chars.Period] = (parser: Parser, context: Context) => {
     if (parser.index < parser.source.length) {
         const next = parser.source.charCodeAt(parser.index);
         if (next >= Chars.Zero && next <= Chars.Nine) {
-            return parseFloatingNumber(parser, context);
+            return parseFractionalNumber(parser, context);
         } else if (next === Chars.Period) {
             if (parser.index + 1 < parser.source.length && parser.source.charCodeAt(parser.index) === Chars.Period) {
                 parser.index += 2;
@@ -203,8 +206,9 @@ table[Chars.Period] = (parser: Parser, context: Context) => {
     return Token.Period;
 };
 
-// `0`...`9`
-for (let i = Chars.Zero; i < Chars.Nine; i++) {
+
+// `1`...`9`
+for (let i = Chars.One; i < Chars.Nine; i++) {
     table[i] = scanNumeric;
 }
 
@@ -372,6 +376,7 @@ export function scan(parser: Parser, context: Context): Token {
         } else {
             parser.index++;
             parser.column++;
+            
             const token = table[first](parser, context, first);
             if ((token & Token.WhiteSpace) === Token.WhiteSpace) continue;
             if (context & Context.OptionsTokenize) parser.tokens.push(token);
