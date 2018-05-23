@@ -1,3 +1,4 @@
+import { Identifier } from './estree';
 /**
  * https://tc39.github.io/ecma262/#sec-ecmascript-language-source-code
  */
@@ -149,43 +150,57 @@ export const enum Token {
     WhileKeyword    = 94 | Reserved,
     WithKeyword     = 95 | Reserved,
 
+    /* Eval & arguments */
+    Arguments        = 96 | Identifier,
+    Eval             = 97 | Identifier,
+
+    /* Decorators */
+    At               = 98 | Identifier,
+
+    /* Private names or shebang comment start */
+    Hash             = 99 | Identifier,
+
     /* Strict mode reserved words */
-    ImplementsKeyword = 96 | FutureReserved,
-    InterfaceKeyword  = 97 | FutureReserved,
-    PackageKeyword    = 98 | FutureReserved,
-    PrivateKeyword    = 99 | FutureReserved,
-    ProtectedKeyword  = 100 | FutureReserved,
-    PublicKeyword     = 101 | FutureReserved,
-    StaticKeyword     = 102 | FutureReserved,
-    YieldKeyword      = 103 | FutureReserved,
+    ImplementsKeyword = 100 | FutureReserved,
+    InterfaceKeyword  = 101 | FutureReserved,
+    PackageKeyword    = 102 | FutureReserved,
+    PrivateKeyword    = 103 | FutureReserved,
+    ProtectedKeyword  = 104 | FutureReserved,
+    PublicKeyword     = 105 | FutureReserved,
+    StaticKeyword     = 106 | FutureReserved,
+    YieldKeyword      = 107 | FutureReserved,
 
     /* Contextual keywords */
-    AsKeyword          = 104 | Contextual,
-    AsyncKeyword       = 105 | Contextual,
-    AwaitKeyword       = 106 | Contextual | IsUnaryOp,
-    ConstructorKeyword = 107 | Contextual,
-    GetKeyword         = 108 | Contextual,
-    SetKeyword         = 109 | Contextual,
-    FromKeyword        = 110 | Contextual,
-    OfKeyword          = 111 | Contextual,
+    AsKeyword          = 108 | Contextual,
+    AsyncKeyword       = 109 | Contextual,
+    AwaitKeyword       = 110 | Contextual | IsUnaryOp,
+    ConstructorKeyword = 111 | Contextual,
+    GetKeyword         = 112 | Contextual,
+    SetKeyword         = 113 | Contextual,
+    FromKeyword        = 114 | Contextual,
+    OfKeyword          = 115 | Contextual,
 
     /* Comments */
-    SingleComment      = 112 | WhiteSpace | Comments,
-    MultiComment       = 113 | WhiteSpace | Comments,
-    HTMLComment        = 114 | WhiteSpace | Comments,
+    SingleComment      = 116 | WhiteSpace | Comments,
+    MultiComment       = 117 | WhiteSpace | Comments,
+    HTMLComment        = 118 | WhiteSpace | Comments,
 
     /* WhiteSpace */
-    Space              = 115 | WhiteSpace,
-    Tab                = 116 | WhiteSpace,
-    LineFeed           = 117 | WhiteSpace,
-    CarriageReturn     = 118 | WhiteSpace,
+    Space              = 119 | WhiteSpace,
+    Tab                = 120 | WhiteSpace,
+    LineFeed           = 121 | WhiteSpace,
+    CarriageReturn     = 122 | WhiteSpace,
 
     /* Numbers */
-    Hex                = 119 | NumericLiteral,
-    Decimal            = 120 | NumericLiteral,
-    Binary             = 121 | NumericLiteral,
-    Octal              = 122 | NumericLiteral,
-    Implicit           = 123 | NumericLiteral,
+    Hex                = 123 | NumericLiteral,
+    Decimal            = 124 | NumericLiteral,
+    Binary             = 125 | NumericLiteral,
+    Octal              = 126 | NumericLiteral,
+    Implicit           = 127 | NumericLiteral,
+    BigInt             = 128 | NumericLiteral,
+    
+    /* Enum */
+    EnumKeyword        = 129 | NumericLiteral,
 }
 
 // Note: this *must* be kept in sync with the enum's order.
@@ -225,6 +240,15 @@ const KeywordDescTable = [
     'extends', 'finally', 'for', 'function', 'if', 'import', 'new', 'return', 'super', 'switch',
     'this', 'throw', 'try', 'while', 'with',
 
+     /* Eval & arguments */
+     'arguments', 'eval',
+     
+     /* Decorators */
+     'at',
+ 
+     /* Private names or shebang comment start */
+     '#',
+ 
     /* Strict mode reserved words */
     'implements', 'interface', 'package', 'private', 'protected', 'public', 'static', 'yield',
 
@@ -238,7 +262,11 @@ const KeywordDescTable = [
     'space', 'tab', 'line feed', 'carrige return',
 
     /* WhiteSpace */
-    'number', 'number', 'number', 'number', 'number'
+    'hex', 'decimal', 'binary', 'octal', 'implicit', 'bigInt',
+
+    /* Enum */
+
+    'enum'
 ];
 
 /**
@@ -250,4 +278,68 @@ export function tokenDesc(token: Token): string {
     } else {
         throw new Error('unreachable');
     }
+}
+
+// Used `Object.create(null)` to avoid potential `Object.prototype`
+// interference.
+const descKeywordTable: {[key: string]: Token} = Object.create(null, {
+    this: {value: Token.ThisKeyword},
+    function: {value: Token.FunctionKeyword},
+    if: {value: Token.IfKeyword},
+    return: {value: Token.ReturnKeyword},
+    var: {value: Token.VarKeyword},
+    else: {value: Token.ElseKeyword},
+    for: {value: Token.ForKeyword},
+    new: {value: Token.NewKeyword},
+    in: {value: Token.InKeyword},
+    typeof: {value: Token.TypeofKeyword},
+    while: {value: Token.WhileKeyword},
+    case: {value: Token.CaseKeyword},
+    break: {value: Token.BreakKeyword},
+    try: {value: Token.TryKeyword},
+    catch: {value: Token.CatchKeyword},
+    delete: {value: Token.DeleteKeyword},
+    throw: {value: Token.ThrowKeyword},
+    switch: {value: Token.SwitchKeyword},
+    continue: {value: Token.ContinueKeyword},
+    default: {value: Token.DefaultKeyword},
+    instanceof: {value: Token.InstanceofKeyword},
+    do: {value: Token.DoKeyword},
+    void: {value: Token.VoidKeyword},
+    finally: {value: Token.FinallyKeyword},
+    arguments: {value: Token.Arguments},
+    async: {value: Token.AsyncKeyword},
+    await: {value: Token.AwaitKeyword},
+    class: {value: Token.ClassKeyword},
+    const: {value: Token.ConstKeyword},
+    constructor: {value: Token.ConstructorKeyword},
+    debugger: {value: Token.DebuggerKeyword},
+    enum: {value: Token.EnumKeyword},
+    eval: {value: Token.Eval},
+    export: {value: Token.ExportKeyword},
+    extends: {value: Token.ExtendsKeyword},
+    false: {value: Token.FalseKeyword},
+    from: {value: Token.FromKeyword},
+    get: {value: Token.GetKeyword},
+    implements: {value: Token.ImplementsKeyword},
+    import: {value: Token.ImportKeyword},
+    interface: {value: Token.InterfaceKeyword},
+    let: {value: Token.LetKeyword},
+    null: {value: Token.NullKeyword},
+    of: {value: Token.OfKeyword},
+    package: {value: Token.PackageKeyword},
+    private: {value: Token.PrivateKeyword},
+    protected: {value: Token.ProtectedKeyword},
+    public: {value: Token.PublicKeyword},
+    set: {value: Token.SetKeyword},
+    static: {value: Token.StaticKeyword},
+    super: {value: Token.SuperKeyword},
+    true: {value: Token.TrueKeyword},
+    with: {value: Token.WithKeyword},
+    yield: {value: Token.YieldKeyword},
+    as: {value: Token.AsKeyword},
+ });
+
+export function descKeyword(value: string): Token {
+    return (descKeywordTable[value] | 0) as Token;
 }
