@@ -1,4 +1,3 @@
-import { Identifier } from './estree';
 /**
  * https://tc39.github.io/ecma262/#sec-ecmascript-language-source-code
  */
