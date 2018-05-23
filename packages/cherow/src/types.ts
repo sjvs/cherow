@@ -11,6 +11,8 @@ export interface Parser {
     line: number;
     column: number;
     token: Token;
+    lastToken: Token;
+    nextToken: Token;
     tokenValue: any;
     tokenRaw: string;
     tokens: any[];

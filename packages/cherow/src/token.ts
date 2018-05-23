@@ -45,7 +45,7 @@ export const enum Token {
 
     /* Template nodes */
     TemplateHead  = 4 | Template,
-    TemplateBody  = 5 | Template,
+    TemplateSpan  = 5 | Template,
     TemplateTail  = 6 | Template,
 
     /* Punctuators */

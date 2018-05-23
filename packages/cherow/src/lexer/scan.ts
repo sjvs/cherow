@@ -24,7 +24,7 @@ table[Chars.LineSeparator] =
     table[Chars.CarriageReturn] = (parser: Parser, context: Context, first: number) => {
         advanceNewline(parser, first);
         parser.flags |= Flags.NewLine;
-        return Token.WhiteSpace; // TODO: LineTerminators?
+        return Token.WhiteSpace;
     };
 
 /** Punctuators */
@@ -376,7 +376,6 @@ export function scan(parser: Parser, context: Context): Token {
         } else {
             parser.index++;
             parser.column++;
-            
             const token = table[first](parser, context, first);
             if ((token & Token.WhiteSpace) === Token.WhiteSpace) continue;
             if (context & Context.OptionsTokenize) parser.tokens.push(token);
