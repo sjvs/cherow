@@ -1,6 +1,6 @@
 import { Parser } from '../types';
 import * as ESTree from '../estree';
-import { Context } from '../common';
+import { Context, ModifierState } from '../common';
 /**
  * Expression :
  *   AssignmentExpression
@@ -29,7 +29,15 @@ export declare function parseAssignmentExpression(parser: Parser, context: Conte
 export declare function parseLeftHandSideExpression(parser: Parser, context: Context): any;
 export declare function parsePrimaryExpression(parser: Parser, context: Context): any;
 export declare function parseIdentifier(parser: Parser, context: Context): ESTree.Identifier;
-export declare function parseFunctionExpression(parser: Parser, context: Context): any;
+/**
+ * Parses function expression
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-FunctionExpression)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export declare function parseFunctionExpression(parser: Parser, context: Context, state?: ModifierState): ESTree.FunctionExpression;
 /**
  * Parse property name
  *

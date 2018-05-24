@@ -37,7 +37,7 @@ export const enum Token {
     IsKeyword = Token.Identifier | Token.Reserved | Token.FutureReserved | Token.Contextual,
 
     /* Node types */
-    EndOfSource = 0, // Pseudo
+    EndOfSource = 0 | ASI, // Pseudo
 
     /* Booleans */
     FalseKeyword      = 1 | Reserved,
@@ -57,9 +57,9 @@ export const enum Token {
     LeftBrace    = 9  | Punctuators, // {
     Period       = 10 | Punctuators, // .
     Ellipsis     = 11 | Punctuators, // ...
-    RightBrace   = 12 | Punctuators, // }
+    RightBrace   = 12 | Punctuators | ASI, // }
     RightParen   = 13 | Punctuators, // )
-    Semicolon    = 14 | Punctuators, // ;
+    Semicolon    = 14 | Punctuators | ASI, // ;
     Comma        = 15 | Punctuators, // ,
     LeftBracket  = 16 | Punctuators, // [
     RightBracket = 17 | Punctuators, // ]

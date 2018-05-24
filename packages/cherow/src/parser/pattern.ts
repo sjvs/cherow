@@ -1,7 +1,7 @@
 import { Parser } from '../types';
 import { Token } from '../token';
 import * as ESTree from '../estree';
-import { Errors, recordErrors, } from '.    ./errors';
+import { Errors, recordErrors, } from '../errors';
 import { parseAssignmentExpression, parsePropertyName } from './expressions';
 import {
     Context,

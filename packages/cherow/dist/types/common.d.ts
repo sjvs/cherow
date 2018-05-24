@@ -15,6 +15,7 @@ export declare const enum Context {
     Template = 1024,
     In = 2048,
     Statement = 4096,
+    Asi = 8192,
 }
 export declare const enum Flags {
     Empty = 0,
@@ -52,9 +53,41 @@ export declare const enum ModifierState {
     Generator = 1,
     Await = 2,
     Arrow = 4,
+    Async = 4,
 }
 export declare function setContext(context: Context, mask: Context): Context;
-export declare function swapContext(context: Context, state: ModifierState, isArrow?: boolean): Context;
+export declare function swapContext(context: Context, state: ModifierState): Context;
 export declare function nextToken(parser: Parser, context: Context): Token;
 export declare function expect(parser: Parser, context: Context, token: Token): boolean;
 export declare function consume(parser: Parser, context: Context, token: Token): boolean;
+/**
+ * Automatic Semicolon Insertion
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#sec-automatic-semicolon-insertion)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+export declare function consumeSemicolon(parser: Parser, context: Context): void | boolean;
+/**
+* Does a lookahead.
+*
+* @param parser Parser object
+* @param context  Context masks
+* @param callback Callback function to be invoked
+*/
+export declare function lookahead<T>(parser: Parser, context: Context, callback: (parser: Parser, context: Context) => T): T;
+/**
+* Validates if the next token in the stream is left parenthesis.
+*
+* @param parser Parser object
+* @param context  Context masks
+*/
+export declare function nextTokenIsLeftParen(parser: Parser, context: Context): boolean;
+/**
+* Validates if the next token in the stream is arrow
+*
+* @param parser Parser object
+* @param context  Context masks
+*/
+export declare function nextTokenIsArrow(parser: Parser, context: Context): boolean;

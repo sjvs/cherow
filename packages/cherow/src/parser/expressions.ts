@@ -1,3 +1,4 @@
+import { AssignmentProperty } from './../estree';
 import { Parser } from '../types';
 import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
@@ -13,7 +14,10 @@ import {
     swapContext,
     consume,
     expect,
-    nextToken
+    nextToken,
+    nextTokenIsLeftParen,
+    lookahead,
+    nextTokenIsArrow
 } from '../common';
 
 
@@ -32,14 +36,38 @@ import {
  * @param context Context masks
  */
 export function parseExpression(parser: Parser, context: Context): ESTree.Expression {
-    const expr = parseAssignmentExpression(parser, context);
-    while (parser.token === Token.Comma) {}
-    return expr;
+    const left = parseAssignmentExpression(parser, context);
+    if (parser.token !== Token.Comma) return left;
+    const expressions: ESTree.Expression[] = [left];
+    while (consume(parser, context, Token.Comma)) {
+        expressions.push(parseAssignmentExpression(parser, context));
+    }
+    return {
+        type: 'SequenceExpression',
+        expressions,
+    };
 }
 
 export function parseAssignmentExpression(parser: Parser, context: Context): any {
+    // AssignmentExpression ::
+    //   ConditionalExpression
+    //   ArrowFunction
+    //   YieldExpression
+    //   LeftHandSideExpression AssignmentOperator AssignmentExpression
+    const { token } = parser;
+    const isAsync = parser.token === Token.AsyncKeyword && /*(parser.flags & Flags.NewLine) !== Flags.NewLine && */
+        lookahead(parser, context, nextTokenIsLeftParen);
     let isParenthesized = parser.token === Token.LeftParen;
-    const expr = parseConditionalExpression(parser, context);
+    let expr: any = parseConditionalExpression(parser, context);
+    console.log(isAsync)
+    if (isAsync && (parser.token & Token.Identifier) === Token.Identifier && lookahead(parser, context, nextTokenIsArrow)) {
+        consume(parser, context, Token.AsyncKeyword)
+        expr = parseIdentifier(parser, context);
+    }
+
+    if (parser.token === Token.Arrow) {
+        return parseArrowFunction(parser, context, isAsync ? ModifierState.Async : ModifierState.None, expr);
+    }
     if ((parser.flags & Flags.IsAssignable) === Flags.IsAssignable &&
         (parser.token & Token.IsAssignOp) === Token.IsAssignOp) {
         // TODO
@@ -204,12 +232,20 @@ function parseUpdateExpression(parser: Parser, context: Context): any {
 export function parseLeftHandSideExpression(parser: Parser, context: Context): any {
      // LeftHandSideExpression ::
      //   (NewExpression | MemberExpression) ...
-    const expr = parsePrimaryExpression(parser, context | Context.In);
-    
+    let expr: any = parsePrimaryExpression(parser, context | Context.In);
     while (true) {
         switch (parser.token) {
             case Token.LeftBracket: break;
-            case Token.LeftParen: break;
+            case Token.LeftParen: {
+                const args = parseArgumentList(parser, context);
+                if (parser.token === Token.Arrow) return args;
+                expr = {
+                    type: 'CallExpression',
+                    callee: expr,
+                    arguments: args,
+                };
+                break;
+            }
             case Token.Period: break;
             case Token.TemplateSpan: break;
             case Token.TemplateTail: break;
@@ -218,10 +254,47 @@ export function parseLeftHandSideExpression(parser: Parser, context: Context): a
     }
 }
 
+/**
+ * Parse argument list
+ *
+ * @see [https://tc39.github.io/ecma262/#prod-ArgumentList)
+ *
+ * @param Parser Parser object
+ * @param Context Context masks
+ */
+function parseArgumentList(parser: Parser, context: Context): (ESTree.Expression | ESTree.SpreadElement)[] {
+    // ArgumentList :
+    //   AssignmentOrSpreadExpression
+    //   ArgumentList , AssignmentOrSpreadExpression
+    //
+    // AssignmentOrSpreadExpression :
+    //   ... AssignmentExpression
+    //   AssignmentExpression
+    expect(parser, context, Token.LeftParen);
+    const expressions: (ESTree.Expression | ESTree.SpreadElement)[] = [];
+    while (parser.token !== Token.RightParen) {
+        if (parser.token === Token.Ellipsis) {
+            expressions.push(parseSpreadElement(parser, context));
+        } else {
+            expressions.push(parseAssignmentExpression(parser, context | Context.In));
+        }
+
+        if (parser.token !== Token.RightParen) expect(parser, context, Token.Comma);
+    }
+
+    expect(parser, context, Token.RightParen);
+    return expressions;
+}
+
 export function parsePrimaryExpression(parser: Parser, context: Context): any {
     switch (parser.token) {
         case Token.FunctionKeyword: 
             return parseFunctionExpression(parser, context & ~Context.Async);
+            case Token.LeftParen:
+            return parseParenthesizedExpression(parser, context, ModifierState.None);
+        case Token.LeftBracket:
+            return parseArrayLiteral(parser, context);
+        case Token.AsyncKeyword:
         case Token.Identifier:
             return parseIdentifier(parser, context);
         default:    nextToken(parser, context);
@@ -238,6 +311,142 @@ export function parseIdentifier(parser: Parser, context: Context): ESTree.Identi
 }
 
 /**
+ * Parse arrow function
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ArrowFunction)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+function parseArrowFunction(
+    parser: Parser, 
+    context: Context, 
+    state: ModifierState, 
+    params: any[]): ESTree.ArrowFunctionExpression  {
+    expect(parser, context, Token.Arrow);
+    context = swapContext(context, state);
+    let body: any;
+    const expression = parser.token !== Token.LeftBrace;
+    if (!expression) {
+        body = parseFunctionBody(parser, context);
+    } else {
+        body = parseAssignmentExpression(parser, context);
+    }
+
+    return {
+        type: 'ArrowFunctionExpression',
+        body,
+        params,
+        id: null,
+        async: !!(state & ModifierState.Async),
+        generator: false,
+        expression,
+    };
+}
+
+/**
+ * Parses cover parenthesized expression and arrow parameter list
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-parseCoverParenthesizedExpressionAndArrowParameterList)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+function parseParenthesizedExpression(parser: Parser, context: Context, state: ModifierState, id?: any): any {
+    expect(parser, context, Token.LeftParen);
+    if (consume(parser, context, Token.RightParen)) {
+        if (parser.token === Token.Arrow) {
+          //  return parseArrowFunction(parser, context, state, []);
+          return [];
+        } else if (state & ModifierState.Async) {
+            return {
+                type: 'CallExpression',
+                callee: id,
+                arguments: [],
+            };
+        }
+    }
+    const expr = parseExpression(parser, context);
+    expect(parser, context, Token.RightParen);
+    if (parser.token === Token.Arrow) {
+        return expr.type === 'SequenceExpression' ? expr.expressions : [expr];
+        // return parseArrowFunction(parser, context, state, params);
+    }
+    return expr;
+}
+
+/**
+ * Parse array literal
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ArrayLiteral)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+
+function parseArrayLiteral(parser: Parser, context: Context): ESTree.ArrayExpression {
+    // ArrayLiteral :
+    //   [ Elisionopt ]
+    //   [ ElementList ]
+    //   [ ElementList , Elisionopt ]
+    //
+    // ElementList :
+    //   Elisionopt AssignmentExpression
+    //   Elisionopt ... AssignmentExpression
+    //   ElementList , Elisionopt AssignmentExpression
+    //   ElementList , Elisionopt SpreadElement
+    //
+    // Elision :
+    //   ,
+    //   Elision ,
+    //
+    // SpreadElement :
+    //   ... AssignmentExpression
+    //
+    //
+    expect(parser, context, Token.LeftBracket);
+    context = setContext(context, Context.In | Context.Asi);
+    const elements: (ESTree.Expression | ESTree.SpreadElement | null)[] = [];
+    while (parser.token !== Token.RightBracket) {
+        if (consume(parser, context, Token.Comma)) {
+            elements.push(null);
+        } else if (parser.token === Token.Ellipsis) {
+            elements.push(parseSpreadElement(parser, context));
+            if (parser.token !== Token.RightBracket) {
+                expect(parser, context, Token.Comma);
+            }
+        } else {
+           elements.push(parseAssignmentExpression(parser, context | Context.In));
+           if (parser.token !== Token.RightBracket) expect(parser, context, Token.Comma);
+        }
+    }
+
+    expect(parser, context, Token.RightBracket);
+
+    return {
+        type: 'ArrayExpression',
+        elements,
+    };
+}
+
+/**
+ * Parse spread element
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-SpreadElement)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+function parseSpreadElement(parser: Parser, context: Context): ESTree.SpreadElement {
+    expect(parser, context, Token.Ellipsis);
+    const argument = parseAssignmentExpression(parser, context | Context.In);
+    return {
+        type: 'SpreadElement',
+        argument,
+    };
+}
+
+/**
  * Parses function expression
  *
  * @see [Link](https://tc39.github.io/ecma262/#prod-FunctionExpression)
@@ -245,21 +454,25 @@ export function parseIdentifier(parser: Parser, context: Context): ESTree.Identi
  * @param parser  Parser object
  * @param context Context masks
  */
-export function parseFunctionExpression(parser: Parser, context: Context): ESTree.FunctionExpression {
+export function parseFunctionExpression(
+    parser: Parser, 
+    context: Context, 
+    state: ModifierState = ModifierState.None
+): ESTree.FunctionExpression {
     expect(parser, context, Token.FunctionKeyword);
     const isGenerator = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
     let id: ESTree.Identifier | null = null;
     if (parser.token & Token.IsKeyword) {
         id = parseBindingIdentifier(parser, context);
     }
-    context = swapContext(context, isGenerator);
+    context = swapContext(context, state | isGenerator);
     const { params, body } = parseFormalListAndBody(parser, context);
     expect(parser, context, Token.RightBrace);
     return {
         type: 'FunctionExpression',
         body,
         params,
-        async: false,
+        async: !!(state & ModifierState.Async),
         generator: !!(isGenerator & ModifierState.Generator),
         expression: false,
         id

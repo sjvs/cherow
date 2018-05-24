@@ -2,6 +2,15 @@ import { Parser } from '../types';
 import * as ESTree from '../estree';
 import { Context, BindingType, BindingOrigin } from '../common';
 /**
+ * Parse binding identifier
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-BindingIdentifier)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export declare function parseBindingIdentifier(parser: Parser, context: Context, kind?: 'let' | 'const' | 'var'): ESTree.Identifier;
+/**
  * Parses either a binding identifier or binding pattern
  *
  * @param parser  Parser object
@@ -29,15 +38,6 @@ export declare function parseAssignmentPattern(parser: Parser, context: Context,
  * @param context Context masks
  */
 export declare function parseBindingInitializer(parser: Parser, context: Context, type: BindingType): any;
-/**
- * Parse binding identifier
- *
- * @see [Link](https://tc39.github.io/ecma262/#prod-BindingIdentifier)
- *
- * @param parser  Parser object
- * @param context Context masks
- */
-export declare function parseBindingIdentifier(parser: Parser, context: Context): ESTree.Identifier;
 /**
  * Parses bindings
  *

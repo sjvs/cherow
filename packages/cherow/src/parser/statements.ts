@@ -1,4 +1,4 @@
-import { Context, nextToken } from '../common';
+import { Context, nextToken, consumeSemicolon } from '../common';
 import { Parser } from '../types';
 import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
@@ -44,6 +44,8 @@ export function parseStatement(parser: Parser, context: Context): ESTree.Stateme
 export function parseExpressionOrLabelledStatement(parser: Parser, context: Context): any {
 
     const expr: ESTree.Expression = parseExpression(parser, context);
+
+    consumeSemicolon(parser, context);
     return {
     type: 'ExpressionStatement',
     expression: expr

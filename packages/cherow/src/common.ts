@@ -1,5 +1,5 @@
 import { scan } from './lexer/scan';
-import { Token } from './token';
+import { Token, tokenDesc } from './token';
 import { Parser } from './types';
 import { Errors, recordErrors, } from './errors';
 
@@ -20,6 +20,7 @@ export const enum Context {
     Template        = 1 << 10,
     In              = 1 << 11,
     Statement       = 1 << 12,
+    Asi       = 1 << 13,
 }
 
 /* Mutual parser flags */
@@ -66,19 +67,20 @@ export const enum ModifierState {
     Generator = 1 << 0,
     Await = 1 << 1,
     Arrow = 1 << 2,
+    Async = 1 << 2,
 }
 
 export function setContext(context: Context, mask: Context): Context {
     return (context | context) ^ mask;
 }
 
-export function swapContext(context: Context, state: ModifierState, isArrow: boolean = false): Context {
+export function swapContext(context: Context, state: ModifierState): Context {
     context = setContext(context, Context.Yield);
     context = setContext(context, Context.Async);
     context = setContext(context, Context.InParameter);
     if (state & ModifierState.Generator) context = context | Context.Yield;
     if (state & ModifierState.Generator) context = context | Context.Async;
-    if (!isArrow) context = context | Context.NewTarget;
+    if (!(state & ModifierState.Async)) context = context | Context.NewTarget;
     return context;
 }
 
@@ -96,3 +98,78 @@ export function consume(parser: Parser, context: Context, token: Token): boolean
     nextToken(parser, context);
     return true;
 }
+
+
+/**
+ * Automatic Semicolon Insertion
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#sec-automatic-semicolon-insertion)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+export function consumeSemicolon(parser: Parser, context: Context): void | boolean {
+    return (parser.token & Token.ASI) === Token.ASI || parser.flags & Flags.NewLine
+      ? consume(parser, context, Token.Semicolon)
+      : recordErrors(parser, Errors.Unexpected);
+  }
+
+  /**
+ * Does a lookahead.
+ *
+ * @param parser Parser object
+ * @param context  Context masks
+ * @param callback Callback function to be invoked
+ */
+export function lookahead<T>(parser: Parser, context: Context, callback: (parser: Parser, context: Context) => T): T {
+    const {
+      tokenValue,
+      flags,
+      line,
+      column,
+      index,
+      startIndex,
+      tokenRaw,
+      token,
+      tokenRegExp,
+    } = parser;
+    const res = callback(parser, context);
+    parser.index = index;
+    parser.token = token;
+    parser.tokenValue = tokenValue;
+    parser.tokenValue = tokenValue;
+    parser.flags = flags;
+    parser.line = line;
+    parser.column = column;
+    parser.tokenRaw = tokenRaw;
+    parser.startIndex = startIndex;
+    parser.tokenRegExp = tokenRegExp;
+    parser.tokenRegExp = tokenRegExp;
+  
+    return res;
+  }
+
+  /**
+ * Validates if the next token in the stream is left parenthesis.
+ *
+ * @param parser Parser object
+ * @param context  Context masks
+ */
+export function nextTokenIsLeftParen(parser: Parser, context: Context): boolean {
+    nextToken(parser, context);
+
+    return (parser.token & Token.Identifier) === Token.Identifier || 
+            parser.token === Token.IsKeyword ||
+            parser.token === Token.LeftParen;
+  }
+
+    /**
+ * Validates if the next token in the stream is arrow
+ *
+ * @param parser Parser object
+ * @param context  Context masks
+ */
+export function nextTokenIsArrow(parser: Parser, context: Context): boolean {
+    nextToken(parser, context);
+    return parser.token === Token.Arrow;
+  }

@@ -1094,7 +1094,7 @@
     function setContext(context, mask) {
         return (context | context) ^ mask;
     }
-    function swapContext(context, state, isArrow = false) {
+    function swapContext(context, state) {
         context = setContext(context, 128 /* Yield */);
         context = setContext(context, 64 /* Async */);
         context = setContext(context, 256 /* InParameter */);
@@ -1102,7 +1102,7 @@
             context = context | 128 /* Yield */;
         if (state & 1 /* Generator */)
             context = context | 64 /* Async */;
-        if (!isArrow)
+        if (!(state & 4 /* Async */))
             context = context | 512 /* NewTarget */;
         return context;
     }
@@ -1121,7 +1121,98 @@
         nextToken(parser, context);
         return true;
     }
+    /**
+     * Automatic Semicolon Insertion
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#sec-automatic-semicolon-insertion)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function consumeSemicolon(parser, context) {
+        return (parser.token & 131072 /* ASI */) === 131072 /* ASI */ || parser.flags & 1 /* NewLine */
+            ? consume(parser, context, 33685518 /* Semicolon */)
+            : recordErrors(parser, 0 /* Unexpected */);
+    }
+    /**
+    * Does a lookahead.
+    *
+    * @param parser Parser object
+    * @param context  Context masks
+    * @param callback Callback function to be invoked
+    */
+    function lookahead(parser, context, callback) {
+        const { tokenValue, flags, line, column, index, startIndex, tokenRaw, token, tokenRegExp, } = parser;
+        const res = callback(parser, context);
+        parser.index = index;
+        parser.token = token;
+        parser.tokenValue = tokenValue;
+        parser.tokenValue = tokenValue;
+        parser.flags = flags;
+        parser.line = line;
+        parser.column = column;
+        parser.tokenRaw = tokenRaw;
+        parser.startIndex = startIndex;
+        parser.tokenRegExp = tokenRegExp;
+        parser.tokenRegExp = tokenRegExp;
+        return res;
+    }
+    /**
+    * Validates if the next token in the stream is left parenthesis.
+    *
+    * @param parser Parser object
+    * @param context  Context masks
+    */
+    function nextTokenIsLeftParen(parser, context) {
+        nextToken(parser, context);
+        return (parser.token & 8388608 /* Identifier */) === 8388608 /* Identifier */ ||
+            parser.token === 8417280 /* IsKeyword */ ||
+            parser.token === 33554440 /* LeftParen */;
+    }
+    /**
+    * Validates if the next token in the stream is arrow
+    *
+    * @param parser Parser object
+    * @param context  Context masks
+    */
+    function nextTokenIsArrow(parser, context) {
+        nextToken(parser, context);
+        return parser.token === 33554439 /* Arrow */;
+    }
 
+    /**
+     * Parse binding identifier
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-BindingIdentifier)
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
+    function parseBindingIdentifier(parser, context, kind = 'var') {
+        const { token: t } = parser;
+        if (context & 16 /* Strict */) {
+            if ((t & 16384 /* FutureReserved */) === 16384 /* FutureReserved */)
+                recordErrors(parser, 0 /* Unexpected */);
+            if (t === 8388705 /* Eval */ || t === 8388704 /* Arguments */)
+                recordErrors(parser, 0 /* Unexpected */);
+            if (t === 16491 /* YieldKeyword */)
+                recordErrors(parser, 0 /* Unexpected */);
+        }
+        // Reserved 
+        if ((t & 8192 /* Reserved */) === 8192 /* Reserved */)
+            recordErrors(parser, 0 /* Unexpected */);
+        if (t === 536875118 /* AwaitKeyword */ && context & (16 /* Strict */ | 64 /* Async */)) {
+            recordErrors(parser, 0 /* Unexpected */);
+        }
+        if (t === 8388705 /* Eval */ || t === 8388704 /* Arguments */ && kind === 'let' || kind === 'const')
+            recordErrors(parser, 0 /* Unexpected */);
+        const name = parser.tokenValue;
+        nextToken(parser, context);
+        return {
+            type: 'Identifier',
+            name
+        };
+    }
     /**
      * Parses either a binding identifier or binding pattern
      *
@@ -1228,22 +1319,6 @@
         };
     }
     /**
-     * Parse binding identifier
-     *
-     * @see [Link](https://tc39.github.io/ecma262/#prod-BindingIdentifier)
-     *
-     * @param parser  Parser object
-     * @param context Context masks
-     */
-    function parseBindingIdentifier(parser, context) {
-        const name = parser.tokenValue;
-        nextToken(parser, context);
-        return {
-            type: 'Identifier',
-            name
-        };
-    }
-    /**
      * Parse rest property
      *
      * @see [Link](https://tc39.github.io/ecma262/#prod-AssignmentRestProperty)
@@ -1269,16 +1344,16 @@
     function parserObjectAssignmentPattern(parser, context, type) {
         const properties = [];
         expect(parser, context, 33554441 /* LeftBrace */);
-        while (parser.token !== 33554444 /* RightBrace */) {
+        while (parser.token !== 33685516 /* RightBrace */) {
             if (parser.token === 33554443 /* Ellipsis */) {
                 properties.push(parseAssignmentRestProperty(parser, context));
                 break;
             }
             properties.push(parseAssignmentProperty(parser, context, type));
-            if (parser.token !== 33554444 /* RightBrace */)
+            if (parser.token !== 33685516 /* RightBrace */)
                 expect(parser, context, 33554447 /* Comma */);
         }
-        expect(parser, context, 33554444 /* RightBrace */);
+        expect(parser, context, 33685516 /* RightBrace */);
         return {
             type: 'ObjectPattern',
             properties,
@@ -1401,13 +1476,31 @@
      * @param context Context masks
      */
     function parseExpression(parser, context) {
-        const expr = parseAssignmentExpression(parser, context);
-        while (parser.token === 33554447 /* Comma */) { }
-        return expr;
+        const left = parseAssignmentExpression(parser, context);
+        if (parser.token !== 33554447 /* Comma */)
+            return left;
+        const expressions = [left];
+        while (consume(parser, context, 33554447 /* Comma */)) {
+            expressions.push(parseAssignmentExpression(parser, context));
+        }
+        return {
+            type: 'SequenceExpression',
+            expressions,
+        };
     }
     function parseAssignmentExpression(parser, context) {
+        const isAsync = parser.token === 4205 /* AsyncKeyword */ && /*(parser.flags & Flags.NewLine) !== Flags.NewLine && */
+            lookahead(parser, context, nextTokenIsLeftParen);
         let isParenthesized = parser.token === 33554440 /* LeftParen */;
-        const expr = parseConditionalExpression(parser, context);
+        let expr = parseConditionalExpression(parser, context);
+        console.log(isAsync);
+        if (isAsync && (parser.token & 8388608 /* Identifier */) === 8388608 /* Identifier */ && lookahead(parser, context, nextTokenIsArrow)) {
+            consume(parser, context, 4205 /* AsyncKeyword */);
+            expr = parseIdentifier(parser, context);
+        }
+        if (parser.token === 33554439 /* Arrow */) {
+            return parseArrowFunction(parser, context, isAsync ? 4 /* Async */ : 0 /* None */, expr);
+        }
         if ((parser.flags & 4 /* IsAssignable */) === 4 /* IsAssignable */ &&
             (parser.token & 134217728 /* IsAssignOp */) === 134217728 /* IsAssignOp */) ;
         return expr;
@@ -1552,11 +1645,21 @@
     function parseLeftHandSideExpression(parser, context) {
         // LeftHandSideExpression ::
         //   (NewExpression | MemberExpression) ...
-        const expr = parsePrimaryExpression(parser, context | 2048 /* In */);
+        let expr = parsePrimaryExpression(parser, context | 2048 /* In */);
         while (true) {
             switch (parser.token) {
                 case 33554448 /* LeftBracket */: break;
-                case 33554440 /* LeftParen */: break;
+                case 33554440 /* LeftParen */: {
+                    const args = parseArgumentList(parser, context);
+                    if (parser.token === 33554439 /* Arrow */)
+                        return args;
+                    expr = {
+                        type: 'CallExpression',
+                        callee: expr,
+                        arguments: args,
+                    };
+                    break;
+                }
                 case 33554442 /* Period */: break;
                 case 67108869 /* TemplateSpan */: break;
                 case 67108870 /* TemplateTail */: break;
@@ -1564,10 +1667,46 @@
             }
         }
     }
+    /**
+     * Parse argument list
+     *
+     * @see [https://tc39.github.io/ecma262/#prod-ArgumentList)
+     *
+     * @param Parser Parser object
+     * @param Context Context masks
+     */
+    function parseArgumentList(parser, context) {
+        // ArgumentList :
+        //   AssignmentOrSpreadExpression
+        //   ArgumentList , AssignmentOrSpreadExpression
+        //
+        // AssignmentOrSpreadExpression :
+        //   ... AssignmentExpression
+        //   AssignmentExpression
+        expect(parser, context, 33554440 /* LeftParen */);
+        const expressions = [];
+        while (parser.token !== 33554445 /* RightParen */) {
+            if (parser.token === 33554443 /* Ellipsis */) {
+                expressions.push(parseSpreadElement(parser, context));
+            }
+            else {
+                expressions.push(parseAssignmentExpression(parser, context | 2048 /* In */));
+            }
+            if (parser.token !== 33554445 /* RightParen */)
+                expect(parser, context, 33554447 /* Comma */);
+        }
+        expect(parser, context, 33554445 /* RightParen */);
+        return expressions;
+    }
     function parsePrimaryExpression(parser, context) {
         switch (parser.token) {
             case 8276 /* FunctionKeyword */:
                 return parseFunctionExpression(parser, context & ~64 /* Async */);
+            case 33554440 /* LeftParen */:
+                return parseParenthesizedExpression(parser, context, 0 /* None */);
+            case 33554448 /* LeftBracket */:
+                return parseArrayLiteral(parser, context);
+            case 4205 /* AsyncKeyword */:
             case 8388608 /* Identifier */:
                 return parseIdentifier(parser, context);
             default: nextToken(parser, context);
@@ -1581,38 +1720,201 @@
             name: tokenValue
         };
     }
-    function parseFunctionExpression(parser, context) {
+    /**
+     * Parse arrow function
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-ArrowFunction)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function parseArrowFunction(parser, context, state, params) {
+        expect(parser, context, 33554439 /* Arrow */);
+        context = swapContext(context, state);
+        let body;
+        const expression = parser.token !== 33554441 /* LeftBrace */;
+        if (!expression) {
+            body = parseFunctionBody(parser, context);
+        }
+        else {
+            body = parseAssignmentExpression(parser, context);
+        }
+        return {
+            type: 'ArrowFunctionExpression',
+            body,
+            params,
+            id: null,
+            async: !!(state & 4 /* Async */),
+            generator: false,
+            expression,
+        };
+    }
+    /**
+     * Parses cover parenthesized expression and arrow parameter list
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-parseCoverParenthesizedExpressionAndArrowParameterList)
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
+    function parseParenthesizedExpression(parser, context, state, id) {
+        expect(parser, context, 33554440 /* LeftParen */);
+        if (consume(parser, context, 33554445 /* RightParen */)) {
+            if (parser.token === 33554439 /* Arrow */) {
+                //  return parseArrowFunction(parser, context, state, []);
+                return [];
+            }
+            else if (state & 4 /* Async */) {
+                return {
+                    type: 'CallExpression',
+                    callee: id,
+                    arguments: [],
+                };
+            }
+        }
+        const expr = parseExpression(parser, context);
+        expect(parser, context, 33554445 /* RightParen */);
+        if (parser.token === 33554439 /* Arrow */) {
+            return expr.type === 'SequenceExpression' ? expr.expressions : [expr];
+            // return parseArrowFunction(parser, context, state, params);
+        }
+        return expr;
+    }
+    /**
+     * Parse array literal
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-ArrayLiteral)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function parseArrayLiteral(parser, context) {
+        // ArrayLiteral :
+        //   [ Elisionopt ]
+        //   [ ElementList ]
+        //   [ ElementList , Elisionopt ]
+        //
+        // ElementList :
+        //   Elisionopt AssignmentExpression
+        //   Elisionopt ... AssignmentExpression
+        //   ElementList , Elisionopt AssignmentExpression
+        //   ElementList , Elisionopt SpreadElement
+        //
+        // Elision :
+        //   ,
+        //   Elision ,
+        //
+        // SpreadElement :
+        //   ... AssignmentExpression
+        //
+        //
+        expect(parser, context, 33554448 /* LeftBracket */);
+        context = setContext(context, 2048 /* In */ | 8192 /* Asi */);
+        const elements = [];
+        while (parser.token !== 33554449 /* RightBracket */) {
+            if (consume(parser, context, 33554447 /* Comma */)) {
+                elements.push(null);
+            }
+            else if (parser.token === 33554443 /* Ellipsis */) {
+                elements.push(parseSpreadElement(parser, context));
+                if (parser.token !== 33554449 /* RightBracket */) {
+                    expect(parser, context, 33554447 /* Comma */);
+                }
+            }
+            else {
+                elements.push(parseAssignmentExpression(parser, context | 2048 /* In */));
+                if (parser.token !== 33554449 /* RightBracket */)
+                    expect(parser, context, 33554447 /* Comma */);
+            }
+        }
+        expect(parser, context, 33554449 /* RightBracket */);
+        return {
+            type: 'ArrayExpression',
+            elements,
+        };
+    }
+    /**
+     * Parse spread element
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-SpreadElement)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function parseSpreadElement(parser, context) {
+        expect(parser, context, 33554443 /* Ellipsis */);
+        const argument = parseAssignmentExpression(parser, context | 2048 /* In */);
+        return {
+            type: 'SpreadElement',
+            argument,
+        };
+    }
+    /**
+     * Parses function expression
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-FunctionExpression)
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
+    function parseFunctionExpression(parser, context, state = 0 /* None */) {
         expect(parser, context, 8276 /* FunctionKeyword */);
         const isGenerator = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ : 0 /* None */;
-        context = swapContext(context, isGenerator);
-        const { args, body } = parseFormalListAndBody(parser, context);
-        expect(parser, context, 33554444 /* RightBrace */);
+        let id = null;
+        if (parser.token & 8417280 /* IsKeyword */) {
+            id = parseBindingIdentifier(parser, context);
+        }
+        context = swapContext(context, state | isGenerator);
+        const { params, body } = parseFormalListAndBody(parser, context);
+        expect(parser, context, 33685516 /* RightBrace */);
         return {
             type: 'FunctionExpression',
             body,
-            args
+            params,
+            async: !!(state & 4 /* Async */),
+            generator: !!(isGenerator & 1 /* Generator */),
+            expression: false,
+            id
         };
     }
+    /**
+     * Parses formal parameters and function body.
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-FunctionBody)
+     * @see [Link](https://tc39.github.io/ecma262/#prod-FormalParameters)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
     function parseFormalListAndBody(parser, context) {
-        const args = parseFormalParameters(parser, context);
+        const params = parseFormalParameters(parser, context);
         const body = parseFunctionBody(parser, context);
-        return { args, body };
+        return { params, body };
     }
+    /**
+     * Parse formal parameters
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-FormalParameters)
+     *
+     * @param Parser object
+     * @param Context masks
+     * @param Optional objectstate. Default to none
+     */
     function parseFormalParameters(parser, context) {
         context = context | 256 /* InParameter */;
         expect(parser, context, 33554440 /* LeftParen */);
         const args = [];
-        parseBinding(parser, /* binding type */ context, 1 /* Args */, /* binding origin */ 2 /* FunctionArgs */, args);
+        parseBinding(parser, context, 1 /* Args */, 2 /* FunctionArgs */, args);
         expect(parser, context, 33554445 /* RightParen */);
         return args;
     }
     function parseFunctionBody(parser, context) {
         const body = [];
         expect(parser, context, 33554441 /* LeftBrace */);
-        while (parser.token !== 33554444 /* RightBrace */) {
+        while (parser.token !== 33685516 /* RightBrace */) {
             body.push(parseStatementListItem(parser, context));
         }
-        expect(parser, context, 33554444 /* RightBrace */);
+        expect(parser, context, 33685516 /* RightBrace */);
         return {
             type: 'BlockStatement',
             body,
@@ -1641,7 +1943,7 @@
     function parseStatementList(parser, context) {
         nextToken(parser, context);
         let body = [];
-        while (parser.token !== 0 /* EndOfSource */) {
+        while (parser.token !== 131072 /* EndOfSource */) {
             body.push(parseStatementListItem(parser, context));
         }
         return body;
@@ -1674,6 +1976,7 @@
      */
     function parseExpressionOrLabelledStatement(parser, context) {
         const expr = parseExpression(parser, context);
+        consumeSemicolon(parser, context);
         return {
             type: 'ExpressionStatement',
             expression: expr
