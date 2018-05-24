@@ -1,111 +1,3 @@
-/*@internal*/
-const errorMessages = {
-    [0 /* Unexpected */]: 'Unexpected token',
-    [2 /* UnterminatedString */]: 'Unterminated string literal',
-    [3 /* StrictOctalEscape */]: 'Octal escapes are not allowed in strict mode',
-    [4 /* InvalidEightAndNine */]: 'Escapes \\8 or \\9 are not syntactically valid escapes',
-    [5 /* ContinuousNumericSeparator */]: 'Only one underscore is allowed as numeric separator',
-    [6 /* TrailingNumericSeparator */]: 'Numeric separators are not allowed at the end of numeric literals',
-    [7 /* ZeroDigitNumericSeparator */]: 'Numeric separator can not be used after leading 0.',
-    [1 /* InvalidOrUnexpectedToken */]: 'Invalid or unexpected token',
-};
-function constructError(index, line, column, description) {
-    const error = new SyntaxError(`Line ${line}, column ${column}: ${description}`);
-    error.index = index;
-    error.line = line;
-    error.column = column;
-    error.description = description;
-    return error;
-}
-function recordErrors(parser, type, ...params) {
-    const { index, line, column } = parser;
-    const message = errorMessages[type].replace(/%(\d+)/g, (_, i) => params[i]);
-    const error = constructError(index, line, column, message);
-    if (parser.onError)
-        parser.onError(message, line, column);
-    //throw error;
-}
-
-function consumeOpt(parser, code) {
-    if (parser.source.charCodeAt(parser.index) !== code)
-        return false;
-    parser.index++;
-    parser.column++;
-    return true;
-}
-/**
-* Advance to new line
-*
-* @param parser Parser object
-*/
-function advanceNewline(parser, ch) {
-    parser.column = 0;
-    parser.line++;
-    if (parser.index < parser.length && ch === 13 /* CarriageReturn */ &&
-        parser.source.charCodeAt(parser.index) === 10 /* LineFeed */) {
-        parser.index++;
-    }
-}
-function skipToNewline(parser) {
-    while (parser.index < parser.length) {
-        const ch = parser.source.charCodeAt(parser.index);
-        switch (ch) {
-            case 13 /* CarriageReturn */:
-            case 10 /* LineFeed */:
-            case 8232 /* LineSeparator */:
-            case 8233 /* ParagraphSeparator */:
-                parser.index++;
-                advanceNewline(parser, ch);
-                return true;
-            default:
-                parser.index++;
-                parser.column++;
-        }
-    }
-    return false;
-}
-function readNext(parser, ch) {
-    parser.index++;
-    parser.column++;
-    if (ch > 0xffff)
-        parser.index++;
-    if (parser.index >= parser.length)
-        recordErrors(parser, 0 /* Unexpected */);
-    return nextUnicodeChar(parser);
-}
-function nextUnicodeChar(parser) {
-    let { index } = parser;
-    const hi = parser.source.charCodeAt(index++);
-    if (hi < 0xd800 || hi > 0xdbff)
-        return hi;
-    if (index === parser.source.length)
-        return hi;
-    const lo = parser.source.charCodeAt(index);
-    if (lo < 0xdc00 || lo > 0xdfff)
-        return hi;
-    return (hi & 0x3ff) << 10 | lo & 0x3ff | 0x10000;
-}
-function toHex(code) {
-    if (code < 48 /* Zero */)
-        return -1;
-    if (code <= 57 /* Nine */)
-        return code - 48 /* Zero */;
-    if (code < 65 /* UpperA */)
-        return -1;
-    if (code <= 70 /* UpperF */)
-        return code - 65 /* UpperA */ + 10;
-    if (code < 97 /* LowerA */)
-        return -1;
-    if (code <= 102 /* LowerF */)
-        return code - 97 /* LowerA */ + 10;
-    return -1;
-}
-const fromCodePoint = (code) => {
-    return code <= 0xFFFF ?
-        String.fromCharCode(code) :
-        String.fromCharCode(((code - 65536 /* NonBMPMin */) >> 10) + 55296 /* LeadSurrogateMin */, ((code - 65536 /* NonBMPMin */) & (1024 - 1)) + 56320 /* TrailSurrogateMin */);
-};
-
 // Note: this *must* be kept in sync with the enum's order.
 //
 // It exploits the enum value ordering, and it's necessarily a complete and
@@ -226,6 +118,142 @@ const descKeywordTable = Object.create(null, {
 function descKeyword(value) {
     return (descKeywordTable[value] | 0);
 }
+
+/*@internal*/
+const errorMessages = {
+    [0 /* Unexpected */]: 'Unexpected token',
+    [2 /* UnterminatedString */]: 'Unterminated string literal',
+    [3 /* StrictOctalEscape */]: 'Octal escapes are not allowed in strict mode',
+    [4 /* InvalidEightAndNine */]: 'Escapes \\8 or \\9 are not syntactically valid escapes',
+    [5 /* ContinuousNumericSeparator */]: 'Only one underscore is allowed as numeric separator',
+    [6 /* TrailingNumericSeparator */]: 'Numeric separators are not allowed at the end of numeric literals',
+    [7 /* ZeroDigitNumericSeparator */]: 'Numeric separator can not be used after leading 0.',
+    [1 /* InvalidOrUnexpectedToken */]: 'Invalid or unexpected token',
+};
+function constructError(index, line, column, description) {
+    const error = new SyntaxError(`Line ${line}, column ${column}: ${description}`);
+    error.index = index;
+    error.line = line;
+    error.column = column;
+    error.description = description;
+    return error;
+}
+function recordErrors(parser, type, ...params) {
+    const { index, line, column } = parser;
+    const message = errorMessages[type].replace(/%(\d+)/g, (_, i) => params[i]);
+    const error = constructError(index, line, column, message);
+    if (parser.onError)
+        parser.onError(message, line, column);
+    //throw error;
+}
+
+/**
+ * VariableDeclaration :
+ *   BindingIdentifier Initializeropt
+ *   BindingPattern Initializer
+ *
+ * VariableDeclarationNoIn :
+ *   BindingIdentifier InitializerNoInopt
+ *   BindingPattern InitializerNoIn
+ *
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-VariableDeclaration)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+function parseVariableDeclaration(id, init) {
+    return {
+        type: 'VariableDeclarator',
+        init,
+        id,
+    };
+}
+function parseVariableDeclarationList(parser, context, type, origin) {
+    const list = [];
+    parseBinding(parser, context, type, origin, list);
+    return list;
+}
+
+function consumeOpt(parser, code) {
+    if (parser.source.charCodeAt(parser.index) !== code)
+        return false;
+    parser.index++;
+    parser.column++;
+    return true;
+}
+/**
+* Advance to new line
+*
+* @param parser Parser object
+*/
+function advanceNewline(parser, ch) {
+    parser.column = 0;
+    parser.line++;
+    if (parser.index < parser.length && ch === 13 /* CarriageReturn */ &&
+        parser.source.charCodeAt(parser.index) === 10 /* LineFeed */) {
+        parser.index++;
+    }
+}
+function skipToNewline(parser) {
+    while (parser.index < parser.length) {
+        const ch = parser.source.charCodeAt(parser.index);
+        switch (ch) {
+            case 13 /* CarriageReturn */:
+            case 10 /* LineFeed */:
+            case 8232 /* LineSeparator */:
+            case 8233 /* ParagraphSeparator */:
+                parser.index++;
+                advanceNewline(parser, ch);
+                return true;
+            default:
+                parser.index++;
+                parser.column++;
+        }
+    }
+    return false;
+}
+function readNext(parser, ch) {
+    parser.index++;
+    parser.column++;
+    if (ch > 0xffff)
+        parser.index++;
+    if (parser.index >= parser.length)
+        recordErrors(parser, 0 /* Unexpected */);
+    return nextUnicodeChar(parser);
+}
+function nextUnicodeChar(parser) {
+    let { index } = parser;
+    const hi = parser.source.charCodeAt(index++);
+    if (hi < 0xd800 || hi > 0xdbff)
+        return hi;
+    if (index === parser.source.length)
+        return hi;
+    const lo = parser.source.charCodeAt(index);
+    if (lo < 0xdc00 || lo > 0xdfff)
+        return hi;
+    return (hi & 0x3ff) << 10 | lo & 0x3ff | 0x10000;
+}
+function toHex(code) {
+    if (code < 48 /* Zero */)
+        return -1;
+    if (code <= 57 /* Nine */)
+        return code - 48 /* Zero */;
+    if (code < 65 /* UpperA */)
+        return -1;
+    if (code <= 70 /* UpperF */)
+        return code - 65 /* UpperA */ + 10;
+    if (code < 97 /* LowerA */)
+        return -1;
+    if (code <= 102 /* LowerF */)
+        return code - 97 /* LowerA */ + 10;
+    return -1;
+}
+const fromCodePoint = (code) => {
+    return code <= 0xFFFF ?
+        String.fromCharCode(code) :
+        String.fromCharCode(((code - 65536 /* NonBMPMin */) >> 10) + 55296 /* LeadSurrogateMin */, ((code - 65536 /* NonBMPMin */) & (1024 - 1)) + 56320 /* TrailSurrogateMin */);
+};
 
 // Unicode v. 10 support
 // tslint:disable
@@ -735,7 +763,7 @@ function scanImplicitOctalDigits(parser, context) {
     return 2097152 /* NumericLiteral */;
 }
 
-const table$1 = new Array(128).fill(() => 0 /* EndOfSource */);
+const table$1 = new Array(128).fill(() => 131072 /* EndOfSource */);
 table$1[32 /* Space */] =
     table$1[9 /* Tab */] =
         table$1[12 /* FormFeed */] =
@@ -765,11 +793,11 @@ table$1[93 /* RightBracket */] = () => 33554449 /* RightBracket */;
 // `{`
 table$1[123 /* LeftBrace */] = () => 33554441 /* LeftBrace */;
 // `}`
-table$1[125 /* RightBrace */] = () => 33554444 /* RightBrace */;
+table$1[125 /* RightBrace */] = () => 33685516 /* RightBrace */;
 // `:`
 table$1[58 /* Colon */] = () => 33554450 /* Colon */;
 // `;`
-table$1[59 /* Semicolon */] = () => 33554446 /* Semicolon */;
+table$1[59 /* Semicolon */] = () => 33685518 /* Semicolon */;
 // `(`
 table$1[40 /* LeftParen */] = () => 33554440 /* LeftParen */;
 // `)`
@@ -1066,6 +1094,7 @@ table$1[124 /* VerticalBar */] = (parser) => {
     return 301990722 /* BitwiseOr */;
 };
 function scan(parser, context) {
+    parser.flags &= ~1 /* NewLine */;
     while (parser.index < parser.length) {
         const first = parser.source.charCodeAt(parser.index);
         if (first === 36 /* Dollar */ || (first >= 97 /* LowerA */ && first <= 122 /* LowerZ */)) {
@@ -1082,7 +1111,7 @@ function scan(parser, context) {
             return token;
         }
     }
-    return 0 /* EndOfSource */;
+    return 131072 /* EndOfSource */;
 }
 
 function setContext(context, mask) {
@@ -1094,9 +1123,10 @@ function swapContext(context, state) {
     context = setContext(context, 256 /* InParameter */);
     if (state & 1 /* Generator */)
         context = context | 128 /* Yield */;
-    if (state & 1 /* Generator */)
+    if (state & 4 /* Async */)
         context = context | 64 /* Async */;
-    if (!(state & 4 /* Async */))
+    // `new.target` disallowed for arrows in global scope
+    if (!(state & 4 /* Arrow */))
         context = context | 512 /* NewTarget */;
     return context;
 }
@@ -1128,13 +1158,15 @@ function consumeSemicolon(parser, context) {
         ? consume(parser, context, 33685518 /* Semicolon */)
         : recordErrors(parser, 0 /* Unexpected */);
 }
+// WIP!! The lookahead will be replaced no point to rewind
+// if we got a match
 /**
-* Does a lookahead.
-*
-* @param parser Parser object
-* @param context  Context masks
-* @param callback Callback function to be invoked
-*/
+ * Does a lookahead.
+ *
+ * @param parser Parser object
+ * @param context  Context masks
+ * @param callback Callback function to be invoked
+ */
 function lookahead(parser, context, callback) {
     const { tokenValue, flags, line, column, index, startIndex, tokenRaw, token, tokenRegExp, } = parser;
     const res = callback(parser, context);
@@ -1164,14 +1196,29 @@ function nextTokenIsLeftParen(parser, context) {
         parser.token === 33554440 /* LeftParen */;
 }
 /**
-* Validates if the next token in the stream is arrow
+ * Validates if the next token in the stream is arrow
+ *
+ * @param parser Parser object
+ * @param context  Context masks
+ */
+function nextTokenIsArrow(parser, context) {
+    nextToken(parser, context);
+    return parser.token === 33554439 /* Arrow */;
+}
+/**
+* Returns true if this an valid lexical binding and not an identifier
 *
 * @param parser Parser object
 * @param context  Context masks
 */
-function nextTokenIsArrow(parser, context) {
+function isLexical(parser, context) {
     nextToken(parser, context);
-    return parser.token === 33554439 /* Arrow */;
+    const { token } = parser;
+    return (token & 8388608 /* Identifier */) === 8388608 /* Identifier */ ||
+        token === 33554448 /* LeftBracket */ ||
+        token === 33554441 /* LeftBrace */ ||
+        token === 16453 /* LetKeyword */ ||
+        token === 16491 /* YieldKeyword */;
 }
 
 /**
@@ -1415,6 +1462,7 @@ function parseBinding(parser, context, type, origin, args = []) {
         if (!consume(parser, context, 33554447 /* Comma */))
             break;
     }
+    return args;
 }
 /**
  * Parse binding list
@@ -1446,13 +1494,13 @@ function parseBindingList(parser, context, type, origin) {
     }
     else if (parser.token === 33554443 /* Ellipsis */) ;
     else if (parser.token === 33554445 /* RightParen */) ;
-    if (!consume(parser, context, 167772186 /* Assign */))
-        return left;
-    return {
-        type: 'AssignmentPattern',
-        left,
-        right: parseAssignmentExpression(parser, context),
-    };
+    if (consume(parser, context, 167772186 /* Assign */)) {
+        return type & 14 /* Variable */ ?
+            parseVariableDeclaration(left, parseAssignmentExpression(parser, context))
+            : parseAssignmentPattern(parser, context, left);
+    }
+    return type & 14 /* Variable */ ?
+        parseVariableDeclaration(left, null) : left;
 }
 
 /**
@@ -1483,14 +1531,18 @@ function parseExpression(parser, context) {
     };
 }
 function parseAssignmentExpression(parser, context) {
-    const isAsync = parser.token === 4205 /* AsyncKeyword */ && /*(parser.flags & Flags.NewLine) !== Flags.NewLine && */
+    // AssignmentExpression ::
+    //   ConditionalExpression
+    //   ArrowFunction
+    //   YieldExpression
+    //   LeftHandSideExpression AssignmentOperator AssignmentExpression
+    const { token } = parser;
+    const isAsync = token === 4205 /* AsyncKeyword */ && /*!(parser.flags & Flags.NewLine) && */
         lookahead(parser, context, nextTokenIsLeftParen);
     let isParenthesized = parser.token === 33554440 /* LeftParen */;
     let expr = parseConditionalExpression(parser, context);
-    console.log(isAsync);
     if (isAsync && (parser.token & 8388608 /* Identifier */) === 8388608 /* Identifier */ && lookahead(parser, context, nextTokenIsArrow)) {
-        consume(parser, context, 4205 /* AsyncKeyword */);
-        expr = parseIdentifier(parser, context);
+        expr = [parseIdentifier(parser, context)];
     }
     if (parser.token === 33554439 /* Arrow */) {
         return parseArrowFunction(parser, context, isAsync ? 4 /* Async */ : 0 /* None */, expr);
@@ -1642,22 +1694,50 @@ function parseLeftHandSideExpression(parser, context) {
     let expr = parsePrimaryExpression(parser, context | 2048 /* In */);
     while (true) {
         switch (parser.token) {
-            case 33554448 /* LeftBracket */: break;
-            case 33554440 /* LeftParen */: {
-                const args = parseArgumentList(parser, context);
-                if (parser.token === 33554439 /* Arrow */)
-                    return args;
-                expr = {
-                    type: 'CallExpression',
-                    callee: expr,
-                    arguments: args,
-                };
+            case 33554448 /* LeftBracket */:
+                {
+                    expect(parser, context, 33554448 /* LeftBracket */);
+                    const property = parseExpression(parser, context);
+                    expr = {
+                        type: 'MemberExpression',
+                        object: expr,
+                        computed: true,
+                        property,
+                    };
+                    break;
+                }
+            case 33554440 /* LeftParen */:
+                {
+                    const args = parseArgumentList(parser, context);
+                    if (parser.token === 33554439 /* Arrow */) {
+                        parser.flags |= 16 /* SimpleParameterList */;
+                        return args;
+                    }
+                    expr = {
+                        type: 'CallExpression',
+                        callee: expr,
+                        arguments: args,
+                    };
+                    break;
+                }
+            case 33554442 /* Period */:
+                {
+                    expect(parser, context, 33554442 /* Period */);
+                    const property = parseIdentifier(parser, context);
+                    expr = {
+                        type: 'MemberExpression',
+                        object: expr,
+                        computed: false,
+                        property,
+                    };
+                    break;
+                }
+            case 67108869 /* TemplateSpan */:
                 break;
-            }
-            case 33554442 /* Period */: break;
-            case 67108869 /* TemplateSpan */: break;
-            case 67108870 /* TemplateTail */: break;
-            default: return expr;
+            case 67108870 /* TemplateTail */:
+                break;
+            default:
+                return expr;
         }
     }
 }
@@ -1697,10 +1777,11 @@ function parsePrimaryExpression(parser, context) {
         case 8276 /* FunctionKeyword */:
             return parseFunctionExpression(parser, context & ~64 /* Async */);
         case 33554440 /* LeftParen */:
-            return parseParenthesizedExpression(parser, context, 0 /* None */);
+            return parseParenthesizedExpression(parser, context);
         case 33554448 /* LeftBracket */:
             return parseArrayLiteral(parser, context);
         case 4205 /* AsyncKeyword */:
+        case 16453 /* LetKeyword */:
         case 8388608 /* Identifier */:
             return parseIdentifier(parser, context);
         default: nextToken(parser, context);
@@ -1751,26 +1832,17 @@ function parseArrowFunction(parser, context, state, params) {
  * @param parser  Parser object
  * @param context Context masks
  */
-function parseParenthesizedExpression(parser, context, state, id) {
+function parseParenthesizedExpression(parser, context) {
     expect(parser, context, 33554440 /* LeftParen */);
     if (consume(parser, context, 33554445 /* RightParen */)) {
         if (parser.token === 33554439 /* Arrow */) {
-            //  return parseArrowFunction(parser, context, state, []);
             return [];
-        }
-        else if (state & 4 /* Async */) {
-            return {
-                type: 'CallExpression',
-                callee: id,
-                arguments: [],
-            };
         }
     }
     const expr = parseExpression(parser, context);
     expect(parser, context, 33554445 /* RightParen */);
     if (parser.token === 33554439 /* Arrow */) {
         return expr.type === 'SequenceExpression' ? expr.expressions : [expr];
-        // return parseArrowFunction(parser, context, state, params);
     }
     return expr;
 }
@@ -1934,6 +2006,14 @@ function parsePropertyName(parser, context) {
     }
 }
 
+/**
+ * Parse statement list
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-StatementList)
+ *
+ * @param Parser instance
+ * @param Context masks
+ */
 function parseStatementList(parser, context) {
     nextToken(parser, context);
     let body = [];
@@ -1951,10 +2031,27 @@ function parseStatementList(parser, context) {
  * @param context Context masks
  */
 function parseStatementListItem(parser, context) {
-    return parseStatement(parser, context);
+    switch (parser.token) {
+        case 8262 /* ConstKeyword */:
+            return parseVariableStatement(parser, context, 8 /* Const */);
+        case 16453 /* LetKeyword */:
+            return parseLetOrExpressionStatement(parser, context);
+        default:
+            return parseStatement(parser, context);
+    }
 }
+/**
+ * Parses statements
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-Statement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
 function parseStatement(parser, context) {
     switch (parser.token) {
+        case 8260 /* VarKeyword */:
+            return parseVariableStatement(parser, context, 2 /* Var */);
         default:
             return parseExpressionOrLabelledStatement(parser, context);
     }
@@ -1976,15 +2073,48 @@ function parseExpressionOrLabelledStatement(parser, context) {
         expression: expr
     };
 }
+/**
+ * Parses either an lexical declaration (let) or an expression statement
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#sec-let-and-const-declarations)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ExpressionStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+function parseLetOrExpressionStatement(parser, context) {
+    return lookahead(parser, context, isLexical)
+        ? parseVariableStatement(parser, context, 4 /* Let */)
+        : parseExpressionOrLabelledStatement(parser, context);
+}
+/**
+ * Parses variable statement
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-VariableStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+function parseVariableStatement(parser, context, type) {
+    const { token } = parser;
+    nextToken(parser, context);
+    const declarations = parseVariableDeclarationList(parser, context, type, 32 /* Statement */);
+    consumeSemicolon(parser, context);
+    return {
+        type: 'VariableDeclaration',
+        kind: tokenDesc(token),
+        declarations
+    };
+}
 
 function createParserObject(source, errCallback) {
     return {
         source: source,
         length: source.length,
         flags: 0 /* Empty */,
-        token: 0 /* EndOfSource */,
-        nextToken: 0 /* EndOfSource */,
-        lastToken: 0 /* EndOfSource */,
+        token: 131072 /* EndOfSource */,
+        nextToken: 131072 /* EndOfSource */,
+        lastToken: 131072 /* EndOfSource */,
         startIndex: 0,
         index: 0,
         line: 1,

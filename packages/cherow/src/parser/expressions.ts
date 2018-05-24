@@ -323,6 +323,7 @@ export function parsePrimaryExpression(parser: Parser, context: Context): any {
         case Token.LeftBracket:
             return parseArrayLiteral(parser, context);
         case Token.AsyncKeyword:
+        case Token.LetKeyword:
         case Token.Identifier:
             return parseIdentifier(parser, context);
         default:    nextToken(parser, context);

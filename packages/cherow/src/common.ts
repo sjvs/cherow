@@ -38,16 +38,21 @@ export const enum BindingOrigin {
     ForStatement = 1 << 0,
     FunctionArgs = 1 << 1,
     CatchClause = 1 << 2,
+    Export = 1 << 3,
+    Import = 1 << 4,
+    Statement = 1 << 5,
+
 }
 
 /** Binding state */
 export const enum BindingType {
-    Empty   = 0,
-    Args    = 1 << 0,
-    Var     = 1 << 1,
-    Let     = 1 << 2,
-    Const   = 1 << 3,
-    Class   = 1 << 4,
+    Empty       = 0,
+    Args        = 1 << 0,
+    Var         = 1 << 1,
+    Let         = 1 << 2,
+    Const       = 1 << 3,
+    Class       = 1 << 4,
+    Variable    = Var | Let | Const
 }
 
 /* Recovery state */
@@ -177,3 +182,19 @@ export function nextTokenIsArrow(parser: Parser, context: Context): boolean {
     nextToken(parser, context);
     return parser.token === Token.Arrow;
   }
+
+  /**
+ * Returns true if this an valid lexical binding and not an identifier
+ *
+ * @param parser Parser object
+ * @param context  Context masks
+ */
+export function isLexical(parser: Parser, context: Context): boolean {
+    nextToken(parser, context);
+    const { token } = parser;
+    return (token & Token.Identifier) === Token.Identifier ||
+    token === Token.LeftBracket ||
+    token === Token.LeftBrace ||
+    token === Token.LetKeyword ||
+    token === Token.YieldKeyword;
+}

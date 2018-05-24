@@ -52,4 +52,4 @@ export declare function parseBindingInitializer(parser: Parser, context: Context
  * @param type Binding type
  * @param origin Binding origin
  */
-export declare function parseBinding(parser: Parser, context: Context, type: BindingType, origin: BindingOrigin, args?: any): void;
+export declare function parseBinding(parser: Parser, context: Context, type: BindingType, origin: BindingOrigin, args?: any): any;

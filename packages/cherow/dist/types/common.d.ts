@@ -23,12 +23,16 @@ export declare const enum Flags {
     HasOctal = 2,
     IsAssignable = 4,
     IsBindable = 8,
+    SimpleParameterList = 16,
 }
 export declare const enum BindingOrigin {
     Empty = 0,
     ForStatement = 1,
     FunctionArgs = 2,
     CatchClause = 4,
+    Export = 8,
+    Import = 16,
+    Statement = 32,
 }
 /** Binding state */
 export declare const enum BindingType {
@@ -38,6 +42,7 @@ export declare const enum BindingType {
     Let = 4,
     Const = 8,
     Class = 16,
+    Variable = 14,
 }
 export declare const enum Recovery {
     Empty = 0,
@@ -70,12 +75,12 @@ export declare function consume(parser: Parser, context: Context, token: Token):
  */
 export declare function consumeSemicolon(parser: Parser, context: Context): void | boolean;
 /**
-* Does a lookahead.
-*
-* @param parser Parser object
-* @param context  Context masks
-* @param callback Callback function to be invoked
-*/
+ * Does a lookahead.
+ *
+ * @param parser Parser object
+ * @param context  Context masks
+ * @param callback Callback function to be invoked
+ */
 export declare function lookahead<T>(parser: Parser, context: Context, callback: (parser: Parser, context: Context) => T): T;
 /**
 * Validates if the next token in the stream is left parenthesis.
@@ -85,9 +90,16 @@ export declare function lookahead<T>(parser: Parser, context: Context, callback:
 */
 export declare function nextTokenIsLeftParen(parser: Parser, context: Context): boolean;
 /**
-* Validates if the next token in the stream is arrow
+ * Validates if the next token in the stream is arrow
+ *
+ * @param parser Parser object
+ * @param context  Context masks
+ */
+export declare function nextTokenIsArrow(parser: Parser, context: Context): boolean;
+/**
+* Returns true if this an valid lexical binding and not an identifier
 *
 * @param parser Parser object
 * @param context  Context masks
 */
-export declare function nextTokenIsArrow(parser: Parser, context: Context): boolean;
+export declare function isLexical(parser: Parser, context: Context): boolean;
