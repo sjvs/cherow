@@ -1,7 +1,21 @@
-import { Context, Flags, consume, expect, nextToken } from '../common';
 import { Parser } from '../types';
 import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
+import { parseBinding } from './pattern';
+import { parseStatementListItem } from './statements';
+import {
+    Context,
+    Flags,
+    BindingOrigin,
+    BindingType,
+    ModifierState,
+    setContext,
+    swapContext,
+    consume,
+    expect,
+    nextToken
+} from '../common';
+
 
 /**
  * Expression :
@@ -191,7 +205,7 @@ export function parseLeftHandSideExpression(parser: Parser, context: Context): a
      // LeftHandSideExpression ::
      //   (NewExpression | MemberExpression) ...
     const expr = parsePrimaryExpression(parser, context | Context.In);
-
+    
     while (true) {
         switch (parser.token) {
             case Token.LeftBracket: break;
@@ -206,6 +220,8 @@ export function parseLeftHandSideExpression(parser: Parser, context: Context): a
 
 export function parsePrimaryExpression(parser: Parser, context: Context): any {
     switch (parser.token) {
+        case Token.FunctionKeyword: 
+            return parseFunctionExpression(parser, context & ~Context.Async);
         case Token.Identifier:
             return parseIdentifier(parser, context);
         default:    nextToken(parser, context);
@@ -218,5 +234,66 @@ export function parseIdentifier(parser: Parser, context: Context): ESTree.Identi
     return {
         type: 'Identifier',
         name: tokenValue
+    }
+}
+
+export function parseFunctionExpression(parser: Parser, context: Context): any {
+    expect(parser, context, Token.FunctionKeyword);
+    const isGenerator = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
+    let id: ESTree.Identifier | null = null;
+    context = swapContext(context, isGenerator);
+    const { args, body } = parseFormalListAndBody(parser, context);
+    expect(parser, context, Token.RightBrace);
+    return {
+        type: 'FunctionExpression',
+        body,
+        args
+    };
+}
+
+function parseFormalListAndBody(parser: Parser, context: Context) {
+    const args = parseFormalParameters(parser, context);
+    const body = parseFunctionBody(parser, context);
+    return { args, body }
+}
+
+function parseFormalParameters(parser: Parser, context: Context) {
+    context = context | Context.InParameter;
+    expect(parser, context, Token.LeftParen);
+    const args: any = [];
+    parseBinding(parser, /* binding type */ context, BindingType.Args, /* binding origin */ BindingOrigin.FunctionArgs, args);
+    expect(parser, context, Token.RightParen);
+    return args;
+}
+
+function parseFunctionBody(parser: Parser, context: Context): any {
+    const body: ESTree.Statement[] = [];
+    expect(parser, context, Token.LeftBrace);
+    while (parser.token !== Token.RightBrace) {
+        body.push(parseStatementListItem(parser, context));
+    }
+    expect(parser, context, Token.RightBrace);
+    return {
+        type: 'BlockStatement',
+        body,
+    };
+}
+  /**
+   * Parse property name
+   *
+   * @see [Link](https://tc39.github.io/ecma262/#prod-PropertyName)
+   *
+   * @param parser Parser object
+   * @param context Context masks
+   */
+  export function parsePropertyName(parser: Parser, context: Context): any {
+    switch (parser.token) {
+        case Token.NumericLiteral:
+        case Token.StringLiteral:
+            //  return parseLiteral(parser, context);
+        case Token.LeftBracket:
+            // return parseComputedPropertyName(parser, context);
+        default:
+            return parseIdentifier(parser, context);
     }
 }

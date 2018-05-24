@@ -3,12 +3,12 @@ import { Token, descKeyword } from '../token';
 import { Context } from '../common';
 import { isValidIdentifierPart } from '../unicode';
 
-export function scanIdentifier(parser: Parser, context: Context): Token {
+export function scanIdentifier(parser: Parser): Token {
   const { index: start } = parser;
   let code = parser.source.charCodeAt(parser.index);
   while (parser.index < parser.length && isValidIdentifierPart(code)) {
-      code = parser.source.charCodeAt(parser.index);
-      parser.index++;  parser.column++;
+    parser.index++;  parser.column++;
+    code = parser.source.charCodeAt(parser.index);
   }
   const ret = parser.source.slice(start, parser.index);
 

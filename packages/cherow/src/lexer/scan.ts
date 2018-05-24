@@ -22,6 +22,7 @@ table[Chars.LineSeparator] =
     table[Chars.ParagraphSeparator] =
     table[Chars.LineFeed] =
     table[Chars.CarriageReturn] = (parser: Parser, context: Context, first: number) => {
+        let c = context;
         advanceNewline(parser, first);
         parser.flags |= Flags.NewLine;
         return Token.WhiteSpace;
@@ -68,7 +69,7 @@ table[Chars.SingleQuote] = table[Chars.DoubleQuote] = () => scanStringLiteral;
 table[Chars.Zero] = parseLeadingZero;
 
 // `/`, `/=`, `/>`
-table[Chars.Slash] = (parser: Parser, context: Context, first: number) => {
+table[Chars.Slash] = (parser: Parser) => {
     if (parser.index >= parser.length) return Token.Divide;
     const next = parser.source.charCodeAt(parser.index);
     if (next === Chars.Slash) {

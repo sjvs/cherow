@@ -13,7 +13,7 @@ import { Errors, recordErrors } from '../errors';
  * @param parser Parser object
  * @param context Context masks
  */
-export function scanNumeric(parser: Parser, context: Context): Token {
+export function scanNumeric(parser: Parser): Token {
     const { index } = parser;
     let ch = skipDigits(parser);
     if (ch === Chars.Period) {
@@ -34,7 +34,7 @@ export function scanNumeric(parser: Parser, context: Context): Token {
  * @param parser Parser object
  * @param context Context masks
  */
-export function parseFractionalNumber(parser: Parser, context: Context): Token {
+export function parseFractionalNumber(parser: Parser): Token {
     const { index } = parser;
     const ch = skipDigits(parser);
     // scan exponent
@@ -78,18 +78,18 @@ function scanSignedInteger(parser: Parser): void {
     skipDigits(parser);
 }
 
-export function parseLeadingZero(parser: Parser, context: Context, ch: number): Token {
+export function parseLeadingZero(parser: Parser, context: Context): Token {
  
     switch (parser.source.charCodeAt(parser.index)) {
         case Chars.LowerX:
         case Chars.UpperX:
-            return scanHexDigits(parser, context);
+            return scanHexDigits(parser);
         case Chars.LowerB:
         case Chars.UpperB:
-            return scanBinaryDigits(parser, context);
+            return scanBinaryDigits(parser);
         case Chars.LowerO:
         case Chars.UpperO:
-            return scanOctalDigits(parser, context);
+            return scanOctalDigits(parser);
         case Chars.Zero:
         case Chars.One:
         case Chars.Two:
@@ -100,11 +100,11 @@ export function parseLeadingZero(parser: Parser, context: Context, ch: number): 
         case Chars.Seven:
             return scanImplicitOctalDigits(parser, context);
         default:
-            return scanNumeric(parser, context);
+            return scanNumeric(parser);
     }
 }
 
-export function scanOctalDigits(parser: Parser, context: Context): Token {
+export function scanOctalDigits(parser: Parser): Token {
     parser.index++; parser.column++;
     let value = 0;
     let digits = 0;
@@ -128,7 +128,7 @@ export function scanOctalDigits(parser: Parser, context: Context): Token {
     return Token.NumericLiteral;
 }
 
-export function scanHexDigits(parser: Parser, context: Context): Token {
+export function scanHexDigits(parser: Parser): Token {
     parser.index++; parser.column++;
     let value = toHex(parser.source.charCodeAt(parser.index));
     if (value < 0) recordErrors(parser, Errors.Unexpected);
@@ -155,7 +155,7 @@ export function scanHexDigits(parser: Parser, context: Context): Token {
  * @param parser Parser object
  * @param context Context masks
  */
-export function scanBinaryDigits(parser: Parser, context: Context): Token {
+export function scanBinaryDigits(parser: Parser): Token {
     parser.index++; parser.column++;
     let value = 0;
     let digits = 0;
@@ -194,7 +194,7 @@ export function scanImplicitOctalDigits(parser: Parser, context: Context): Token
     // (Annex B.1.1 on Numeric Literals)
     while (index < parser.length) {
         next = parser.source.charCodeAt(index);
-        if (next === Chars.Eight || next === Chars.Nine) return scanNumeric(parser, context);
+        if (next === Chars.Eight || next === Chars.Nine) return scanNumeric(parser);
         if (!(next >= Chars.Zero && next <= Chars.Seven)) break;
         value = value * 8 + (next - Chars.Zero);
         index++;

@@ -1,6 +1,6 @@
 import { Context, nextToken } from '../common';
 import { Parser } from '../types';
-import { Token } from '../token';
+import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
 import { parseExpression } from './expressions';
 

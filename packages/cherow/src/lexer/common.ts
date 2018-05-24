@@ -59,8 +59,9 @@ export function skipToNewline(parser: Parser): boolean {
   return false;
 }
 
-export function readNext(parser: Parser, prev: number): number {
+export function readNext(parser: Parser, ch: any): number {
     parser.index++; parser.column++;
+    if (ch > 0xffff) parser.index++;
     if (parser.index >= parser.length) recordErrors(parser, Errors.Unexpected);
     return nextUnicodeChar(parser);
 }

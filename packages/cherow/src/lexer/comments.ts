@@ -15,7 +15,7 @@ export function skipSingleLineComment(parser: Parser): any {
      return Token.SingleComment;
  }
 
-export function skipMultilineComment(parser: Parser) {
+export function skipMultilineComment(parser: Parser): any {
     while (parser.index < parser.length) {
         const ch = parser.source.charCodeAt(parser.index);
         switch (ch) {

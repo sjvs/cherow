@@ -48,10 +48,10 @@ export function scanStringLiteral(parser: Parser, context: Context, quote: numbe
                         // recovers from invalid escapes
                         else if (code !== Recovery.Empty) {
                             ret = undefined;
-                            recordStringErrors(parser, context, code as Recovery);
+                            recordStringErrors(parser, code as Recovery);
                             ch = scanBadString(parser, quote, ch);
                             break loop;
-                        } else return recordStringErrors(parser, context, code as Recovery);
+                        } else return recordStringErrors(parser, code as Recovery);
                         index = parser.index + 1;
                         column = parser.column + 1;
                     }
@@ -92,8 +92,9 @@ function scanBadString(parser: Parser, quote: number, ch: number): any {
  * @param parser Parser object
  * @param context Context masks
  */
-export function recordStringErrors(parser: Parser, context: Context, code: Recovery): any {
+export function recordStringErrors(parser: Parser, code: Recovery): any {
     let message: Errors = Errors.Unexpected;
+    let c = code;
     if (Recovery.Empty) return;
     if (Recovery.StrictOctal) message = Errors.StrictOctalEscape;
     if (Recovery.EightOrNine) message = Errors.InvalidEightAndNine;
