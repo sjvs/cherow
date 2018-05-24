@@ -20,7 +20,7 @@ export const enum Context {
     Template        = 1 << 10,
     In              = 1 << 11,
     Statement       = 1 << 12,
-    Asi       = 1 << 13,
+    Asi             = 1 << 13,
 }
 
 /* Mutual parser flags */
@@ -79,14 +79,16 @@ export function swapContext(context: Context, state: ModifierState): Context {
     context = setContext(context, Context.Async);
     context = setContext(context, Context.InParameter);
     if (state & ModifierState.Generator) context = context | Context.Yield;
-    if (state & ModifierState.Generator) context = context | Context.Async;
-    if (!(state & ModifierState.Async)) context = context | Context.NewTarget;
+    if (state & ModifierState.Async) context = context | Context.Async;
+    // `new.target` disallowed for arrows in global scope
+    if (!(state & ModifierState.Arrow)) context = context | Context.NewTarget;
     return context;
 }
 
 export function nextToken(parser: Parser, context: Context): Token {
     return (parser.token = scan(parser, context));
-  }
+}
+
 export function expect(parser: Parser, context: Context, token: Token): boolean {
     if (parser.token !== token) recordErrors(parser, Errors.Unexpected);
     nextToken(parser, context);
@@ -113,8 +115,9 @@ export function consumeSemicolon(parser: Parser, context: Context): void | boole
       ? consume(parser, context, Token.Semicolon)
       : recordErrors(parser, Errors.Unexpected);
   }
-
-  /**
+// WIP!! The lookahead will be replaced no point to rewind
+// if we got a match
+/**
  * Does a lookahead.
  *
  * @param parser Parser object
@@ -163,7 +166,7 @@ export function nextTokenIsLeftParen(parser: Parser, context: Context): boolean 
             parser.token === Token.LeftParen;
   }
 
-    /**
+/**
  * Validates if the next token in the stream is arrow
  *
  * @param parser Parser object
