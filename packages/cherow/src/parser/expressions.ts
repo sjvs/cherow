@@ -20,7 +20,6 @@ import {
     nextTokenIsArrow
 } from '../common';
 
-
 /**
  * Expression :
  *   AssignmentExpression
@@ -55,14 +54,13 @@ export function parseAssignmentExpression(parser: Parser, context: Context): any
     //   YieldExpression
     //   LeftHandSideExpression AssignmentOperator AssignmentExpression
     const { token } = parser;
-    const isAsync = parser.token === Token.AsyncKeyword && /*(parser.flags & Flags.NewLine) !== Flags.NewLine && */
+    const isAsync = token === Token.AsyncKeyword && /*!(parser.flags & Flags.NewLine) && */
         lookahead(parser, context, nextTokenIsLeftParen);
     let isParenthesized = parser.token === Token.LeftParen;
     let expr: any = parseConditionalExpression(parser, context);
-    console.log(isAsync)
+
     if (isAsync && (parser.token & Token.Identifier) === Token.Identifier && lookahead(parser, context, nextTokenIsArrow)) {
-        consume(parser, context, Token.AsyncKeyword)
-        expr = parseIdentifier(parser, context);
+        expr = [parseIdentifier(parser, context)];
     }
 
     if (parser.token === Token.Arrow) {
@@ -288,7 +286,7 @@ function parseArgumentList(parser: Parser, context: Context): (ESTree.Expression
 
 export function parsePrimaryExpression(parser: Parser, context: Context): any {
     switch (parser.token) {
-        case Token.FunctionKeyword: 
+        case Token.FunctionKeyword:
             return parseFunctionExpression(parser, context & ~Context.Async);
             case Token.LeftParen:
             return parseParenthesizedExpression(parser, context, ModifierState.None);
@@ -356,7 +354,6 @@ function parseParenthesizedExpression(parser: Parser, context: Context, state: M
     expect(parser, context, Token.LeftParen);
     if (consume(parser, context, Token.RightParen)) {
         if (parser.token === Token.Arrow) {
-          //  return parseArrowFunction(parser, context, state, []);
           return [];
         } else if (state & ModifierState.Async) {
             return {
@@ -370,7 +367,6 @@ function parseParenthesizedExpression(parser: Parser, context: Context, state: M
     expect(parser, context, Token.RightParen);
     if (parser.token === Token.Arrow) {
         return expr.type === 'SequenceExpression' ? expr.expressions : [expr];
-        // return parseArrowFunction(parser, context, state, params);
     }
     return expr;
 }
@@ -491,7 +487,7 @@ export function parseFunctionExpression(
 function parseFormalListAndBody(parser: Parser, context: Context) {
     const params = parseFormalParameters(parser, context);
     const body = parseFunctionBody(parser, context);
-    return { params, body }
+    return { params, body };
 }
 
 /**

@@ -22,7 +22,7 @@ export function parseStatementList(parser: Parser, context: Context): any {
  * @param context Context masks
  */
 export function parseStatementListItem(parser: Parser, context: Context): ESTree.Statement {
-    return parseStatement(parser, context)
+    return parseStatement(parser, context);
 }
 
 export function parseStatement(parser: Parser, context: Context): ESTree.Statement {
@@ -49,5 +49,5 @@ export function parseExpressionOrLabelledStatement(parser: Parser, context: Cont
     return {
     type: 'ExpressionStatement',
     expression: expr
-  }
+  };
 }

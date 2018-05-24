@@ -370,6 +370,7 @@ table[Chars.VerticalBar] = (parser: Parser) => {
 };
 
 export function scan(parser: Parser, context: Context): Token {
+    parser.flags &=  ~Flags.NewLine;
     while (parser.index < parser.length) {
         const first = parser.source.charCodeAt(parser.index);
         if (first === Chars.Dollar || (first >= Chars.LowerA && first <= Chars.LowerZ)) {
