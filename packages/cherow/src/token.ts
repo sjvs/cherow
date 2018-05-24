@@ -33,6 +33,9 @@ export const enum Token {
     IsUnaryOp          = 1 << 29,
     IsUpdateOp         = 1 << 30,
 
+    /** Constants */
+    IsKeyword = Token.Identifier | Token.Reserved | Token.FutureReserved | Token.Contextual,
+
     /* Node types */
     EndOfSource = 0, // Pseudo
 

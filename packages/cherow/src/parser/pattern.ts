@@ -1,6 +1,7 @@
 import { Parser } from '../types';
 import { Token } from '../token';
 import * as ESTree from '../estree';
+import { Errors, recordErrors, } from '.    ./errors';
 import { parseAssignmentExpression, parsePropertyName } from './expressions';
 import {
     Context,
@@ -15,6 +16,41 @@ import {
     nextToken
 } from '../common';
 
+/**
+ * Parse binding identifier
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-BindingIdentifier)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseBindingIdentifier(
+    parser: Parser, 
+    context: Context, 
+    kind: 'let' | 'const' | 'var' = 'var'
+): ESTree.Identifier {
+    const { token: t } = parser;
+
+    if (context & Context.Strict) {
+        if ((t & Token.FutureReserved) === Token.FutureReserved) recordErrors(parser, Errors.Unexpected);
+        if (t === Token.Eval || t === Token.Arguments) recordErrors(parser, Errors.Unexpected);
+        if (t === Token.YieldKeyword) recordErrors(parser, Errors.Unexpected);
+    }
+
+    // Reserved 
+    if ((t & Token.Reserved) === Token.Reserved) recordErrors(parser, Errors.Unexpected);
+    if (t === Token.AwaitKeyword && context & (Context.Strict | Context.Async)) {
+        recordErrors(parser, Errors.Unexpected);
+    }
+    if (t === Token.Eval || t === Token.Arguments && kind === 'let' || kind === 'const') recordErrors(parser, Errors.Unexpected);
+
+    const name = parser.tokenValue;
+    nextToken(parser, context);
+    return {
+        type: 'Identifier',
+        name
+    };
+}
 /**
  * Parses either a binding identifier or binding pattern
  *
@@ -135,24 +171,6 @@ export function parseBindingInitializer(
             left,
             right: parseAssignmentExpression(parser, context),
         };
-}
-
-/**
- * Parse binding identifier
- *
- * @see [Link](https://tc39.github.io/ecma262/#prod-BindingIdentifier)
- *
- * @param parser  Parser object
- * @param context Context masks
- */
-export function parseBindingIdentifier(parser: Parser, context: Context): ESTree.Identifier {
-    const { token } = parser;
-    const name = parser.tokenValue;
-    nextToken(parser, context);
-    return {
-        type: 'Identifier',
-        name
-    };
 }
 
 /**

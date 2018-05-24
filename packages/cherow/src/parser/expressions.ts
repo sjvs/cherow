@@ -1,7 +1,7 @@
 import { Parser } from '../types';
 import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
-import { parseBinding } from './pattern';
+import { parseBinding, parseBindingIdentifier } from './pattern';
 import { parseStatementListItem } from './statements';
 import {
     Context,
@@ -234,34 +234,67 @@ export function parseIdentifier(parser: Parser, context: Context): ESTree.Identi
     return {
         type: 'Identifier',
         name: tokenValue
-    }
+    };
 }
 
-export function parseFunctionExpression(parser: Parser, context: Context): any {
+/**
+ * Parses function expression
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-FunctionExpression)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseFunctionExpression(parser: Parser, context: Context): ESTree.FunctionExpression {
     expect(parser, context, Token.FunctionKeyword);
     const isGenerator = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
     let id: ESTree.Identifier | null = null;
+    if (parser.token & Token.IsKeyword) {
+        id = parseBindingIdentifier(parser, context);
+    }
     context = swapContext(context, isGenerator);
-    const { args, body } = parseFormalListAndBody(parser, context);
+    const { params, body } = parseFormalListAndBody(parser, context);
     expect(parser, context, Token.RightBrace);
     return {
         type: 'FunctionExpression',
         body,
-        args
+        params,
+        async: false,
+        generator: !!(isGenerator & ModifierState.Generator),
+        expression: false,
+        id
     };
 }
 
+/**
+ * Parses formal parameters and function body.
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-FunctionBody)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-FormalParameters)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
 function parseFormalListAndBody(parser: Parser, context: Context) {
-    const args = parseFormalParameters(parser, context);
+    const params = parseFormalParameters(parser, context);
     const body = parseFunctionBody(parser, context);
-    return { args, body }
+    return { params, body }
 }
 
+/**
+ * Parse formal parameters
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-FormalParameters)
+ *
+ * @param Parser object
+ * @param Context masks
+ * @param Optional objectstate. Default to none
+ */
 function parseFormalParameters(parser: Parser, context: Context) {
     context = context | Context.InParameter;
     expect(parser, context, Token.LeftParen);
     const args: any = [];
-    parseBinding(parser, /* binding type */ context, BindingType.Args, /* binding origin */ BindingOrigin.FunctionArgs, args);
+    parseBinding(parser, context, BindingType.Args, BindingOrigin.FunctionArgs, args);
     expect(parser, context, Token.RightParen);
     return args;
 }
