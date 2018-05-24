@@ -3,6 +3,7 @@ import { Token } from '../token';
 import * as ESTree from '../estree';
 import { Errors, recordErrors, } from '../errors';
 import { parseAssignmentExpression, parsePropertyName } from './expressions';
+import { parseVariableDeclaration } from './declarations';
 import {
     Context,
     Flags,
@@ -297,6 +298,7 @@ export function parseBinding(
             }
         }
     }
+    return args;
 }
 
 /** 
@@ -346,10 +348,11 @@ function parseBindingList(
 
     } else if (parser.token === Token.RightParen) {}
 
-    if (!consume(parser, context, Token.Assign)) return left;
-    return {
-        type: 'AssignmentPattern',
-        left,
-        right: parseAssignmentExpression(parser, context),
-    };
+    if (consume(parser, context, Token.Assign)) {
+        return type & BindingType.Variable ?
+        parseVariableDeclaration(left, parseAssignmentExpression(parser, context))
+         : parseAssignmentPattern(parser, context, left);
+    }
+    return type & BindingType.Variable ?
+    parseVariableDeclaration(left, null) : left;
 }
