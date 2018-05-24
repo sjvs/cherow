@@ -10,7 +10,21 @@ Doing this would require a refactoring both of parser and the lexer.
 **Note:** This is a different approach than Acorn loose, and for *panic mode* it will not create any AST nodes, but
 the scanner will be primed until statement level are reached.
 
-**Second node** This code doesn't work in current state, but the string literal scanning gives a hint how this works.
+## Current progress
+
+This is still an experiment, but you can do simple parsing. Any wrong input will not take you into inifity, but outputs invalid AST.
+Soon as the invalid code is corrected, the AST will normalize itself.
+
+Here is an example:
+
+```js
+// Input
+parseScript('function (() {}')
+
+// Output
+
+{"type":"Program","sourceType":"script","body":[{"type":"ExpressionStatement","expression":{"type":"FunctionExpression","body":{"type":"BlockStatement","body":[{"type":"ExpressionStatement"}]},"params":[null],"async":false,"generator":false,"expression":false,"id":null}}]}
+```
 
 ## API
 
