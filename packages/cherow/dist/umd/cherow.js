@@ -1,0 +1,1782 @@
+(function (global, factory) {
+    typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
+    typeof define === 'function' && define.amd ? define(['exports'], factory) :
+    (factory((global.cherow = {})));
+}(this, (function (exports) { 'use strict';
+
+    /*@internal*/
+    const errorMessages = {
+        [0 /* Unexpected */]: 'Unexpected token',
+        [2 /* UnterminatedString */]: 'Unterminated string literal',
+        [3 /* StrictOctalEscape */]: 'Octal escapes are not allowed in strict mode',
+        [4 /* InvalidEightAndNine */]: 'Escapes \\8 or \\9 are not syntactically valid escapes',
+        [5 /* ContinuousNumericSeparator */]: 'Only one underscore is allowed as numeric separator',
+        [6 /* TrailingNumericSeparator */]: 'Numeric separators are not allowed at the end of numeric literals',
+        [7 /* ZeroDigitNumericSeparator */]: 'Numeric separator can not be used after leading 0.',
+        [1 /* InvalidOrUnexpectedToken */]: 'Invalid or unexpected token',
+    };
+    function constructError(index, line, column, description) {
+        const error = new SyntaxError(`Line ${line}, column ${column}: ${description}`);
+        error.index = index;
+        error.line = line;
+        error.column = column;
+        error.description = description;
+        return error;
+    }
+    function recordErrors(parser, type, ...params) {
+        const { index, line, column } = parser;
+        const message = errorMessages[type].replace(/%(\d+)/g, (_, i) => params[i]);
+        const error = constructError(index, line, column, message);
+        if (parser.onError)
+            parser.onError(message, line, column);
+        //throw error;
+    }
+
+    function consumeOpt(parser, code) {
+        if (parser.source.charCodeAt(parser.index) !== code)
+            return false;
+        parser.index++;
+        parser.column++;
+        return true;
+    }
+    /**
+    * Advance to new line
+    *
+    * @param parser Parser object
+    */
+    function advanceNewline(parser, ch) {
+        parser.column = 0;
+        parser.line++;
+        if (parser.index < parser.length && ch === 13 /* CarriageReturn */ &&
+            parser.source.charCodeAt(parser.index) === 10 /* LineFeed */) {
+            parser.index++;
+        }
+    }
+    function skipToNewline(parser) {
+        while (parser.index < parser.length) {
+            const ch = parser.source.charCodeAt(parser.index);
+            switch (ch) {
+                case 13 /* CarriageReturn */:
+                case 10 /* LineFeed */:
+                case 8232 /* LineSeparator */:
+                case 8233 /* ParagraphSeparator */:
+                    parser.index++;
+                    advanceNewline(parser, ch);
+                    return true;
+                default:
+                    parser.index++;
+                    parser.column++;
+            }
+        }
+        return false;
+    }
+    function readNext(parser, ch) {
+        parser.index++;
+        parser.column++;
+        if (ch > 0xffff)
+            parser.index++;
+        if (parser.index >= parser.length)
+            recordErrors(parser, 0 /* Unexpected */);
+        return nextUnicodeChar(parser);
+    }
+    function nextUnicodeChar(parser) {
+        let { index } = parser;
+        const hi = parser.source.charCodeAt(index++);
+        if (hi < 0xd800 || hi > 0xdbff)
+            return hi;
+        if (index === parser.source.length)
+            return hi;
+        const lo = parser.source.charCodeAt(index);
+        if (lo < 0xdc00 || lo > 0xdfff)
+            return hi;
+        return (hi & 0x3ff) << 10 | lo & 0x3ff | 0x10000;
+    }
+    function toHex(code) {
+        if (code < 48 /* Zero */)
+            return -1;
+        if (code <= 57 /* Nine */)
+            return code - 48 /* Zero */;
+        if (code < 65 /* UpperA */)
+            return -1;
+        if (code <= 70 /* UpperF */)
+            return code - 65 /* UpperA */ + 10;
+        if (code < 97 /* LowerA */)
+            return -1;
+        if (code <= 102 /* LowerF */)
+            return code - 97 /* LowerA */ + 10;
+        return -1;
+    }
+    const fromCodePoint = (code) => {
+        return code <= 0xFFFF ?
+            String.fromCharCode(code) :
+            String.fromCharCode(((code - 65536 /* NonBMPMin */) >> 10) + 55296 /* LeadSurrogateMin */, ((code - 65536 /* NonBMPMin */) & (1024 - 1)) + 56320 /* TrailSurrogateMin */);
+    };
+
+    // Note: this *must* be kept in sync with the enum's order.
+    //
+    // It exploits the enum value ordering, and it's necessarily a complete and
+    // utter hack.
+    //
+    // All to lower it to a single monomorphic array access.
+    const KeywordDescTable = [
+        'end of source',
+        /* Constants/Bindings */
+        'false', 'true', 'null',
+        /* Template nodes */
+        'template head', 'template body', 'template tail',
+        /* Punctuators */
+        '=>', '(', '{', '.', '...', '}', ')', ';', ',', '[', ']', ':', '?', '\'', '"', '</', '/>',
+        /* Update operators */
+        '++', '--',
+        /* Assign operators */
+        '=', '<<=', '>>=', '>>>=', '**=', '+=', '-=', '*=', '/=', '%=', '^=', '|=',
+        '&=',
+        /* Unary/binary operators */
+        'typeof', 'delete', 'void', '!', '~', '+', '-', 'in', 'instanceof', '*', '%', '/', '**', '&&',
+        '||', '===', '!==', '==', '!=', '<=', '>=', '<', '>', '<<', '>>', '>>>', '&', '|', '^',
+        /* Variable declaration kinds */
+        'var', 'let', 'const',
+        /* Other reserved words */
+        'break', 'case', 'catch', 'class', 'continue', 'debugger', 'default', 'do', 'else', 'export',
+        'extends', 'finally', 'for', 'function', 'if', 'import', 'new', 'return', 'super', 'switch',
+        'this', 'throw', 'try', 'while', 'with',
+        /* Eval & arguments */
+        'arguments', 'eval',
+        /* Decorators */
+        'at',
+        /* Private names or shebang comment start */
+        '#',
+        /* Strict mode reserved words */
+        'implements', 'interface', 'package', 'private', 'protected', 'public', 'static', 'yield',
+        /* Contextual keywords */
+        'as', 'async', 'await', 'constructor', 'get', 'set', 'from', 'of',
+        /* Comments */
+        'SingleComment', 'MultiComment', 'HTMLComment',
+        /* WhiteSpace */
+        'space', 'tab', 'line feed', 'carrige return',
+        /* WhiteSpace */
+        'hex', 'decimal', 'binary', 'octal', 'implicit', 'bigInt',
+        /* Enum */
+        'enum'
+    ];
+    /**
+     * The conversion function between token and its string description/representation.
+     */
+    function tokenDesc(token) {
+        if ((token & 255 /* Type */) < KeywordDescTable.length) {
+            return KeywordDescTable[token & 255 /* Type */];
+        }
+        else {
+            throw new Error('unreachable');
+        }
+    }
+    // Used `Object.create(null)` to avoid potential `Object.prototype`
+    // interference.
+    const descKeywordTable = Object.create(null, {
+        this: { value: 8283 /* ThisKeyword */ },
+        function: { value: 8276 /* FunctionKeyword */ },
+        if: { value: 8277 /* IfKeyword */ },
+        return: { value: 8280 /* ReturnKeyword */ },
+        var: { value: 8260 /* VarKeyword */ },
+        else: { value: 8271 /* ElseKeyword */ },
+        for: { value: 8275 /* ForKeyword */ },
+        new: { value: 8279 /* NewKeyword */ },
+        in: { value: 301999918 /* InKeyword */ },
+        typeof: { value: 570433575 /* TypeofKeyword */ },
+        while: { value: 8286 /* WhileKeyword */ },
+        case: { value: 8264 /* CaseKeyword */ },
+        break: { value: 8263 /* BreakKeyword */ },
+        try: { value: 8285 /* TryKeyword */ },
+        catch: { value: 8265 /* CatchKeyword */ },
+        delete: { value: 570433576 /* DeleteKeyword */ },
+        throw: { value: 8284 /* ThrowKeyword */ },
+        switch: { value: 8282 /* SwitchKeyword */ },
+        continue: { value: 8267 /* ContinueKeyword */ },
+        default: { value: 8269 /* DefaultKeyword */ },
+        instanceof: { value: 301999919 /* InstanceofKeyword */ },
+        do: { value: 8270 /* DoKeyword */ },
+        void: { value: 570433577 /* VoidKeyword */ },
+        finally: { value: 8274 /* FinallyKeyword */ },
+        arguments: { value: 8388704 /* Arguments */ },
+        async: { value: 4205 /* AsyncKeyword */ },
+        await: { value: 536875118 /* AwaitKeyword */ },
+        class: { value: 8266 /* ClassKeyword */ },
+        const: { value: 8262 /* ConstKeyword */ },
+        constructor: { value: 4207 /* ConstructorKeyword */ },
+        debugger: { value: 8268 /* DebuggerKeyword */ },
+        enum: { value: 2097281 /* EnumKeyword */ },
+        eval: { value: 8388705 /* Eval */ },
+        export: { value: 8272 /* ExportKeyword */ },
+        extends: { value: 8273 /* ExtendsKeyword */ },
+        false: { value: 8193 /* FalseKeyword */ },
+        from: { value: 4210 /* FromKeyword */ },
+        get: { value: 4208 /* GetKeyword */ },
+        implements: { value: 16484 /* ImplementsKeyword */ },
+        import: { value: 8278 /* ImportKeyword */ },
+        interface: { value: 16485 /* InterfaceKeyword */ },
+        let: { value: 16453 /* LetKeyword */ },
+        null: { value: 8396803 /* NullKeyword */ },
+        of: { value: 4211 /* OfKeyword */ },
+        package: { value: 16486 /* PackageKeyword */ },
+        private: { value: 16487 /* PrivateKeyword */ },
+        protected: { value: 16488 /* ProtectedKeyword */ },
+        public: { value: 16489 /* PublicKeyword */ },
+        set: { value: 4209 /* SetKeyword */ },
+        static: { value: 16490 /* StaticKeyword */ },
+        super: { value: 8281 /* SuperKeyword */ },
+        true: { value: 8194 /* TrueKeyword */ },
+        with: { value: 8287 /* WithKeyword */ },
+        yield: { value: 16491 /* YieldKeyword */ },
+        as: { value: 4204 /* AsKeyword */ },
+    });
+    function descKeyword(value) {
+        return (descKeywordTable[value] | 0);
+    }
+
+    // Unicode v. 10 support
+    // tslint:disable
+    function isValidIdentifierPart(code) {
+        return (convert[(code >>> 5) + 0] >>> code & 31 & 1) !== 0;
+    }
+    const convert = ((compressed, lookup) => {
+        const result = new Uint32Array(104448);
+        let index = 0;
+        let subIndex = 0;
+        while (index < 3293) {
+            const inst = compressed[index++];
+            if (inst < 0) {
+                subIndex -= inst;
+            }
+            else {
+                let code = compressed[index++];
+                if (inst & 2)
+                    code = lookup[code];
+                if (inst & 1) {
+                    result.fill(code, subIndex, subIndex += compressed[index++]);
+                }
+                else {
+                    result[subIndex++] = code;
+                }
+            }
+        }
+        return result;
+    })([-1, 2, 28, 2, 29, 2, 5, -1, 0, 77595648, 3, 41, 2, 3, 0, 14, 2, 52, 2, 53, 3, 0, 3, 0, 3168796671, 0, 4294956992, 2, 1, 2, 0, 2, 54, 3, 0, 4, 0, 4294966523, 3, 0, 4, 2, 55, 2, 56, 2, 4, 0, 4294836479, 0, 3221225471, 0, 4294901942, 2, 57, 0, 134152192, 3, 0, 2, 0, 4294951935, 3, 0, 2, 0, 2683305983, 0, 2684354047, 2, 17, 2, 0, 0, 4294961151, 3, 0, 2, 2, 20, 2, 0, 2, 59, 2, 0, 2, 125, 2, 6, 2, 19, -1, 2, 60, 2, 148, 2, 1, 3, 0, 3, 0, 4294901711, 2, 37, 0, 4089839103, 0, 2961209759, 0, 268697551, 0, 4294543342, 0, 3547201023, 0, 1577204103, 0, 4194240, 0, 4294688750, 2, 2, 0, 80831, 0, 4261478351, 0, 4294549486, 2, 2, 0, 2965387679, 0, 196559, 0, 3594373100, 0, 3288319768, 0, 8469959, 2, 167, 2, 3, 0, 3825204735, 0, 123747807, 0, 65487, 2, 3, 0, 4092591615, 0, 1080049119, 0, 458703, 2, 3, 2, 0, 0, 2163244511, 0, 4227923919, 0, 4236247020, 2, 64, 0, 4284449919, 0, 851904, 2, 4, 2, 16, 0, 67076095, -1, 2, 65, 0, 1006628014, 0, 4093591391, -1, 0, 50331649, 0, 3265266687, 2, 34, 0, 4294844415, 0, 4278190047, 2, 22, 2, 124, -1, 3, 0, 2, 2, 33, 2, 0, 2, 10, 2, 0, 2, 14, 2, 15, 3, 0, 10, 2, 66, 2, 0, 2, 67, 2, 68, 2, 69, 2, 0, 2, 70, 2, 0, 0, 3892314111, 0, 261632, 2, 27, 3, 0, 2, 2, 11, 2, 4, 3, 0, 18, 2, 71, 2, 5, 3, 0, 2, 2, 72, 0, 2088959, 2, 31, 2, 8, 0, 909311, 3, 0, 2, 0, 814743551, 2, 39, 0, 67057664, 3, 0, 2, 2, 9, 2, 0, 2, 32, 2, 0, 2, 18, 2, 7, 0, 268374015, 2, 30, 2, 46, 2, 0, 2, 73, 0, 134153215, -1, 2, 6, 2, 0, 2, 7, 0, 2684354559, 0, 67044351, 0, 1073676416, -2, 3, 0, 2, 2, 40, 0, 1046528, 3, 0, 3, 2, 8, 2, 0, 2, 9, 0, 4294960127, 2, 10, 2, 13, -1, 0, 4294377472, 2, 25, 3, 0, 7, 0, 4227858431, 3, 0, 8, 2, 11, 2, 0, 2, 75, 2, 10, 2, 0, 2, 76, 2, 77, 2, 78, -1, 2, 121, 0, 1048577, 2, 79, 2, 12, -1, 2, 12, 0, 131042, 2, 80, 2, 81, 2, 82, 2, 0, 2, 13, -83, 2, 0, 2, 49, 2, 7, 3, 0, 4, 0, 1046559, 2, 0, 2, 14, 2, 0, 0, 2147516671, 2, 23, 3, 83, 2, 2, 0, -16, 2, 84, 0, 524222462, 2, 4, 2, 0, 0, 4269801471, 2, 4, 2, 0, 2, 15, 2, 74, 2, 86, 3, 0, 2, 2, 43, 2, 16, -1, 2, 17, -16, 3, 0, 205, 2, 18, -2, 3, 0, 655, 2, 19, 3, 0, 36, 2, 47, -1, 2, 17, 2, 10, 3, 0, 8, 2, 87, 2, 117, 2, 0, 0, 3220242431, 3, 0, 3, 2, 20, 2, 21, 2, 88, 3, 0, 2, 2, 89, 2, 90, -1, 2, 21, 2, 0, 2, 26, 2, 0, 2, 8, 3, 0, 2, 0, 67043391, 0, 687865855, 2, 0, 2, 24, 2, 8, 2, 22, 3, 0, 2, 0, 67076097, 2, 7, 2, 0, 2, 23, 0, 67059711, 0, 4236247039, 3, 0, 2, 0, 939524103, 0, 8191999, 2, 94, 2, 95, 2, 15, 2, 92, 3, 0, 3, 0, 67057663, 3, 0, 349, 2, 96, 2, 97, 2, 6, -264, 3, 0, 11, 2, 24, 3, 0, 2, 2, 25, -1, 0, 3774349439, 2, 98, 2, 99, 3, 0, 2, 2, 20, 2, 100, 3, 0, 10, 2, 10, 2, 17, 2, 0, 2, 42, 2, 0, 2, 26, 2, 101, 2, 27, 0, 1638399, 2, 165, 2, 102, 3, 0, 3, 2, 22, 2, 28, 2, 29, 2, 5, 2, 30, 2, 0, 2, 7, 2, 103, -1, 2, 104, 2, 105, 2, 106, -1, 3, 0, 3, 2, 16, -2, 2, 0, 2, 31, -3, 2, 144, -4, 2, 22, 2, 0, 2, 107, 0, 1, 2, 0, 2, 58, 2, 32, 2, 16, 2, 10, 2, 0, 2, 108, -1, 3, 0, 4, 2, 10, 2, 33, 2, 109, 2, 6, 2, 0, 2, 110, 2, 0, 2, 44, -4, 3, 0, 9, 2, 23, 2, 18, 2, 26, -4, 2, 111, 2, 112, 2, 18, 2, 23, 2, 7, -2, 2, 113, 2, 18, 2, 25, -2, 2, 0, 2, 114, -2, 0, 4277137519, 0, 2265972735, -1, 3, 22, 2, -1, 2, 34, 2, 36, 2, 0, 3, 18, 2, 2, 35, 2, 20, -3, 3, 0, 2, 2, 13, -1, 2, 0, 2, 35, 2, 0, 2, 35, -24, 3, 0, 2, 2, 36, 0, 2147549120, 2, 0, 2, 16, 2, 17, 2, 128, 2, 0, 2, 48, 2, 17, 0, 5242879, 3, 0, 2, 0, 402594847, -1, 2, 116, 0, 1090519039, -2, 2, 118, 2, 119, 2, 0, 2, 38, 2, 37, 2, 2, 0, 3766565279, 0, 2039759, -4, 3, 0, 2, 2, 38, -1, 3, 0, 2, 0, 67043519, -5, 2, 0, 0, 4282384383, 0, 1056964609, -1, 3, 0, 2, 0, 67043345, -1, 2, 0, 2, 9, 2, 39, -1, 0, 3825205247, 2, 40, -11, 3, 0, 2, 0, 2147484671, -8, 2, 0, 2, 7, 0, 4294901888, 2, 0, 0, 67108815, -1, 2, 0, 2, 45, -8, 2, 50, 2, 41, 0, 67043329, 2, 122, 2, 42, 0, 8388351, -2, 2, 123, 0, 3028287487, 0, 67043583, -21, 3, 0, 28, 2, 25, -3, 3, 0, 3, 2, 43, 3, 0, 6, 2, 44, -85, 3, 0, 33, 2, 43, -126, 3, 0, 18, 2, 36, -269, 3, 0, 17, 2, 45, 2, 7, 2, 39, -2, 2, 17, 2, 46, 2, 0, 2, 23, 0, 67043343, 2, 126, 2, 27, -27, 3, 0, 2, 0, 4294901791, 2, 7, 2, 187, -2, 0, 3, 3, 0, 191, 2, 47, 3, 0, 23, 2, 35, -296, 3, 0, 8, 2, 7, -2, 2, 17, 3, 0, 11, 2, 6, -72, 3, 0, 3, 2, 127, 0, 1677656575, -166, 0, 4161266656, 0, 4071, 0, 15360, -4, 0, 28, -13, 3, 0, 2, 2, 48, 2, 0, 2, 129, 2, 130, 2, 51, 2, 0, 2, 131, 2, 132, 2, 133, 3, 0, 10, 2, 134, 2, 135, 2, 15, 3, 48, 2, 3, 49, 2, 3, 50, 2, 0, 4294954999, 2, 0, -16, 2, 0, 2, 85, 2, 0, 0, 2105343, 0, 4160749584, 2, 194, -42, 0, 4194303871, 0, 2011, -62, 3, 0, 6, 0, 8323103, -1, 3, 0, 2, 2, 38, -37, 2, 51, 2, 138, 2, 139, 2, 140, 2, 141, 2, 142, -138, 3, 0, 1334, 2, 23, -1, 3, 0, 129, 2, 31, 3, 0, 6, 2, 10, 3, 0, 180, 2, 143, 3, 0, 233, 0, 1, -96, 3, 0, 16, 2, 10, -22583, 3, 0, 7, 2, 27, -6130, 3, 5, 2, -1, 0, 69207040, 3, 41, 2, 3, 0, 14, 2, 52, 2, 53, -3, 0, 3168731136, 0, 4294956864, 2, 1, 2, 0, 2, 54, 3, 0, 4, 0, 4294966275, 3, 0, 4, 2, 55, 2, 56, 2, 4, 2, 26, -1, 2, 17, 2, 57, -1, 2, 0, 2, 19, 0, 4294885376, 3, 0, 2, 0, 3145727, 0, 2617294944, 0, 4294770688, 2, 27, 2, 58, 3, 0, 2, 0, 131135, 2, 91, 0, 70256639, 2, 59, 0, 272, 2, 45, 2, 19, -1, 2, 60, -2, 2, 93, 0, 603979775, 0, 4278255616, 0, 4294836227, 0, 4294549473, 0, 600178175, 0, 2952806400, 0, 268632067, 0, 4294543328, 0, 57540095, 0, 1577058304, 0, 1835008, 0, 4294688736, 2, 61, 2, 62, 0, 33554435, 2, 120, 2, 61, 2, 145, 0, 131075, 0, 3594373096, 0, 67094296, 2, 62, -1, 2, 63, 0, 603979263, 2, 153, 0, 3, 0, 4294828001, 0, 602930687, 2, 175, 0, 393219, 2, 63, 0, 671088639, 0, 2154840064, 0, 4227858435, 0, 4236247008, 2, 64, 2, 36, -1, 2, 4, 0, 917503, 2, 36, -1, 2, 65, 0, 537783470, 0, 4026531935, -1, 0, 1, -1, 2, 34, 2, 47, 0, 7936, -3, 2, 0, 0, 2147485695, 0, 1010761728, 0, 4292984930, 0, 16387, 2, 0, 2, 14, 2, 15, 3, 0, 10, 2, 66, 2, 0, 2, 67, 2, 68, 2, 69, 2, 0, 2, 70, 2, 0, 2, 16, -1, 2, 27, 3, 0, 2, 2, 11, 2, 4, 3, 0, 18, 2, 71, 2, 5, 3, 0, 2, 2, 72, 0, 253951, 3, 20, 2, 0, 122879, 2, 0, 2, 8, 0, 276824064, -2, 3, 0, 2, 2, 9, 2, 0, 0, 4294903295, 2, 0, 2, 18, 2, 7, -1, 2, 17, 2, 46, 2, 0, 2, 73, 2, 39, -1, 2, 23, 2, 0, 2, 31, -2, 0, 128, -2, 2, 74, 2, 8, 0, 4064, -1, 2, 115, 0, 4227907585, 2, 0, 2, 191, 2, 0, 2, 44, 0, 4227915776, 2, 10, 2, 13, -2, 0, 6544896, 3, 0, 6, -2, 3, 0, 8, 2, 11, 2, 0, 2, 75, 2, 10, 2, 0, 2, 76, 2, 77, 2, 78, -3, 2, 79, 2, 12, -3, 2, 80, 2, 81, 2, 82, 2, 0, 2, 13, -83, 2, 0, 2, 49, 2, 7, 3, 0, 4, 0, 817183, 2, 0, 2, 14, 2, 0, 0, 33023, 2, 23, 3, 83, 2, -17, 2, 84, 0, 524157950, 2, 4, 2, 0, 2, 85, 2, 4, 2, 0, 2, 15, 2, 74, 2, 86, 3, 0, 2, 2, 43, 2, 16, -1, 2, 17, -16, 3, 0, 205, 2, 18, -2, 3, 0, 655, 2, 19, 3, 0, 36, 2, 47, -1, 2, 17, 2, 10, 3, 0, 8, 2, 87, 0, 3072, 2, 0, 0, 2147516415, 2, 10, 3, 0, 2, 2, 27, 2, 21, 2, 88, 3, 0, 2, 2, 89, 2, 90, -1, 2, 21, 0, 4294965179, 0, 7, 2, 0, 2, 8, 2, 88, 2, 8, -1, 0, 687603712, 2, 91, 2, 92, 2, 36, 2, 22, 2, 93, 2, 35, 2, 159, 0, 2080440287, 2, 0, 2, 13, 2, 136, 0, 3296722943, 2, 0, 0, 1046675455, 0, 939524101, 0, 1837055, 2, 94, 2, 95, 2, 15, 2, 92, 3, 0, 3, 0, 7, 3, 0, 349, 2, 96, 2, 97, 2, 6, -264, 3, 0, 11, 2, 24, 3, 0, 2, 2, 25, -1, 0, 2700607615, 2, 98, 2, 99, 3, 0, 2, 2, 20, 2, 100, 3, 0, 10, 2, 10, 2, 17, 2, 0, 2, 42, 2, 0, 2, 26, 2, 101, -3, 2, 102, 3, 0, 3, 2, 22, -1, 3, 5, 2, 2, 30, 2, 0, 2, 7, 2, 103, -1, 2, 104, 2, 105, 2, 106, -1, 3, 0, 3, 2, 16, -2, 2, 0, 2, 31, -8, 2, 22, 2, 0, 2, 107, -1, 2, 0, 2, 58, 2, 32, 2, 18, 2, 10, 2, 0, 2, 108, -1, 3, 0, 4, 2, 10, 2, 17, 2, 109, 2, 6, 2, 0, 2, 110, 2, 0, 2, 44, -4, 3, 0, 9, 2, 23, 2, 18, 2, 26, -4, 2, 111, 2, 112, 2, 18, 2, 23, 2, 7, -2, 2, 113, 2, 18, 2, 25, -2, 2, 0, 2, 114, -2, 0, 4277075969, 2, 8, -1, 3, 22, 2, -1, 2, 34, 2, 137, 2, 0, 3, 18, 2, 2, 35, 2, 20, -3, 3, 0, 2, 2, 13, -1, 2, 0, 2, 35, 2, 0, 2, 35, -24, 2, 115, 2, 9, -2, 2, 115, 2, 27, 2, 17, 2, 13, 2, 115, 2, 36, 2, 17, 0, 4718591, 2, 115, 2, 35, 0, 335544350, -1, 2, 116, 2, 117, -2, 2, 118, 2, 119, 2, 7, -1, 2, 120, 2, 61, 0, 3758161920, 0, 3, -4, 2, 0, 2, 31, 2, 170, -1, 2, 0, 2, 27, 0, 176, -5, 2, 0, 2, 43, 2, 177, -1, 2, 0, 2, 27, 2, 189, -1, 2, 0, 2, 19, -2, 2, 25, -12, 3, 0, 2, 2, 121, -8, 0, 4294965249, 0, 67633151, 0, 4026597376, 2, 0, 0, 975, -1, 2, 0, 2, 45, -8, 2, 50, 2, 43, 0, 1, 2, 122, 2, 27, -3, 2, 123, 2, 107, 2, 124, -21, 3, 0, 28, 2, 25, -3, 3, 0, 3, 2, 43, 3, 0, 6, 2, 44, -85, 3, 0, 33, 2, 43, -126, 3, 0, 18, 2, 36, -269, 3, 0, 17, 2, 45, 2, 7, -3, 2, 17, 2, 125, 2, 0, 2, 27, 2, 44, 2, 126, 2, 27, -27, 3, 0, 2, 0, 65567, -1, 2, 100, -2, 0, 3, 3, 0, 191, 2, 47, 3, 0, 23, 2, 35, -296, 3, 0, 8, 2, 7, -2, 2, 17, 3, 0, 11, 2, 6, -72, 3, 0, 3, 2, 127, 2, 128, -187, 3, 0, 2, 2, 48, 2, 0, 2, 129, 2, 130, 2, 51, 2, 0, 2, 131, 2, 132, 2, 133, 3, 0, 10, 2, 134, 2, 135, 2, 15, 3, 48, 2, 3, 49, 2, 3, 50, 2, 2, 136, -129, 3, 0, 6, 2, 137, -1, 3, 0, 2, 2, 44, -37, 2, 51, 2, 138, 2, 139, 2, 140, 2, 141, 2, 142, -138, 3, 0, 1334, 2, 23, -1, 3, 0, 129, 2, 31, 3, 0, 6, 2, 10, 3, 0, 180, 2, 143, 3, 0, 233, 0, 1, -96, 3, 0, 16, 2, 10, -28719, 2, 0, 0, 1, -1, 2, 121, 2, 0, 0, 8193, -21, 0, 50331648, 0, 10255, 0, 4, -11, 2, 62, 2, 163, 0, 1, 0, 71936, -1, 2, 154, 0, 4292933632, 0, 805306431, -5, 2, 144, -1, 2, 172, -1, 0, 6144, -2, 2, 122, -1, 2, 164, -1, 2, 150, 2, 145, 2, 158, 2, 0, 0, 3223322624, 2, 8, 0, 4, -4, 2, 183, 0, 205128192, 0, 1333757536, 0, 3221225520, 0, 423953, 0, 747766272, 0, 2717763192, 0, 4290773055, 0, 278545, 2, 146, 0, 4294886464, 0, 33292336, 0, 417809, 2, 146, 0, 1329579616, 0, 4278190128, 0, 700594195, 0, 1006647527, 0, 4286497336, 0, 4160749631, 2, 147, 0, 469762560, 0, 4171219488, 0, 16711728, 2, 147, 0, 202375680, 0, 3214918176, 0, 4294508592, 2, 147, -1, 0, 983584, 0, 48, 0, 58720275, 0, 3489923072, 0, 10517376, 0, 4293066815, 0, 1, 0, 2013265920, 2, 171, 2, 0, 0, 17816169, 0, 3288339281, 0, 201375904, 2, 0, -2, 0, 256, 0, 122880, 0, 16777216, 2, 144, 0, 4160757760, 2, 0, -6, 2, 160, -11, 0, 3263218176, -1, 0, 49664, 0, 2160197632, 0, 8388802, -1, 0, 12713984, -1, 0, 402653184, 2, 152, 2, 155, -2, 2, 156, -20, 0, 3758096385, -2, 2, 185, 0, 4292878336, 2, 21, 2, 148, 0, 4294057984, -2, 2, 157, 2, 149, 2, 168, -2, 2, 166, -1, 2, 174, -1, 2, 162, 2, 121, 0, 4026593280, 0, 14, 0, 4292919296, -1, 2, 151, 0, 939588608, -1, 0, 805306368, -1, 2, 121, 0, 1610612736, 2, 149, 2, 150, 3, 0, 2, -2, 2, 151, 2, 152, -3, 0, 267386880, -1, 2, 153, 0, 7168, -1, 2, 180, 2, 0, 2, 154, 2, 155, -7, 2, 161, -8, 2, 156, -1, 0, 1426112704, 2, 157, -1, 2, 181, 0, 271581216, 0, 2149777408, 2, 27, 2, 154, 2, 121, 0, 851967, 0, 3758129152, -1, 2, 27, 2, 173, -4, 2, 151, -20, 2, 188, 2, 158, -56, 0, 3145728, 2, 179, 2, 184, 0, 4294443520, 2, 73, -1, 2, 159, 2, 121, -4, 0, 32505856, -1, 2, 160, -1, 0, 2147385088, 2, 21, 1, 2155905152, 2, -3, 2, 91, 2, 0, 2, 161, -2, 2, 148, -6, 2, 162, 0, 4026597375, 0, 1, -1, 0, 1, -1, 2, 163, -3, 2, 137, 2, 190, -2, 2, 159, 2, 164, -1, 2, 169, 2, 121, -6, 2, 121, -213, 2, 162, -657, 2, 158, -36, 2, 165, -1, 0, 65408, -10, 2, 193, -5, 2, 166, -5, 0, 4278222848, 2, 0, 2, 23, -1, 0, 4227919872, -1, 2, 166, -2, 0, 4227874752, 2, 157, -2, 0, 2146435072, 2, 152, -2, 0, 1006649344, 2, 121, -1, 2, 21, 0, 201375744, -3, 0, 134217720, 2, 21, 0, 4286677377, 0, 32896, -1, 2, 167, -3, 2, 168, -349, 2, 169, 2, 170, 2, 171, 3, 0, 264, -11, 2, 172, -2, 2, 155, 2, 0, 0, 520617856, 0, 2692743168, 0, 36, -3, 0, 524284, -11, 2, 27, -1, 2, 178, -1, 2, 176, 0, 3221291007, 2, 155, -1, 0, 524288, 0, 2158720, -3, 2, 152, 0, 1, -4, 2, 121, 0, 3808625411, 0, 3489628288, 0, 4096, 0, 1207959680, 0, 3221274624, 2, 0, -3, 2, 164, 0, 120, 0, 7340032, -2, 0, 4026564608, 2, 4, 2, 27, 2, 157, 3, 0, 4, 2, 152, -1, 2, 173, 2, 171, -1, 0, 8176, 2, 174, 2, 164, 2, 175, -1, 0, 4290773232, 2, 0, -4, 2, 157, 2, 182, 0, 15728640, 2, 171, -1, 2, 154, -1, 0, 4294934512, 3, 0, 4, -9, 2, 21, 2, 162, 2, 176, 3, 0, 4, 0, 704, 0, 1849688064, 0, 4194304, -1, 2, 121, 0, 4294901887, 2, 0, 0, 130547712, 0, 1879048192, 0, 2080374784, 3, 0, 2, -1, 2, 177, 2, 178, -1, 0, 17829776, 0, 2028994560, 0, 4261478144, -2, 2, 0, -1, 0, 4286580608, -1, 0, 29360128, 2, 179, 0, 16252928, 0, 3791388672, 2, 119, 3, 0, 2, -2, 2, 180, 2, 0, -1, 2, 100, -1, 0, 66584576, 3, 0, 11, 2, 121, 3, 0, 12, -2, 0, 245760, 0, 2147418112, -1, 2, 144, 2, 195, 0, 4227923456, -1, 2, 181, 2, 169, 2, 21, -2, 2, 172, 0, 4292870145, 0, 262144, 2, 121, 3, 0, 2, 0, 1073758848, 2, 182, -1, 0, 4227921920, 2, 183, 2, 146, 0, 528402016, 0, 4292927536, 3, 0, 4, -2, 0, 3556769792, 2, 0, -2, 2, 186, 3, 0, 5, -1, 2, 179, 2, 157, 2, 0, -2, 0, 4227923936, 2, 58, -1, 2, 166, 2, 91, 2, 0, 2, 184, 2, 151, 3, 0, 11, -2, 0, 2146959360, 3, 0, 8, -2, 2, 154, -1, 0, 536870960, 2, 115, -1, 2, 185, 3, 0, 8, 0, 512, 0, 8388608, 2, 167, 2, 165, 2, 178, 0, 4286578944, 3, 0, 2, 0, 1152, 0, 1266679808, 2, 186, 3, 0, 21, -28, 2, 155, 3, 0, 3, -3, 0, 4292902912, -6, 2, 93, 3, 0, 85, -33, 2, 187, 3, 0, 126, -18, 2, 188, 3, 0, 269, -17, 2, 185, 2, 121, 0, 4294917120, 3, 0, 2, 2, 27, 0, 4290822144, -2, 0, 67174336, 0, 520093700, 2, 17, 3, 0, 27, -2, 0, 65504, 2, 121, 2, 43, 3, 0, 2, 2, 88, -191, 2, 58, -23, 2, 100, 3, 0, 296, -8, 2, 121, 3, 0, 2, 2, 27, -11, 2, 171, 3, 0, 72, -3, 0, 3758159872, 0, 201391616, 3, 0, 155, -7, 2, 162, -1, 0, 384, -1, 0, 133693440, -3, 2, 180, -2, 2, 30, 3, 0, 5, -2, 2, 21, 2, 122, 3, 0, 4, -2, 2, 181, -1, 2, 144, 0, 335552923, 2, 189, -1, 0, 538974272, 0, 2214592512, 0, 132000, -10, 0, 192, -8, 0, 12288, -21, 0, 134213632, 0, 4294901761, 3, 0, 42, 0, 100663424, 0, 4294965284, 3, 0, 62, -6, 0, 4286578784, 2, 0, -2, 0, 1006696448, 3, 0, 37, 2, 189, 0, 4110942569, 0, 1432950139, 0, 2701658217, 0, 4026532864, 0, 4026532881, 2, 0, 2, 42, 3, 0, 8, -1, 2, 151, -2, 2, 148, 2, 190, 0, 65537, 2, 162, 2, 165, 2, 159, -1, 2, 151, -1, 2, 58, 2, 0, 2, 191, 0, 65528, 2, 171, 0, 4294770176, 2, 30, 3, 0, 4, -30, 2, 192, 0, 4261470208, -3, 2, 148, -2, 2, 192, 2, 0, 2, 151, -1, 2, 186, -1, 2, 154, 0, 4294950912, 3, 0, 2, 2, 151, 2, 121, 2, 165, 2, 193, 2, 166, 2, 0, 2, 194, 2, 188, 3, 0, 48, -1334, 2, 21, 2, 0, -129, 2, 192, -6, 2, 157, -180, 2, 195, -233, 2, 4, 3, 0, 96, -16, 2, 157, 3, 0, 22583, -7, 2, 17, 3, 0, 6128], [4294967295, 4294967291, 4092460543, 4294828015, 4294967294, 134217726, 268435455, 2147483647, 1048575, 16777215, 1073741823, 1061158911, 536805376, 511, 4294910143, 4160749567, 134217727, 4294901760, 4194303, 2047, 262143, 4286578688, 536870911, 8388607, 4294918143, 67108863, 255, 65535, 67043328, 2281701374, 4294967232, 2097151, 4294903807, 4294902783, 4294967039, 524287, 127, 4294549487, 67045375, 1023, 67047423, 4286578687, 4294770687, 32767, 15, 33554431, 2047999, 8191, 4292870143, 4294934527, 4294966783, 4294967279, 262083, 20511, 4290772991, 4294901759, 41943039, 460799, 4294959104, 71303167, 1071644671, 602799615, 65536, 4294828000, 805044223, 4277151126, 1031749119, 4294917631, 2134769663, 4286578493, 4282253311, 4294942719, 33540095, 4294905855, 4294967264, 2868854591, 1608515583, 265232348, 534519807, 2147614720, 1060109444, 4093640016, 17376, 2139062143, 224, 4169138175, 4294868991, 4294909951, 4294967292, 4294965759, 16744447, 4294966272, 4294901823, 4294967280, 8289918, 4294934399, 4294901775, 4294965375, 1602223615, 4294967259, 4294443008, 268369920, 4292804608, 486341884, 4294963199, 3087007615, 1073692671, 131071, 4128527, 4279238655, 4294902015, 4294966591, 2445279231, 3670015, 3238002687, 4294967288, 4294705151, 4095, 3221208447, 4294902271, 4294549472, 2147483648, 4294705152, 4294966143, 64, 16383, 3774873592, 536807423, 67043839, 3758096383, 3959414372, 3755993023, 2080374783, 4294835295, 4294967103, 4160749565, 4087, 31, 184024726, 2862017156, 1593309078, 268434431, 268434414, 4294901763, 536870912, 2952790016, 202506752, 139280, 4293918720, 4227922944, 2147532800, 61440, 3758096384, 117440512, 65280, 4227858432, 3233808384, 3221225472, 4294965248, 32768, 57152, 67108864, 4290772992, 25165824, 4160749568, 57344, 4278190080, 65472, 4227907584, 65520, 1920, 4026531840, 49152, 4294836224, 63488, 1073741824, 4294967040, 251658240, 196608, 12582912, 4294966784, 2097152, 64512, 417808, 469762048, 4261412864, 4227923712, 4294934528, 4294967168, 16, 98304, 63, 4292870144, 4294963200, 65534, 65532]);
+
+    function scanIdentifier(parser) {
+        const { index: start } = parser;
+        let code = parser.source.charCodeAt(parser.index);
+        while (parser.index < parser.length && isValidIdentifierPart(code)) {
+            parser.index++;
+            parser.column++;
+            code = parser.source.charCodeAt(parser.index);
+        }
+        const ret = parser.source.slice(start, parser.index);
+        const len = ret.length;
+        parser.tokenValue = ret;
+        // Keywords are between 2 and 11 characters long and start with a lowercase letter
+        // https://tc39.github.io/ecma262/#sec-keywords
+        if (len >= 2 && len <= 11) {
+            const token = descKeyword(ret);
+            if (token > 0) {
+                return token;
+            }
+        }
+        return 8388608 /* Identifier */;
+    }
+
+    function skipSingleHTMLComment(parser) {
+        // if (context & Context.Module) report(parser, Errors.HtmlCommentInModule);
+        skipToNewline(parser);
+        return 1572982 /* HTMLComment */;
+    }
+    function skipSingleLineComment(parser) {
+        skipToNewline(parser);
+        return 1572980 /* SingleComment */;
+    }
+    function skipMultilineComment(parser) {
+        while (parser.index < parser.length) {
+            const ch = parser.source.charCodeAt(parser.index);
+            switch (ch) {
+                case 42 /* Asterisk */:
+                    parser.index++;
+                    parser.column++;
+                    if (consumeOpt(parser, 47 /* Slash */))
+                        return 1572981 /* MultiComment */;
+                    break;
+                case 13 /* CarriageReturn */:
+                case 10 /* LineFeed */:
+                case 8232 /* LineSeparator */:
+                case 8233 /* ParagraphSeparator */:
+                    parser.index++;
+                    advanceNewline(parser, ch);
+                    break;
+                default:
+                    parser.index++;
+                    parser.column++;
+            }
+        }
+    }
+
+    /**
+     * Scan a string literal
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#sec-literals-string-literals)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     * @param quote codepoint
+     */
+    function scanStringLiteral(parser, context, quote) {
+        parser.index++;
+        parser.column++; // consume quote
+        let { index, column } = parser;
+        let ret = '';
+        let ch = parser.source.charCodeAt(parser.index);
+        loop: while (parser.index < parser.source.length) {
+            ch = parser.source.charCodeAt(parser.index);
+            switch (ch) {
+                case 8232 /* LineSeparator */:
+                case 8233 /* ParagraphSeparator */:
+                case 13 /* CarriageReturn */:
+                case 10 /* LineFeed */:
+                    break loop;
+                case 92 /* Backslash */:
+                    ret += parser.source.slice(index, parser.index);
+                    ch = readNext(parser, ch);
+                    if (ch > 128 /* MaxAsciiCharacter */) {
+                        ret += fromCodePoint(ch);
+                    }
+                    else {
+                        const code = table[ch](parser, context, ch);
+                        if (code >= 0)
+                            ret += fromCodePoint(code);
+                        // recovers from invalid escapes
+                        else if (code !== -1 /* Empty */) {
+                            ret = undefined;
+                            recordStringErrors(parser, code);
+                            ch = scanBadString(parser, quote, ch);
+                            break loop;
+                        }
+                        else
+                            return recordStringErrors(parser, code);
+                        index = parser.index + 1;
+                        column = parser.column + 1;
+                    }
+                    break;
+                case quote:
+                    ret += parser.source.slice(index, parser.index);
+                    parser.index++;
+                    parser.column++; // consume the quote
+                    if (context & 4 /* OptionsRaw */)
+                        parser.source.slice(index, parser.index);
+                    parser.tokenValue = ret;
+                    return 4194304 /* StringLiteral */;
+                default:
+                    parser.index++;
+                    parser.column++;
+            }
+        }
+        // Unterminated string literal
+        recordErrors(parser, 2 /* UnterminatedString */);
+        return 65536 /* Invalid */;
+    }
+    /**
+     * Scans invalid escaped string values
+     *
+     * @param parser Parser object
+     * @param quite Number
+     * @param ch codepoint
+     */
+    function scanBadString(parser, quote, ch) {
+        while (ch !== quote) {
+            ch = readNext(parser, ch);
+            return ch;
+        }
+    }
+    /**
+     * Throws a string error for either string or template literal
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function recordStringErrors(parser, code) {
+        if (code === -1 /* Empty */)
+            return;
+        recordErrors(parser, 2 /* UnterminatedString */);
+        return 65536 /* Invalid */;
+    }
+    const table = new Array(128).fill(nextUnicodeChar);
+    table[98 /* LowerB */] = () => 8 /* Backspace */;
+    table[102 /* LowerF */] = () => 12 /* FormFeed */;
+    table[114 /* LowerR */] = () => 13 /* CarriageReturn */;
+    table[110 /* LowerN */] = () => 10 /* LineFeed */;
+    table[116 /* LowerT */] = () => 9 /* Tab */;
+    table[118 /* LowerV */] = () => 11 /* VerticalTab */;
+    table[13 /* CarriageReturn */] = (parser) => {
+        parser.column = -1;
+        parser.line++;
+        const { index } = parser;
+        if (index < parser.source.length) {
+            const ch = parser.source.charCodeAt(index);
+            if (ch === 10 /* LineFeed */) {
+                parser.index = index + 1;
+            }
+        }
+        return -1 /* Empty */;
+    };
+    table[10 /* LineFeed */] =
+        table[8232 /* LineSeparator */] =
+            table[8233 /* ParagraphSeparator */] = (parser) => {
+                parser.column = -1;
+                parser.line++;
+                return -1 /* Empty */;
+            };
+    // Null character, octals
+    table[48 /* Zero */] =
+        table[49 /* One */] =
+            table[50 /* Two */] =
+                table[51 /* Three */] = (parser, context, first) => {
+                    // 1 to 3 octal digits
+                    let code = first - 48 /* Zero */;
+                    let index = parser.index + 1;
+                    let column = parser.column + 1;
+                    let next = parser.source.charCodeAt(index);
+                    if (next < 48 /* Zero */ || next > 55 /* Seven */) {
+                        // Strict mode code allows only \0, then a non-digit.
+                        if (code !== 0 || next === 56 /* Eight */ || next === 57 /* Nine */) {
+                            if (context & 16 /* Strict */)
+                                return -2 /* StrictOctal */;
+                            parser.flags |= 2 /* HasOctal */;
+                        }
+                    }
+                    else if (context & 16 /* Strict */) {
+                        return -2 /* StrictOctal */;
+                    }
+                    else {
+                        parser.flags |= 2 /* HasOctal */;
+                        code = code * 8 + (next - 48 /* Zero */);
+                        index++;
+                        column++;
+                        next = parser.source.charCodeAt(index);
+                        if (next >= 48 /* Zero */ && next <= 55 /* Seven */) {
+                            code = code * 8 + (next - 48 /* Zero */);
+                            index++;
+                            column++;
+                        }
+                        parser.index = index - 1;
+                        parser.column = column - 1;
+                    }
+                    return code;
+                };
+    table[52 /* Four */] =
+        table[53 /* Five */] =
+            table[54 /* Six */] =
+                table[55 /* Seven */] = (parser, context, first) => {
+                    if (context & 16 /* Strict */)
+                        return -2 /* StrictOctal */;
+                    let code = first - 48 /* Zero */;
+                    const index = parser.index + 1;
+                    const column = parser.column + 1;
+                    if (index < parser.source.length) {
+                        const next = parser.source.charCodeAt(index);
+                        if (next >= 48 /* Zero */ && next <= 55 /* Seven */) {
+                            code = (code << 3) | (next - 48 /* Zero */);
+                            parser.index = index;
+                            parser.column = column;
+                        }
+                    }
+                    return code;
+                };
+    // `8`, `9` (invalid escapes)
+    table[56 /* Eight */] = table[57 /* Nine */] = () => -3 /* EightOrNine */;
+    // ASCII escapes
+    table[120 /* LowerX */] = (parser, _, first) => {
+        const ch1 = readNext(parser, first);
+        const hi = toHex(ch1);
+        if (hi < 0)
+            return -4 /* InvalidHex */;
+        const ch2 = readNext(parser, ch1);
+        const lo = toHex(ch2);
+        if (lo < 0)
+            return -4 /* InvalidHex */;
+        return hi << 4 | lo;
+    };
+    // UCS-2/Unicode escapes
+    table[117 /* LowerU */] = (parser, _, prev) => {
+        let ch = readNext(parser, prev);
+        if (ch === 123 /* LeftBrace */) {
+            ch = readNext(parser, ch);
+            let code = toHex(ch);
+            if (code < 0)
+                return -4 /* InvalidHex */;
+            ch = readNext(parser, ch);
+            while (ch !== 125 /* RightBrace */) {
+                const digit = toHex(ch);
+                if (digit < 0)
+                    return -4 /* InvalidHex */;
+                code = code * 16 + digit;
+                // Code point out of bounds
+                if (code > 1114111 /* NonBMPMax */)
+                    return -5 /* OutOfRange */;
+                ch = readNext(parser, ch);
+            }
+            return code;
+        }
+        else {
+            // \uNNNN
+            let codePoint = toHex(ch);
+            if (codePoint < 0)
+                return -4 /* InvalidHex */;
+            for (let i = 0; i < 3; i++) {
+                ch = readNext(parser, ch);
+                const digit = toHex(ch);
+                if (digit < 0)
+                    return -4 /* InvalidHex */;
+                codePoint = codePoint * 16 + digit;
+            }
+            return codePoint;
+        }
+    };
+
+    // Note: Diffeent corde paths for decimal and floating numbers to speed things up.
+    /**
+     *  Scans numeric literal
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function scanNumeric(parser) {
+        const { index } = parser;
+        let ch = skipDigits(parser);
+        if (ch === 46 /* Period */) {
+            parser.index++;
+            parser.column++;
+            ch = skipDigits(parser);
+        }
+        if (ch === 101 /* LowerE */ || ch === 69 /* UpperE */) {
+            parser.index++;
+            parser.column++;
+            scanSignedInteger(parser);
+        }
+        parser.tokenValue = parseFloat(parser.source.slice(index - 1, parser.index));
+        return 2097276 /* Decimal */;
+    }
+    /**
+     * Scans floating number
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function parseFractionalNumber(parser) {
+        const { index } = parser;
+        const ch = skipDigits(parser);
+        // scan exponent
+        if (ch === 101 /* LowerE */ || ch === 69 /* UpperE */) {
+            parser.index++;
+            parser.column++;
+            scanSignedInteger(parser);
+        }
+        parser.tokenValue = parseFloat(parser.source.slice(index - 1, parser.index));
+        return 2097276 /* Decimal */;
+    }
+    /**
+     * Skips digits
+     *
+     * @param parser Parser object
+     */
+    function skipDigits(parser) {
+        let ch = parser.source.charCodeAt(parser.index);
+        while (ch >= 48 /* Zero */ && ch <= 57 /* Nine */) {
+            ch = parser.source.charCodeAt(parser.index);
+            parser.column++;
+            parser.index++;
+        }
+        return ch;
+    }
+    /**
+     * Scans signed integer
+     *
+     * @param parser Parser object
+     */
+    function scanSignedInteger(parser) {
+        let ch = parser.source.charCodeAt(parser.index);
+        if (ch === 43 /* Plus */ || ch === 45 /* Hyphen */) {
+            parser.index++;
+            parser.column++;
+            ch = parser.source.charCodeAt(parser.index);
+        }
+        skipDigits(parser);
+    }
+    function parseLeadingZero(parser, context) {
+        switch (parser.source.charCodeAt(parser.index)) {
+            case 120 /* LowerX */:
+            case 88 /* UpperX */:
+                return scanHexDigits(parser);
+            case 98 /* LowerB */:
+            case 66 /* UpperB */:
+                return scanBinaryDigits(parser);
+            case 111 /* LowerO */:
+            case 79 /* UpperO */:
+                return scanOctalDigits(parser);
+            case 48 /* Zero */:
+            case 49 /* One */:
+            case 50 /* Two */:
+            case 51 /* Three */:
+            case 52 /* Four */:
+            case 53 /* Five */:
+            case 54 /* Six */:
+            case 55 /* Seven */:
+                return scanImplicitOctalDigits(parser, context);
+            default:
+                return scanNumeric(parser);
+        }
+    }
+    function scanOctalDigits(parser) {
+        parser.index++;
+        parser.column++;
+        let value = 0;
+        let digits = 0;
+        let code = parser.source.charCodeAt(parser.index);
+        while (parser.index < parser.length) {
+            if (!(code >= 48 /* Zero */ && code <= 55 /* Seven */)) {
+                break;
+            }
+            value = value * 8 + (code - 48 /* Zero */);
+            parser.index++;
+            parser.column++;
+            code = parser.source.charCodeAt(parser.index);
+            digits++;
+        }
+        if (digits === 0) {
+            recordErrors(parser, 1 /* InvalidOrUnexpectedToken */);
+        }
+        parser.tokenValue = value;
+        if (consumeOpt(parser, 110 /* LowerN */))
+            return 2097280 /* BigInt */;
+        return 2097152 /* NumericLiteral */;
+    }
+    function scanHexDigits(parser) {
+        parser.index++;
+        parser.column++;
+        let value = toHex(parser.source.charCodeAt(parser.index));
+        if (value < 0)
+            recordErrors(parser, 0 /* Unexpected */);
+        parser.index++;
+        parser.column++;
+        while (parser.index < parser.length) {
+            const next = parser.source.charCodeAt(parser.index);
+            const digit = toHex(next);
+            if (digit < 0) {
+                break;
+            }
+            value = value * 16 + digit;
+            parser.index++;
+            parser.column++;
+        }
+        parser.tokenValue = value;
+        if (consumeOpt(parser, 110 /* LowerN */))
+            return 2097280 /* BigInt */;
+        return 2097152 /* NumericLiteral */;
+    }
+    /**
+     * Scans binary digits
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function scanBinaryDigits(parser) {
+        parser.index++;
+        parser.column++;
+        let value = 0;
+        let digits = 0;
+        while (parser.index < parser.length) {
+            const code = parser.source.charCodeAt(parser.index);
+            value = value * 2 + code - 48 /* Zero */;
+            parser.index++;
+            parser.column++;
+            digits++;
+        }
+        if (digits === 0)
+            recordErrors(parser, 1 /* InvalidOrUnexpectedToken */);
+        parser.tokenValue = value;
+        if (consumeOpt(parser, 110 /* LowerN */))
+            return 2097280 /* BigInt */;
+        return 2097152 /* NumericLiteral */;
+    }
+    /**
+     * Scans implicit octals
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function scanImplicitOctalDigits(parser, context) {
+        if (context & 16 /* Strict */)
+            recordErrors(parser, 0 /* Unexpected */);
+        let next = parser.source.charCodeAt(parser.index);
+        let value = 0;
+        let index = parser.index;
+        let column = parser.column;
+        let digits = 0;
+        parser.flags |= 2 /* HasOctal */;
+        // Implicit octal, unless there is a non-octal digit.
+        // (Annex B.1.1 on Numeric Literals)
+        while (index < parser.length) {
+            next = parser.source.charCodeAt(index);
+            if (next === 56 /* Eight */ || next === 57 /* Nine */)
+                return scanNumeric(parser);
+            if (!(next >= 48 /* Zero */ && next <= 55 /* Seven */))
+                break;
+            value = value * 8 + (next - 48 /* Zero */);
+            index++;
+            column++;
+            digits++;
+        }
+        if (digits === 0)
+            recordErrors(parser, 0 /* Unexpected */);
+        parser.tokenValue = value;
+        parser.index = index;
+        parser.column = column;
+        if (consumeOpt(parser, 110 /* LowerN */))
+            return 2097280 /* BigInt */;
+        return 2097152 /* NumericLiteral */;
+    }
+
+    const table$1 = new Array(128).fill(() => 0 /* EndOfSource */);
+    table$1[32 /* Space */] =
+        table$1[9 /* Tab */] =
+            table$1[12 /* FormFeed */] =
+                table$1[11 /* VerticalTab */] =
+                    table$1[12 /* FormFeed */] = () => {
+                        return 524288 /* WhiteSpace */;
+                    };
+    table$1[8232 /* LineSeparator */] =
+        table$1[8233 /* ParagraphSeparator */] =
+            table$1[10 /* LineFeed */] =
+                table$1[13 /* CarriageReturn */] = (parser, context, first) => {
+                    advanceNewline(parser, first);
+                    parser.flags |= 1 /* NewLine */;
+                    return 524288 /* WhiteSpace */;
+                };
+    /** Punctuators */
+    // `,`
+    table$1[44 /* Comma */] = () => 33554447 /* Comma */;
+    // `~`
+    table$1[126 /* Tilde */] = () => 570425387 /* Complement */;
+    // `?`
+    table$1[63 /* QuestionMark */] = () => 33554451 /* QuestionMark */;
+    // `[`
+    table$1[91 /* LeftBracket */] = () => 33554448 /* LeftBracket */;
+    // `]`
+    table$1[93 /* RightBracket */] = () => 33554449 /* RightBracket */;
+    // `{`
+    table$1[123 /* LeftBrace */] = () => 33554441 /* LeftBrace */;
+    // `}`
+    table$1[125 /* RightBrace */] = () => 33554444 /* RightBrace */;
+    // `:`
+    table$1[58 /* Colon */] = () => 33554450 /* Colon */;
+    // `;`
+    table$1[59 /* Semicolon */] = () => 33554446 /* Semicolon */;
+    // `(`
+    table$1[40 /* LeftParen */] = () => 33554440 /* LeftParen */;
+    // `)`
+    table$1[41 /* RightParen */] = () => 33554445 /* RightParen */;
+    // `"`, `'`
+    table$1[39 /* SingleQuote */] = table$1[34 /* DoubleQuote */] = () => scanStringLiteral;
+    // `0`
+    table$1[48 /* Zero */] = parseLeadingZero;
+    // `/`, `/=`, `/>`
+    table$1[47 /* Slash */] = (parser) => {
+        if (parser.index >= parser.length)
+            return 301992498 /* Divide */;
+        const next = parser.source.charCodeAt(parser.index);
+        if (next === 47 /* Slash */) {
+            return skipSingleLineComment(parser);
+        }
+        else if (next === 42 /* Asterisk */) {
+            return skipMultilineComment(parser);
+        }
+        else if (next === 61 /* EqualSign */) {
+            parser.index++;
+            parser.column++;
+            return 167772194 /* DivideAssign */;
+        }
+        else if (next === 62 /* GreaterThan */) {
+            parser.index++;
+            parser.column++;
+            return 33554455 /* JSXAutoClose */;
+        }
+        return 301992498 /* Divide */;
+    };
+    // `!`, `!=`, `!==`
+    table$1[33 /* Exclamation */] = (parser) => {
+        if (consumeOpt(parser, 61 /* EqualSign */)) {
+            if (consumeOpt(parser, 61 /* EqualSign */)) {
+                return 301991479 /* StrictNotEqual */;
+            }
+            else {
+                return 301991481 /* LooseNotEqual */;
+            }
+        }
+        else {
+            return 570425386 /* Negate */;
+        }
+    };
+    // `%`, `%=`
+    table$1[37 /* Percent */] = (parser) => {
+        if (consumeOpt(parser, 61 /* EqualSign */)) {
+            return 167772195 /* ModuloAssign */;
+        }
+        else {
+            return 301992497 /* Modulo */;
+        }
+    };
+    // `&`, `&&`, `&=`
+    table$1[38 /* Ampersand */] = (parser) => {
+        if (parser.index < parser.length) {
+            const next = parser.source.charCodeAt(parser.index);
+            if (next === 38 /* Ampersand */) {
+                parser.index++;
+                parser.column++;
+                return 301990452 /* LogicalAnd */;
+            }
+            else if (next === 61 /* EqualSign */) {
+                parser.index++;
+                parser.column++;
+                return 167772198 /* BitwiseAndAssign */;
+            }
+        }
+        return 301991233 /* BitwiseAnd */;
+    };
+    // `*`, `**`, `*=`, `**=`
+    table$1[42 /* Asterisk */] = (parser) => {
+        if (parser.index < parser.length) {
+            const next = parser.source.charCodeAt(parser.index);
+            if (next === 42 /* Asterisk */) {
+                parser.index++;
+                parser.column++;
+                if (consumeOpt(parser, 61 /* EqualSign */)) {
+                    return 167772190 /* ExponentiateAssign */;
+                }
+                else {
+                    return 301992755 /* Exponentiate */;
+                }
+            }
+            else if (next === 61 /* EqualSign */) {
+                parser.index++;
+                parser.column++;
+                return 167772193 /* MultiplyAssign */;
+            }
+        }
+        return 301992496 /* Multiply */;
+    };
+    // `+`, `++`, `+=`
+    table$1[43 /* Plus */] = (parser) => {
+        if (parser.index < parser.length) {
+            const next = parser.source.charCodeAt(parser.index);
+            if (next === 43 /* Plus */) {
+                parser.index++;
+                parser.column++;
+                return 1107296280 /* Increment */;
+            }
+            else if (next === 61 /* EqualSign */) {
+                parser.index++;
+                parser.column++;
+                return 167772191 /* AddAssign */;
+            }
+        }
+        return 838863148 /* Add */;
+    };
+    // `-`, `--`, `-=`
+    table$1[45 /* Hyphen */] = (parser) => {
+        const next = parser.source.charCodeAt(parser.index);
+        if (next === 45 /* Hyphen */ &&
+            parser.source.charCodeAt(parser.index + 1) === 62 /* GreaterThan */) {
+            skipSingleHTMLComment(parser);
+            return 1572982 /* HTMLComment */;
+        }
+        else if (parser.index < parser.source.length) {
+            if (next === 45 /* Hyphen */) {
+                parser.index++;
+                parser.column++;
+                return 1107296281 /* Decrement */;
+            }
+            else if (next === 61 /* EqualSign */) {
+                parser.index++;
+                parser.column++;
+                return 167772192 /* SubtractAssign */;
+            }
+        }
+        return 838863149 /* Subtract */;
+    };
+    // `.`, `...`, `.123` (numeric literal)
+    table$1[46 /* Period */] = (parser) => {
+        if (parser.index < parser.source.length) {
+            const next = parser.source.charCodeAt(parser.index);
+            if (next >= 48 /* Zero */ && next <= 57 /* Nine */) {
+                return parseFractionalNumber(parser);
+            }
+            else if (next === 46 /* Period */) {
+                if (parser.index + 1 < parser.source.length && parser.source.charCodeAt(parser.index) === 46 /* Period */) {
+                    parser.index += 2;
+                    parser.column += 2;
+                    return 33554443 /* Ellipsis */;
+                }
+            }
+        }
+        return 33554442 /* Period */;
+    };
+    // `1`...`9`
+    for (let i = 49 /* One */; i < 57 /* Nine */; i++) {
+        table$1[i] = scanNumeric;
+    }
+    // `<`, `<=`, `<<`, `<<=`, `</`,  <!--
+    table$1[60 /* LessThan */] = (parser, context) => {
+        if (parser.index < parser.source.length) {
+            switch (parser.source.charCodeAt(parser.index)) {
+                case 60 /* LessThan */:
+                    parser.index++;
+                    parser.column++;
+                    if (consumeOpt(parser, 61 /* EqualSign */)) {
+                        return 167772187 /* ShiftLeftAssign */;
+                    }
+                    else {
+                        return 301991998 /* ShiftLeft */;
+                    }
+                case 61 /* EqualSign */:
+                    parser.index++;
+                    parser.column++;
+                    return 301991738 /* LessThanOrEqual */;
+                case 33 /* Exclamation */:
+                    {
+                        if (parser.source.charCodeAt(parser.index + 1) === 45 /* Hyphen */ &&
+                            parser.source.charCodeAt(parser.index + 2) === 45 /* Hyphen */) {
+                            return skipSingleHTMLComment(parser);
+                        }
+                        break;
+                    }
+                case 47 /* Slash */:
+                    {
+                        if (!(context & 2 /* OptionsJSX */))
+                            break;
+                        const index = parser.index + 1;
+                        // Check that it's not a comment start.
+                        if (index < parser.source.length) {
+                            const next = parser.source.charCodeAt(index);
+                            if (next === 42 /* Asterisk */ || next === 47 /* Slash */)
+                                break;
+                        }
+                        parser.index++;
+                        parser.column++;
+                        return 33554454 /* JSXClose */;
+                    }
+                default: // ignore
+            }
+        }
+        return 301991740 /* LessThan */;
+    };
+    // `=`, `==`, `===`, `=>`
+    table$1[61 /* EqualSign */] = (parser) => {
+        if (parser.index < parser.source.length) {
+            const next = parser.source.charCodeAt(parser.index);
+            if (next === 61 /* EqualSign */) {
+                parser.index++;
+                parser.column++;
+                if (consumeOpt(parser, 61 /* EqualSign */)) {
+                    return 301991478 /* StrictEqual */;
+                }
+                else {
+                    return 301991480 /* LooseEqual */;
+                }
+            }
+            else if (next === 62 /* GreaterThan */) {
+                parser.index++;
+                parser.column++;
+                return 33554439 /* Arrow */;
+            }
+        }
+        return 167772186 /* Assign */;
+    };
+    // `>`, `>=`, `>>`, `>>>`, `>>=`, `>>>=`
+    table$1[62 /* GreaterThan */] = (parser) => {
+        if (parser.index < parser.source.length) {
+            const next = parser.source.charCodeAt(parser.index);
+            if (next === 62 /* GreaterThan */) {
+                parser.index++;
+                parser.column++;
+                if (parser.index < parser.source.length) {
+                    const next = parser.source.charCodeAt(parser.index);
+                    if (next === 62 /* GreaterThan */) {
+                        parser.index++;
+                        parser.column++;
+                        if (consumeOpt(parser, 61 /* EqualSign */)) {
+                            return 167772189 /* LogicalShiftRightAssign */;
+                        }
+                        else {
+                            return 301992000 /* LogicalShiftRight */;
+                        }
+                    }
+                    else if (next === 61 /* EqualSign */) {
+                        parser.index++;
+                        parser.column++;
+                        return 167772188 /* ShiftRightAssign */;
+                    }
+                }
+                return 301991999 /* ShiftRight */;
+            }
+            else if (next === 61 /* EqualSign */) {
+                parser.index++;
+                parser.column++;
+                return 301991739 /* GreaterThanOrEqual */;
+            }
+        }
+        return 301991741 /* GreaterThan */;
+    };
+    // `A`...`Z`
+    for (let i = 65 /* UpperA */; i < 90 /* UpperZ */; i++) {
+        table$1[i] = scanIdentifier;
+    }
+    // `a`...`z`
+    for (let i = 97 /* LowerA */; i < 122 /* LowerZ */; i++) {
+        table$1[i] = scanIdentifier;
+    }
+    // `\\u{N}var`
+    table$1[92 /* Backslash */] = scanIdentifier;
+    // `^`, `^=`
+    table$1[94 /* Caret */] = (parser) => {
+        if (consumeOpt(parser, 61 /* EqualSign */)) {
+            return 167772196 /* BitwiseXorAssign */;
+        }
+        else {
+            return 301990979 /* BitwiseXor */;
+        }
+    };
+    // `_var`
+    table$1[95 /* Underscore */] = scanIdentifier;
+    // ``string``
+    // table[Chars.Backtick] = scanTemplate;
+    // `|`, `||`, `|=`
+    table$1[124 /* VerticalBar */] = (parser) => {
+        if (parser.index < parser.length) {
+            const next = parser.source.charCodeAt(parser.index);
+            if (next === 124 /* VerticalBar */) {
+                parser.index++;
+                parser.column++;
+                return 301990197 /* LogicalOr */;
+            }
+            else if (next === 61 /* EqualSign */) {
+                parser.index++;
+                parser.column++;
+                return 167772197 /* BitwiseOrAssign */;
+            }
+        }
+        return 301990722 /* BitwiseOr */;
+    };
+    function scan(parser, context) {
+        while (parser.index < parser.length) {
+            const first = parser.source.charCodeAt(parser.index);
+            if (first === 36 /* Dollar */ || (first >= 97 /* LowerA */ && first <= 122 /* LowerZ */)) {
+                return scanIdentifier(parser);
+            }
+            else {
+                parser.index++;
+                parser.column++;
+                const token = table$1[first](parser, context, first);
+                if ((token & 524288 /* WhiteSpace */) === 524288 /* WhiteSpace */)
+                    continue;
+                if (context & 1 /* OptionsTokenize */)
+                    parser.tokens.push(token);
+                return token;
+            }
+        }
+        return 0 /* EndOfSource */;
+    }
+
+    function setContext(context, mask) {
+        return (context | context) ^ mask;
+    }
+    function swapContext(context, state, isArrow = false) {
+        context = setContext(context, 128 /* Yield */);
+        context = setContext(context, 64 /* Async */);
+        context = setContext(context, 256 /* InParameter */);
+        if (state & 1 /* Generator */)
+            context = context | 128 /* Yield */;
+        if (state & 1 /* Generator */)
+            context = context | 64 /* Async */;
+        if (!isArrow)
+            context = context | 512 /* NewTarget */;
+        return context;
+    }
+    function nextToken(parser, context) {
+        return (parser.token = scan(parser, context));
+    }
+    function expect(parser, context, token) {
+        if (parser.token !== token)
+            recordErrors(parser, 0 /* Unexpected */);
+        nextToken(parser, context);
+        return true;
+    }
+    function consume(parser, context, token) {
+        if (parser.token !== token)
+            return false;
+        nextToken(parser, context);
+        return true;
+    }
+
+    /**
+     * Parses either a binding identifier or binding pattern
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
+    function parseBindingIdentifierOrPattern(parser, context, type, origin = 0 /* Empty */) {
+        if (parser.token === 8388608 /* Identifier */) {
+            return parseBindingIdentifier(parser, context);
+        }
+        if (parser.token === 33554441 /* LeftBrace */) ;
+        if (parser.token === 33554448 /* LeftBracket */) {
+            return parseArrayAssignmentPattern(parser, context, type);
+        }
+    }
+    /**
+     * Parses array assignment pattern
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-ArrayAssignmentPattern)
+     *
+     * @param Parser object
+     * @param Context masks
+     */
+    function parseArrayAssignmentPattern(parser, context, type) {
+        // ArrayAssignmentPattern[Yield] :
+        //   [ Elisionopt AssignmentRestElement[?Yield]opt ]
+        //   [ AssignmentElementList[?Yield] ]
+        //   [ AssignmentElementList[?Yield] , Elisionopt AssignmentRestElement[?Yield]opt ]
+        //
+        // AssignmentRestElement[Yield] :
+        //   ... DestructuringAssignmentTarget[?Yield]
+        //
+        // AssignmentElementList[Yield] :
+        //   AssignmentElisionElement[?Yield]
+        //   AssignmentElementList[?Yield] , AssignmentElisionElement[?Yield]
+        //
+        // AssignmentElisionElement[Yield] :
+        //   Elisionopt AssignmentElement[?Yield]
+        //
+        // AssignmentElement[Yield] :
+        //   DestructuringAssignmentTarget[?Yield] Initializer[In,?Yield]opt
+        //
+        // DestructuringAssignmentTarget[Yield] :
+        //   LeftHandSideExpression[?Yield]
+        //
+        expect(parser, context, 33554448 /* LeftBracket */);
+        const elements = [];
+        while (parser.token !== 33554449 /* RightBracket */) {
+            if (consume(parser, context, 33554447 /* Comma */)) {
+                elements.push(null);
+            }
+            else {
+                if (parser.token === 33554443 /* Ellipsis */) {
+                    // elements.push(parseAssignmentRestElement(parser, context));
+                    break;
+                }
+                else {
+                    elements.push(parseBindingInitializer(parser, context, type));
+                }
+                if (parser.token !== 33554449 /* RightBracket */)
+                    expect(parser, context, 33554447 /* Comma */);
+            }
+        }
+        expect(parser, context, 33554449 /* RightBracket */);
+        // tslint:disable-next-line:no-object-literal-type-assertion
+        return {
+            type: 'ArrayPattern',
+            elements,
+        };
+    }
+    /** Parse assignment pattern
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-AssignmentPattern)
+     * @see [Link](https://tc39.github.io/ecma262/#prod-ArrayAssignmentPattern)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     * @param left LHS of assignment pattern
+     * @param pos Location
+     */
+    function parseAssignmentPattern(parser, context, left) {
+        return {
+            type: 'AssignmentPattern',
+            left,
+            right: parseAssignmentExpression(parser, context | 2048 /* In */),
+        };
+    }
+    /**
+     * Parse binding initializer
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-AssignmentPattern)
+     * @see [Link](https://tc39.github.io/ecma262/#prod-ArrayAssignmentPattern)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function parseBindingInitializer(parser, context, type) {
+        const left = parseBindingIdentifierOrPattern(parser, context, type);
+        return !consume(parser, context, 167772186 /* Assign */) ?
+            left : {
+            type: 'AssignmentPattern',
+            left,
+            right: parseAssignmentExpression(parser, context),
+        };
+    }
+    /**
+     * Parse binding identifier
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-BindingIdentifier)
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
+    function parseBindingIdentifier(parser, context) {
+        const name = parser.tokenValue;
+        nextToken(parser, context);
+        return {
+            type: 'Identifier',
+            name
+        };
+    }
+    /**
+     * Parse rest property
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-AssignmentRestProperty)
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
+    // tslint:disable-next-line:function-name
+    function parseAssignmentRestProperty(parser, context) {
+        expect(parser, context, 33554443 /* Ellipsis */);
+        const argument = parseBindingIdentifierOrPattern(parser, context);
+        return {
+            type: 'RestElement',
+            argument,
+        };
+    }
+    /**
+     * Parse object assignment pattern
+     *
+     * @param Parser Parser object
+     * @param Context Context masks
+     */
+    function parserObjectAssignmentPattern(parser, context, type) {
+        const properties = [];
+        expect(parser, context, 33554441 /* LeftBrace */);
+        while (parser.token !== 33554444 /* RightBrace */) {
+            if (parser.token === 33554443 /* Ellipsis */) {
+                properties.push(parseAssignmentRestProperty(parser, context));
+                break;
+            }
+            properties.push(parseAssignmentProperty(parser, context, type));
+            if (parser.token !== 33554444 /* RightBrace */)
+                expect(parser, context, 33554447 /* Comma */);
+        }
+        expect(parser, context, 33554444 /* RightBrace */);
+        return {
+            type: 'ObjectPattern',
+            properties,
+        };
+    }
+    /**
+     * Parse assignment property
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-AssignmentProperty)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function parseAssignmentProperty(parser, context, type) {
+        const { token } = parser;
+        let key;
+        let value;
+        let computed = false;
+        let shorthand = false;
+        // single name binding
+        if (token & (8388608 /* Identifier */ | 8192 /* Reserved */ | 16384 /* FutureReserved */)) {
+            key = parseBindingIdentifier(parser, context);
+            shorthand = !consume(parser, context, 33554450 /* Colon */);
+            if (shorthand) {
+                const hasInitializer = consume(parser, context, 167772186 /* Assign */);
+                value = hasInitializer ? parseAssignmentPattern(parser, context, key) : key;
+            }
+            else
+                value = parseBindingInitializer(parser, context, type);
+        }
+        else {
+            computed = token === 33554448 /* LeftBracket */;
+            key = parsePropertyName(parser, context);
+            expect(parser, context, 33554450 /* Colon */);
+            value = parseBindingInitializer(parser, context, type);
+        }
+        return {
+            type: 'Property',
+            kind: 'init',
+            key,
+            computed,
+            value,
+            method: false,
+            shorthand,
+        };
+    }
+    /**
+     * Parses bindings
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-FormalParameterList)
+     * @see [Link](https://tc39.github.io/ecma262/#prod-Catch)
+     * @see [Link](https://tc39.github.io/ecma262/#prod-VariableDeclaration)
+     * @see [Link](https://tc39.github.io/ecma262/#sec-for-statement)
+     * @see [Link](https://tc39.github.io/ecma262/#sec-for-in-and-for-of-statements)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     * @param type Binding type
+     * @param origin Binding origin
+     */
+    function parseBinding(parser, context, type, origin, args = []) {
+        let isBinding = parser.token === 33554441 /* LeftBrace */ || parser.token === 33554448 /* LeftBracket */;
+        while (true) {
+            args.push(parseBindingList(parser, context, type, origin));
+            if (!consume(parser, context, 33554447 /* Comma */))
+                break;
+        }
+    }
+    /**
+     * Parse binding list
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-BindingList)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     * @param type Binding type
+     * @param origin Binding origin
+     */
+    function parseBindingList(parser, context, type, origin) {
+        let left;
+        if ((parser.token & 8388608 /* Identifier */) === 8388608 /* Identifier */) {
+            left = parseBindingIdentifier(parser, context);
+        }
+        else if (parser.token === 33554441 /* LeftBrace */) {
+            left = parserObjectAssignmentPattern(parser, context, type);
+            if (parser.token !== 167772186 /* Assign */) {
+                if (origin & 1 /* ForStatement */ && (parser.token === 301999918 /* InKeyword */ || parser.token === 4211 /* OfKeyword */)) ;
+            }
+        }
+        else if (parser.token === 33554448 /* LeftBracket */) {
+            left = parseArrayAssignmentPattern(parser, context, type);
+            if (parser.token !== 167772186 /* Assign */) {
+                if (origin & 1 /* ForStatement */ && (parser.token === 301999918 /* InKeyword */ || parser.token === 4211 /* OfKeyword */)) ;
+            }
+            return left;
+        }
+        else if (parser.token === 33554443 /* Ellipsis */) ;
+        else if (parser.token === 33554445 /* RightParen */) ;
+        if (!consume(parser, context, 167772186 /* Assign */))
+            return left;
+        return {
+            type: 'AssignmentPattern',
+            left,
+            right: parseAssignmentExpression(parser, context),
+        };
+    }
+
+    /**
+     * Expression :
+     *   AssignmentExpression
+     *   Expression , AssignmentExpression
+     *
+     * ExpressionNoIn :
+     *   AssignmentExpressionNoIn
+     *   ExpressionNoIn , AssignmentExpressionNoIn
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-Expression)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function parseExpression(parser, context) {
+        const expr = parseAssignmentExpression(parser, context);
+        while (parser.token === 33554447 /* Comma */) { }
+        return expr;
+    }
+    function parseAssignmentExpression(parser, context) {
+        let isParenthesized = parser.token === 33554440 /* LeftParen */;
+        const expr = parseConditionalExpression(parser, context);
+        if ((parser.flags & 4 /* IsAssignable */) === 4 /* IsAssignable */ &&
+            (parser.token & 134217728 /* IsAssignOp */) === 134217728 /* IsAssignOp */) ;
+        return expr;
+    }
+    /**
+     * Parse conditional expression
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-ConditionalExpression)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function parseConditionalExpression(parser, context) {
+        // ConditionalExpression ::
+        // LogicalOrExpression
+        // LogicalOrExpression '?' AssignmentExpression ':' AssignmentExpression
+        const test = parseBinaryExpression(parser, context, 0);
+        if (!consume(parser, context, 33554451 /* QuestionMark */))
+            return test;
+        const consequent = parseAssignmentExpression(parser, context | 2048 /* In */);
+        expect(parser, context, 33554450 /* Colon */);
+        const alternate = parseAssignmentExpression(parser, context);
+        return {
+            type: 'ConditionalExpression',
+            test,
+            consequent,
+            alternate,
+        };
+    }
+    /**
+     * Parse binary expression.
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#sec-exp-operator)
+     * @see [Link](https://tc39.github.io/ecma262/#sec-binary-logical-operators)
+     * @see [Link](https://tc39.github.io/ecma262/#sec-additive-operators)
+     * @see [Link](https://tc39.github.io/ecma262/#sec-bitwise-shift-operators)
+     * @see [Link](https://tc39.github.io/ecma262/#sec-equality-operators)
+     * @see [Link](https://tc39.github.io/ecma262/#sec-binary-logical-operators)
+     * @see [Link](https://tc39.github.io/ecma262/#sec-relational-operators)
+     * @see [Link](https://tc39.github.io/ecma262/#sec-multiplicative-operators)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     * @param minPrec Minimum precedence value
+     * @param pos Line / Column info
+     * @param Left Left hand side of the binary expression
+     */
+    function parseBinaryExpression(parser, context, minPrec, left = parseUnaryExpression(parser, context)) {
+        // Shift-reduce parser for the binary operator part of the JS expression
+        // syntax.
+        const bit = context & 2048 /* In */ ^ 2048 /* In */;
+        while ((parser.token & 268435456 /* IsBinaryOp */) === 268435456 /* IsBinaryOp */) {
+            const t = parser.token;
+            const prec = t & 3840 /* Precedence */;
+            const delta = (t === 301992755 /* Exponentiate */) << 8 /* PrecStart */;
+            if (bit && t === 301999918 /* InKeyword */)
+                break;
+            // When the next token is no longer a binary operator, it's potentially the
+            // start of an expression, so we break the loop
+            if (prec + delta <= minPrec)
+                break;
+            nextToken(parser, context);
+            left = {
+                type: t & 262144 /* IsLogical */ ? 'LogicalExpression' : 'BinaryExpression',
+                left,
+                right: parseBinaryExpression(parser, context & ~2048 /* In */, prec),
+                operator: tokenDesc(t),
+            };
+        }
+        return left;
+    }
+    function parseUnaryExpression(parser, context) {
+        // UnaryExpression ::
+        //   PostfixExpression
+        //   'delete' UnaryExpression
+        //   'void' UnaryExpression
+        //   'typeof' UnaryExpression
+        //   '++' UnaryExpression
+        //   '--' UnaryExpression
+        //   '+' UnaryExpression
+        //   '-' UnaryExpression
+        //   '~' UnaryExpression
+        //   '!' UnaryExpression
+        //   [+Await] AwaitExpression[?Yield]
+        const { token } = parser;
+        if ((token & 536870912 /* IsUnaryOp */) === 536870912 /* IsUnaryOp */) {
+            nextToken(parser, context);
+            const argument = parseUnaryExpression(parser, context);
+            return {
+                type: 'UnaryExpression',
+                operator: tokenDesc(token),
+                argument,
+                prefix: true,
+            };
+        }
+        return parseUpdateExpression(parser, context);
+    }
+    /**
+     * Parses update expression
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-UpdateExpression)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function parseUpdateExpression(parser, context) {
+        // UpdateExpression ::
+        //   LeftHandSideExpression ('++' | '--')?
+        const { token } = parser;
+        if ((parser.token & 1073741824 /* IsUpdateOp */) === 1073741824 /* IsUpdateOp */) {
+            nextToken(parser, context);
+            const expr = parseLeftHandSideExpression(parser, context);
+            return {
+                type: 'UpdateExpression',
+                argument: expr,
+                operator: tokenDesc(token),
+                prefix: true,
+            };
+        }
+        const expression = parseLeftHandSideExpression(parser, context);
+        if ((parser.token & 1073741824 /* IsUpdateOp */) === 1073741824 /* IsUpdateOp */ && !(parser.flags & 1 /* NewLine */)) {
+            const operator = parser.token;
+            nextToken(parser, context);
+            return {
+                type: 'UpdateExpression',
+                argument: expression,
+                operator: tokenDesc(operator),
+                prefix: false,
+            };
+        }
+        return expression;
+    }
+    /**
+     * Parse left hand side expression
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-LeftHandSideExpression)
+     *
+     * @param Parser Parer instance
+     * @param Context Contextmasks
+     * @param pos Location info
+     */
+    function parseLeftHandSideExpression(parser, context) {
+        // LeftHandSideExpression ::
+        //   (NewExpression | MemberExpression) ...
+        const expr = parsePrimaryExpression(parser, context | 2048 /* In */);
+        while (true) {
+            switch (parser.token) {
+                case 33554448 /* LeftBracket */: break;
+                case 33554440 /* LeftParen */: break;
+                case 33554442 /* Period */: break;
+                case 67108869 /* TemplateSpan */: break;
+                case 67108870 /* TemplateTail */: break;
+                default: return expr;
+            }
+        }
+    }
+    function parsePrimaryExpression(parser, context) {
+        switch (parser.token) {
+            case 8276 /* FunctionKeyword */:
+                return parseFunctionExpression(parser, context & ~64 /* Async */);
+            case 8388608 /* Identifier */:
+                return parseIdentifier(parser, context);
+            default: nextToken(parser, context);
+        }
+    }
+    function parseIdentifier(parser, context) {
+        const { tokenValue } = parser;
+        nextToken(parser, context);
+        return {
+            type: 'Identifier',
+            name: tokenValue
+        };
+    }
+    function parseFunctionExpression(parser, context) {
+        expect(parser, context, 8276 /* FunctionKeyword */);
+        const isGenerator = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ : 0 /* None */;
+        context = swapContext(context, isGenerator);
+        const { args, body } = parseFormalListAndBody(parser, context);
+        expect(parser, context, 33554444 /* RightBrace */);
+        return {
+            type: 'FunctionExpression',
+            body,
+            args
+        };
+    }
+    function parseFormalListAndBody(parser, context) {
+        const args = parseFormalParameters(parser, context);
+        const body = parseFunctionBody(parser, context);
+        return { args, body };
+    }
+    function parseFormalParameters(parser, context) {
+        context = context | 256 /* InParameter */;
+        expect(parser, context, 33554440 /* LeftParen */);
+        const args = [];
+        parseBinding(parser, /* binding type */ context, 1 /* Args */, /* binding origin */ 2 /* FunctionArgs */, args);
+        expect(parser, context, 33554445 /* RightParen */);
+        return args;
+    }
+    function parseFunctionBody(parser, context) {
+        const body = [];
+        expect(parser, context, 33554441 /* LeftBrace */);
+        while (parser.token !== 33554444 /* RightBrace */) {
+            body.push(parseStatementListItem(parser, context));
+        }
+        expect(parser, context, 33554444 /* RightBrace */);
+        return {
+            type: 'BlockStatement',
+            body,
+        };
+    }
+    /**
+     * Parse property name
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-PropertyName)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function parsePropertyName(parser, context) {
+        switch (parser.token) {
+            case 2097152 /* NumericLiteral */:
+            case 4194304 /* StringLiteral */:
+            //  return parseLiteral(parser, context);
+            case 33554448 /* LeftBracket */:
+            // return parseComputedPropertyName(parser, context);
+            default:
+                return parseIdentifier(parser, context);
+        }
+    }
+
+    function parseStatementList(parser, context) {
+        nextToken(parser, context);
+        let body = [];
+        while (parser.token !== 0 /* EndOfSource */) {
+            body.push(parseStatementListItem(parser, context));
+        }
+        return body;
+    }
+    /**
+     * Parses statement list items
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-StatementListItem)
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
+    function parseStatementListItem(parser, context) {
+        return parseStatement(parser, context);
+    }
+    function parseStatement(parser, context) {
+        switch (parser.token) {
+            default:
+                return parseExpressionOrLabelledStatement(parser, context);
+        }
+    }
+    /**
+     * Parses either expression or labelled statement
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-ExpressionStatement)
+     * @see [Link](https://tc39.github.io/ecma262/#prod-LabelledStatement)
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
+    function parseExpressionOrLabelledStatement(parser, context) {
+        const expr = parseExpression(parser, context);
+        return {
+            type: 'ExpressionStatement',
+            expression: expr
+        };
+    }
+
+    function createParserObject(source, errCallback) {
+        return {
+            source: source,
+            length: source.length,
+            flags: 0 /* Empty */,
+            token: 0 /* EndOfSource */,
+            nextToken: 0 /* EndOfSource */,
+            lastToken: 0 /* EndOfSource */,
+            startIndex: 0,
+            index: 0,
+            line: 1,
+            column: 0,
+            tokens: [],
+            tokenValue: undefined,
+            tokenRaw: '',
+            tokenRegExp: undefined,
+            onError: errCallback,
+        };
+    }
+    /**
+     * Creating the parser
+     *
+     * @param source The source coode to parser
+     * @param options The parser options
+     * @param context Context masks
+     */
+    function parseSource(source, options, /*@internal*/ context, errCallback) {
+        if (!!options) {
+            // The flag to enable module syntax support
+            if (options.module)
+                context |= 32 /* Module */;
+            // The flag to enable stage 3 support (ESNext)
+            if (options.next)
+                context |= 8 /* OptionsNext */;
+            // The flag to enable tokenizing
+            if (options.tokenize)
+                context |= 1 /* OptionsTokenize */;
+            // The flag to enable React JSX parsing
+            if (options.jsx)
+                context |= 2 /* OptionsJSX */;
+            // The flag to attach raw property to each literal node
+            if (options.raw)
+                context |= 4 /* OptionsRaw */;
+        }
+        const parser = createParserObject(source, errCallback);
+        const body = parseStatementList(parser, context);
+        return {
+            type: 'Program',
+            sourceType: context & 32 /* Module */ ? 'module' : 'script',
+            body: body,
+        };
+    }
+    /**
+     * Parse either script code or module code
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#sec-scripts)
+     * @see [Link](https://tc39.github.io/ecma262/#sec-modules)
+     *
+     * @param source source code to parse
+     * @param options parser options
+     */
+    function parse(source, options, errCallback) {
+        return options && options.module
+            ? parseModule(source, options, errCallback)
+            : parseScript(source, options, errCallback);
+    }
+    /**
+     * Parse script code
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#sec-scripts)
+     *
+     * @param source source code to parse
+     * @param options parser options
+     */
+    function parseScript(source, options, errCallback) {
+        return parseSource(source, options, 0 /* Empty */, errCallback);
+    }
+    /**
+     * Parse module code
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#sec-modules)
+     *
+     * @param source source code to parse
+     * @param options parser options
+     */
+    function parseModule(source, options, errCallback) {
+        return parseSource(source, options, 16 /* Strict */ | 32 /* Module */, errCallback);
+    }
+
+    const version = '1.6.5';
+
+    exports.version = version;
+    exports.parse = parse;
+    exports.parseSource = parseSource;
+    exports.parseModule = parseModule;
+    exports.parseScript = parseScript;
+
+    Object.defineProperty(exports, '__esModule', { value: true });
+
+})));

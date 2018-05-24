@@ -92,14 +92,13 @@ function scanBadString(parser: Parser, quote: number, ch: number): any {
  * @param parser Parser object
  * @param context Context masks
  */
-export function recordStringErrors(parser: Parser, code: Recovery): any {
+export function recordStringErrors(parser: Parser, code: any): any {
     let message: Errors = Errors.Unexpected;
-    let c = code;
-    if (Recovery.Empty) return;
-    if (Recovery.StrictOctal) message = Errors.StrictOctalEscape;
-    if (Recovery.EightOrNine) message = Errors.InvalidEightAndNine;
-    if (Recovery.InvalidHex) message = Errors.StrictOctalEscape;
-    if (Recovery.OutOfRange) message = Errors.InvalidEightAndNine;
+    if (code === Recovery.Empty) return;
+    if (code === Recovery.StrictOctal) message = Errors.StrictOctalEscape;
+    if (code === Recovery.EightOrNine) message = Errors.InvalidEightAndNine;
+    if (code === Recovery.InvalidHex) message = Errors.StrictOctalEscape;
+    if (code === Recovery.OutOfRange) message = Errors.InvalidEightAndNine;
 
     recordErrors(parser, Errors.UnterminatedString);
     return Token.Invalid;

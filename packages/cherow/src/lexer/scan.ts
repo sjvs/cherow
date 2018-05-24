@@ -190,12 +190,12 @@ table[Chars.Hyphen] = (parser: Parser) => {
 };
 
 // `.`, `...`, `.123` (numeric literal)
-table[Chars.Period] = (parser: Parser, context: Context) => {
+table[Chars.Period] = (parser: Parser) => {
 
     if (parser.index < parser.source.length) {
         const next = parser.source.charCodeAt(parser.index);
         if (next >= Chars.Zero && next <= Chars.Nine) {
-            return parseFractionalNumber(parser, context);
+            return parseFractionalNumber(parser);
         } else if (next === Chars.Period) {
             if (parser.index + 1 < parser.source.length && parser.source.charCodeAt(parser.index) === Chars.Period) {
                 parser.index += 2;
@@ -373,7 +373,7 @@ export function scan(parser: Parser, context: Context): Token {
     while (parser.index < parser.length) {
         const first = parser.source.charCodeAt(parser.index);
         if (first === Chars.Dollar || (first >= Chars.LowerA && first <= Chars.LowerZ)) {
-            return scanIdentifier(parser, context);
+            return scanIdentifier(parser);
         } else {
             parser.index++;
             parser.column++;
