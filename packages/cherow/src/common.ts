@@ -25,11 +25,12 @@ export const enum Context {
 
 /* Mutual parser flags */
 export const enum Flags {
-    Empty   = 0,
-    NewLine = 1 << 0,
-    HasOctal = 1 << 1,
-    IsAssignable = 1 << 2,
-    IsBindable = 1 << 3,
+    Empty               = 0,
+    NewLine             = 1 << 0,
+    HasOctal            = 1 << 1,
+    IsAssignable        = 1 << 2,
+    IsBindable          = 1 << 3,
+    SimpleParameterList = 1 << 4,
 }
 
 export const enum BindingOrigin {

@@ -228,26 +228,56 @@ function parseUpdateExpression(parser: Parser, context: Context): any {
  */
 
 export function parseLeftHandSideExpression(parser: Parser, context: Context): any {
-     // LeftHandSideExpression ::
-     //   (NewExpression | MemberExpression) ...
+    // LeftHandSideExpression ::
+    //   (NewExpression | MemberExpression) ...
     let expr: any = parsePrimaryExpression(parser, context | Context.In);
     while (true) {
         switch (parser.token) {
-            case Token.LeftBracket: break;
-            case Token.LeftParen: {
-                const args = parseArgumentList(parser, context);
-                if (parser.token === Token.Arrow) return args;
-                expr = {
-                    type: 'CallExpression',
-                    callee: expr,
-                    arguments: args,
-                };
+            case Token.LeftBracket:
+                {
+                    expect(parser, context, Token.LeftBracket);
+                    const property = parseExpression(parser, context);
+                    expr = {
+                        type: 'MemberExpression',
+                        object: expr,
+                        computed: true,
+                        property,
+                    };
+                    break;
+                }
+            case Token.LeftParen:
+                {
+                    const args = parseArgumentList(parser, context);
+                    if (parser.token === Token.Arrow) {
+                        parser.flags |= Flags.SimpleParameterList;
+                        return args;
+                    }
+                    expr = {
+                        type: 'CallExpression',
+                        callee: expr,
+                        arguments: args,
+                    };
+                    break;
+                }
+
+            case Token.Period:
+                {
+                    expect(parser, context, Token.Period);
+                    const property = parseIdentifier(parser, context);
+                    expr = {
+                        type: 'MemberExpression',
+                        object: expr,
+                        computed: false,
+                        property,
+                    };
+                    break;
+                }
+            case Token.TemplateSpan:
                 break;
-            }
-            case Token.Period: break;
-            case Token.TemplateSpan: break;
-            case Token.TemplateTail: break;
-            default: return expr;
+            case Token.TemplateTail:
+                break;
+            default:
+                return expr;
         }
     }
 }
@@ -289,7 +319,7 @@ export function parsePrimaryExpression(parser: Parser, context: Context): any {
         case Token.FunctionKeyword:
             return parseFunctionExpression(parser, context & ~Context.Async);
             case Token.LeftParen:
-            return parseParenthesizedExpression(parser, context, ModifierState.None);
+            return parseParenthesizedExpression(parser, context);
         case Token.LeftBracket:
             return parseArrayLiteral(parser, context);
         case Token.AsyncKeyword:
@@ -350,17 +380,11 @@ function parseArrowFunction(
  * @param parser  Parser object
  * @param context Context masks
  */
-function parseParenthesizedExpression(parser: Parser, context: Context, state: ModifierState, id?: any): any {
+function parseParenthesizedExpression(parser: Parser, context: Context): any {
     expect(parser, context, Token.LeftParen);
     if (consume(parser, context, Token.RightParen)) {
         if (parser.token === Token.Arrow) {
           return [];
-        } else if (state & ModifierState.Async) {
-            return {
-                type: 'CallExpression',
-                callee: id,
-                arguments: [],
-            };
         }
     }
     const expr = parseExpression(parser, context);
