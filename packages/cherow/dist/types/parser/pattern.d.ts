@@ -17,6 +17,15 @@ export declare function parseBindingIdentifier(parser: Parser, context: Context,
  * @param context Context masks
  */
 export declare function parseBindingIdentifierOrPattern(parser: Parser, context: Context, type?: BindingType, origin?: BindingOrigin): any;
+/**
+ * Parse assignment rest element
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-AssignmentRestElement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export declare function parseAssignmentRestElement(parser: Parser, context: Context): ESTree.RestElement;
 /** Parse assignment pattern
  *
  * @see [Link](https://tc39.github.io/ecma262/#prod-AssignmentPattern)
@@ -39,8 +48,9 @@ export declare function parseAssignmentPattern(parser: Parser, context: Context,
  */
 export declare function parseBindingInitializer(parser: Parser, context: Context, type: BindingType): any;
 /**
- * Parses bindings
+ * Parses a delimited binding list
  *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-BindingList)
  * @see [Link](https://tc39.github.io/ecma262/#prod-FormalParameterList)
  * @see [Link](https://tc39.github.io/ecma262/#prod-Catch)
  * @see [Link](https://tc39.github.io/ecma262/#prod-VariableDeclaration)
@@ -52,4 +62,4 @@ export declare function parseBindingInitializer(parser: Parser, context: Context
  * @param type Binding type
  * @param origin Binding origin
  */
-export declare function parseBinding(parser: Parser, context: Context, type: BindingType, origin: BindingOrigin, args?: any): any;
+export declare function parseDelimitedBindingList(parser: Parser, context: Context, type: BindingType, origin: BindingOrigin, args?: any[]): any[];

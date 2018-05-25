@@ -130,6 +130,7 @@ const errorMessages = {
     [7 /* ZeroDigitNumericSeparator */]: 'Numeric separator can not be used after leading 0.',
     [1 /* InvalidOrUnexpectedToken */]: 'Invalid or unexpected token',
     [8 /* DeclarationMissingInitializer */]: 'Missing initializer in destructuring declaration',
+    [9 /* ElementAfterRest */]: 'Rest element must be last element',
 };
 function constructError(index, line, column, description) {
     const error = new SyntaxError(`Line ${line}, column ${column}: ${description}`);
@@ -172,7 +173,7 @@ function parseVariableDeclaration(id, init) {
 }
 function parseVariableDeclarationList(parser, context, type, origin) {
     const list = [];
-    parseBinding(parser, context, type, origin, list);
+    parseDelimitedBindingList(parser, context, type, origin, list);
     return list;
 }
 
@@ -1221,6 +1222,9 @@ function isLexical(parser, context) {
         token === 16453 /* LetKeyword */ ||
         token === 16491 /* YieldKeyword */;
 }
+function isInOrOf(parser) {
+    return parser.token === 301999918 /* InKeyword */ || parser.token === 4211 /* OfKeyword */;
+}
 
 /**
  * Parse binding identifier
@@ -1271,6 +1275,26 @@ function parseBindingIdentifierOrPattern(parser, context, type, origin = 0 /* Em
     }
 }
 /**
+ * Parse assignment rest element
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-AssignmentRestElement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+function parseAssignmentRestElement(parser, context) {
+    expect(parser, context, 33554443 /* Ellipsis */);
+    const argument = parseBindingIdentifierOrPattern(parser, context);
+    if (parser.token === 167772186 /* Assign */)
+        recordErrors(parser, 9 /* ElementAfterRest */);
+    if (parser.token === 33554447 /* Comma */)
+        recordErrors(parser, 9 /* ElementAfterRest */);
+    return {
+        type: 'RestElement',
+        argument,
+    };
+}
+/**
  * Parses array assignment pattern
  *
  * @see [Link](https://tc39.github.io/ecma262/#prod-ArrayAssignmentPattern)
@@ -1308,7 +1332,7 @@ function parseArrayAssignmentPattern(parser, context, type) {
         }
         else {
             if (parser.token === 33554443 /* Ellipsis */) {
-                // elements.push(parseAssignmentRestElement(parser, context));
+                elements.push(parseAssignmentRestElement(parser, context));
                 break;
             }
             else {
@@ -1443,8 +1467,9 @@ function parseAssignmentProperty(parser, context, type) {
     };
 }
 /**
- * Parses bindings
+ * Parses a delimited binding list
  *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-BindingList)
  * @see [Link](https://tc39.github.io/ecma262/#prod-FormalParameterList)
  * @see [Link](https://tc39.github.io/ecma262/#prod-Catch)
  * @see [Link](https://tc39.github.io/ecma262/#prod-VariableDeclaration)
@@ -1456,8 +1481,8 @@ function parseAssignmentProperty(parser, context, type) {
  * @param type Binding type
  * @param origin Binding origin
  */
-function parseBinding(parser, context, type, origin, args = []) {
-    let isBinding = parser.token === 33554441 /* LeftBrace */ || parser.token === 33554448 /* LeftBracket */;
+function parseDelimitedBindingList(parser, context, type, origin, args = []) {
+    let isBinding$$1 = parser.token === 33554441 /* LeftBrace */ || parser.token === 33554448 /* LeftBracket */;
     while (true) {
         args.push(parseBindingList(parser, context, type, origin));
         if (!consume(parser, context, 33554447 /* Comma */))
@@ -1466,9 +1491,7 @@ function parseBinding(parser, context, type, origin, args = []) {
     return args;
 }
 /**
- * Parse binding list
- *
- * @see [Link](https://tc39.github.io/ecma262/#prod-BindingList)
+ * Parse binding list elements
  *
  * @param parser Parser object
  * @param context Context masks
@@ -1483,7 +1506,7 @@ function parseBindingList(parser, context, type, origin) {
     else if (parser.token === 33554441 /* LeftBrace */) {
         left = parserObjectAssignmentPattern(parser, context, type);
         if (parser.token !== 167772186 /* Assign */) {
-            if (origin & 1 /* ForStatement */ && (parser.token === 301999918 /* InKeyword */ || parser.token === 4211 /* OfKeyword */)) ;
+            if (origin & 1 /* ForStatement */ && isInOrOf(parser)) ;
             else if (origin & (2 /* FunctionArgs */ | 4 /* CatchClause */)) ;
             else {
                 recordErrors(parser, 8 /* DeclarationMissingInitializer */);
@@ -1493,7 +1516,7 @@ function parseBindingList(parser, context, type, origin) {
     else if (parser.token === 33554448 /* LeftBracket */) {
         left = parseArrayAssignmentPattern(parser, context, type);
         if (parser.token !== 167772186 /* Assign */) {
-            if (origin & 1 /* ForStatement */ && (parser.token === 301999918 /* InKeyword */ || parser.token === 4211 /* OfKeyword */)) ;
+            if (origin & 1 /* ForStatement */ && isInOrOf(parser)) ;
             else if (origin & (2 /* FunctionArgs */ | 4 /* CatchClause */)) ;
             else {
                 recordErrors(parser, 8 /* DeclarationMissingInitializer */);
@@ -1978,7 +2001,7 @@ function parseFormalParameters(parser, context) {
     context = context | 256 /* InParameter */;
     expect(parser, context, 33554440 /* LeftParen */);
     const args = [];
-    parseBinding(parser, context, 1 /* Args */, 2 /* FunctionArgs */, args);
+    parseDelimitedBindingList(parser, context, 1 /* Args */, 2 /* FunctionArgs */, args);
     expect(parser, context, 33554445 /* RightParen */);
     return args;
 }

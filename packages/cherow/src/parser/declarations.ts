@@ -3,7 +3,7 @@ import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
 import { parseAssignmentExpression } from './expressions';
 import { Context, BindingType, BindingOrigin } from '../common';
-import { parseBinding } from './pattern';
+import { parseDelimitedBindingList } from './pattern';
 
 /**
  * VariableDeclaration :
@@ -38,6 +38,6 @@ export function parseVariableDeclarationList(
     origin: BindingOrigin
 ): any {
     const list: ESTree.VariableDeclarator[] = [];
-    parseBinding(parser, context, type, origin, list);
+    parseDelimitedBindingList(parser, context, type, origin, list);
     return list;
 }

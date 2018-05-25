@@ -2,7 +2,7 @@ import { AssignmentProperty } from './../estree';
 import { Parser } from '../types';
 import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
-import { parseBinding, parseBindingIdentifier } from './pattern';
+import { parseDelimitedBindingList, parseBindingIdentifier } from './pattern';
 import { parseStatementListItem } from './statements';
 import {
     Context,
@@ -528,7 +528,7 @@ function parseFormalParameters(parser: Parser, context: Context) {
     context = context | Context.InParameter;
     expect(parser, context, Token.LeftParen);
     const args: any = [];
-    parseBinding(parser, context, BindingType.Args, BindingOrigin.FunctionArgs, args);
+    parseDelimitedBindingList(parser, context, BindingType.Args, BindingOrigin.FunctionArgs, args);
     expect(parser, context, Token.RightParen);
     return args;
 }

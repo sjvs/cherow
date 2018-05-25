@@ -103,3 +103,5 @@ export declare function nextTokenIsArrow(parser: Parser, context: Context): bool
 * @param context  Context masks
 */
 export declare function isLexical(parser: Parser, context: Context): boolean;
+export declare function isInOrOf(parser: Parser): boolean;
+export declare function isBinding(parser: Parser): boolean;

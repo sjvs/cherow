@@ -11,7 +11,8 @@ export const enum Errors {
     ContinuousNumericSeparator,
     TrailingNumericSeparator,
     ZeroDigitNumericSeparator,
-    DeclarationMissingInitializer
+    DeclarationMissingInitializer,
+    ElementAfterRest
 }
 /*@internal*/
 export const errorMessages: {
@@ -26,6 +27,7 @@ export const errorMessages: {
     [Errors.ZeroDigitNumericSeparator]: 'Numeric separator can not be used after leading 0.',
     [Errors.InvalidOrUnexpectedToken]: 'Invalid or unexpected token',
     [Errors.DeclarationMissingInitializer]: 'Missing initializer in destructuring declaration',
+    [Errors.ElementAfterRest]: 'Rest element must be last element',
 };
 
 export function constructError(index: number, line: number, column: number, description: string): void {

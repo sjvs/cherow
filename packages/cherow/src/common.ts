@@ -198,3 +198,10 @@ export function isLexical(parser: Parser, context: Context): boolean {
     token === Token.LetKeyword ||
     token === Token.YieldKeyword;
 }
+
+export function isInOrOf(parser: Parser): boolean {
+    return parser.token === Token.InKeyword || parser.token === Token.OfKeyword;
+}
+export function isBinding(parser: Parser): boolean {
+    return  parser.token === Token.LeftBrace || parser.token === Token.LeftBracket;
+}

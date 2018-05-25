@@ -1,5 +1,5 @@
 import { Parser } from '../types';
-import { Token } from '../token';
+import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
 import { Errors, recordErrors, } from '../errors';
 import { parseAssignmentExpression, parsePropertyName } from './expressions';
@@ -14,8 +14,10 @@ import {
     swapContext,
     consume,
     expect,
-    nextToken
+    nextToken,
+    isInOrOf
 } from '../common';
+import { reporters } from 'mocha';
 
 /**
  * Parse binding identifier
@@ -74,6 +76,26 @@ export function parseBindingIdentifierOrPattern(
         return parseArrayAssignmentPattern(parser, context, type as BindingType);
     }
 }
+
+/**
+ * Parse assignment rest element
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-AssignmentRestElement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseAssignmentRestElement(parser: Parser, context: Context): ESTree.RestElement {
+    expect(parser, context, Token.Ellipsis);
+    const argument = parseBindingIdentifierOrPattern(parser, context);
+    if (parser.token === Token.Assign) recordErrors(parser, Errors.ElementAfterRest);
+    if (parser.token === Token.Comma) recordErrors(parser, Errors.ElementAfterRest);
+    return {
+        type: 'RestElement',
+        argument,
+    };
+}
+
 /**
  * Parses array assignment pattern
  *
@@ -111,7 +133,7 @@ function parseArrayAssignmentPattern(parser: Parser, context: Context, type: Bin
             elements.push(null);
         } else {
             if (parser.token === Token.Ellipsis) {
-                // elements.push(parseAssignmentRestElement(parser, context));
+                elements.push(parseAssignmentRestElement(parser, context));
                 break;
             } else {
                 elements.push(parseBindingInitializer(parser, context, type));
@@ -261,8 +283,9 @@ function parseAssignmentProperty(parser: Parser, context: Context, type: Binding
 }
 
 /** 
- * Parses bindings
+ * Parses a delimited binding list
  *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-BindingList)
  * @see [Link](https://tc39.github.io/ecma262/#prod-FormalParameterList)
  * @see [Link](https://tc39.github.io/ecma262/#prod-Catch)
  * @see [Link](https://tc39.github.io/ecma262/#prod-VariableDeclaration)
@@ -274,24 +297,25 @@ function parseAssignmentProperty(parser: Parser, context: Context, type: Binding
  * @param type Binding type
  * @param origin Binding origin
  */
-export function parseBinding(
+
+export function parseDelimitedBindingList(
     parser: Parser,
     context: Context,
     type: BindingType,
     origin: BindingOrigin,
-    args: any = []) {
-    let count = 0;
+    args: any[] = []) {
+    let elementCount = 0;
     let inited = false;
     let isBinding = parser.token === Token.LeftBrace || parser.token === Token.LeftBracket;
     while (true) {
-        ++count;
+        ++elementCount;
         args.push(parseBindingList(parser, context, type, origin));
         if (!consume(parser, context, Token.Comma)) break;
     }
 
     if (origin & BindingOrigin.ForStatement) {
         if (isBinding) {
-            if (count > 1) {
+            if (elementCount > 1) {
                 // TODO
             } else if (inited) {
                 // TODO
@@ -302,9 +326,7 @@ export function parseBinding(
 }
 
 /** 
- * Parse binding list
- *
- * @see [Link](https://tc39.github.io/ecma262/#prod-BindingList)
+ * Parse binding list elements
  *
  * @param parser Parser object
  * @param context Context masks
@@ -317,15 +339,13 @@ function parseBindingList(
     type: BindingType,
     origin: BindingOrigin
 ) {
-
     let left: any;
-    let hasInitializer = false;
     if ((parser.token & Token.Identifier) === Token.Identifier) {
         left = parseBindingIdentifier(parser, context);
     } else if (parser.token === Token.LeftBrace) {
         left = parserObjectAssignmentPattern(parser, context, type);
         if (parser.token !== Token.Assign) {
-            if (origin & BindingOrigin.ForStatement && (parser.token === Token.InKeyword || parser.token === Token.OfKeyword)) {
+            if (origin & BindingOrigin.ForStatement && isInOrOf(parser)) {
                 // TODO
             } else if (origin & (BindingOrigin.FunctionArgs | BindingOrigin.CatchClause)) {
                 // TODO
@@ -336,7 +356,7 @@ function parseBindingList(
     } else if (parser.token === Token.LeftBracket) {
         left = parseArrayAssignmentPattern(parser, context, type);
         if (parser.token !== Token.Assign) {
-            if (origin & BindingOrigin.ForStatement && (parser.token === Token.InKeyword || parser.token === Token.OfKeyword)) {
+            if (origin & BindingOrigin.ForStatement && isInOrOf(parser)) {
                 // TODO
             } else if (origin & (BindingOrigin.FunctionArgs | BindingOrigin.CatchClause)) {
                 // TODO

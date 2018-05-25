@@ -2,7 +2,6 @@ import { Parser } from '../types';
 import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
 import { parseExpression } from './expressions';
-import { parseBinding } from './pattern';
 import { parseVariableDeclarationList } from './declarations';
 import {
     Context,
