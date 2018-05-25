@@ -58,32 +58,33 @@ export function parseAssignmentExpression(parser: Parser, context: Context): any
     const isAsync = token === Token.AsyncKeyword && /*!(parser.flags & Flags.NewLine) && */
         lookahead(parser, context, nextTokenIsLeftParen);
     let isParenthesized = parser.token === Token.LeftParen;
-    let expr: any = parseConditionalExpression(parser, context);
+    let left: any = parseConditionalExpression(parser, context);
 
     if (isAsync && (parser.token & Token.Identifier) === Token.Identifier && lookahead(parser, context, nextTokenIsArrow)) {
-        expr = [parseIdentifier(parser, context)];
+        left = [parseIdentifier(parser, context)];
     }
 
     if (parser.token === Token.Arrow) {
-        return parseArrowFunction(parser, context, isAsync ? ModifierState.Async : ModifierState.None, expr);
+        return parseArrowFunction(parser, context, isAsync ? ModifierState.Async : ModifierState.None, left);
     }
 
     if ((parser.flags & Flags.IsAssignable) === Flags.IsAssignable &&
         (parser.token & Token.IsAssignOp) === Token.IsAssignOp) {
-            if (expr.type === 'ArrayExpression' || expr.type === 'ObjectExpression') {
-                reinterpret(parser, expr);
+            const {type} = left;
+            if (type === 'ArrayExpression' || type === 'ObjectExpression') {
+                reinterpret(parser, left);
               }
               const operator = parser.token;
               nextToken(parser, context);
               const right = parseAssignmentExpression(parser, context | Context.In);
               return {
                   type: 'AssignmentExpression',
-                  left: expr,
+                  left: left,
                   operator: tokenDesc(operator),
                   right,
               };
     }
-    return expr;
+    return left;
 }
 
 /**

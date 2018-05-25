@@ -216,32 +216,29 @@ export function isBinding(parser: Parser): boolean {
  * @param context Context masks
  * @param node AST node
  */
-export function reinterpret(parser: Parser, node: any) {
-
+export function reinterpret(parser: Parser, node: any): void {
     switch (node.type) {
         case 'ArrayExpression':
-        node.type = 'ArrayPattern';
-        let els = node.elements;
-        for (let i = 0, n = els.length; i < n; ++i) {
-          let child = els[i];
-          if (child !== null) {
-                reinterpret(parser, child);
-          }
-        }
+            node.type = 'ArrayPattern';
+            for (let i = 0; i < node.elements.length; ++i) {
+                // skip holes in pattern
+                if (node.elements[i] !== null) {
+                    reinterpret(parser, node.elements[i]);
+                }
+            }
+            return;
 
-return;
         case 'ObjectExpression':
-        node.type = 'ObjectPattern';
-        for (let i = 0, n = node.properties.length; i < n; ++i) {
-          let property = node.properties[i];
-          reinterpret(parser,property.value);
-        }
-        return;
+            node.type = 'ObjectPattern';
+            for (let i = 0; i < node.properties.length; i++) {
+                reinterpret(parser, node.properties[i].value);
+            }
+            return;
         case 'AssignmentExpression':
-        node.type = 'AssignmentPattern';
-        if (node.operator !== '=') recordErrors(parser, Errors.InvalidLHSDefaultValue);
-        delete node.operator;
-        return;
+            node.type = 'AssignmentPattern';
+            if (node.operator !== '=') recordErrors(parser, Errors.InvalidLHSDefaultValue);
+            delete node.operator;
+            return;
         default: // ignore
     }
 }
