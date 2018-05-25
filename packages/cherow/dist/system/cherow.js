@@ -138,6 +138,7 @@ System.register([], function (exports, module) {
                 [6 /* TrailingNumericSeparator */]: 'Numeric separators are not allowed at the end of numeric literals',
                 [7 /* ZeroDigitNumericSeparator */]: 'Numeric separator can not be used after leading 0.',
                 [1 /* InvalidOrUnexpectedToken */]: 'Invalid or unexpected token',
+                [8 /* DeclarationMissingInitializer */]: 'Missing initializer in destructuring declaration',
             };
             function constructError(index, line, column, description) {
                 const error = new SyntaxError(`Line ${line}, column ${column}: ${description}`);
@@ -1116,7 +1117,7 @@ System.register([], function (exports, module) {
                         if ((token & 524288 /* WhiteSpace */) === 524288 /* WhiteSpace */)
                             continue;
                         if (context & 1 /* OptionsTokenize */)
-                            parser.tokens.push(token);
+                            parser.tokens.push(token); // TODO: Replace array with callback
                         return token;
                     }
                 }
@@ -1492,14 +1493,21 @@ System.register([], function (exports, module) {
                     left = parserObjectAssignmentPattern(parser, context, type);
                     if (parser.token !== 167772186 /* Assign */) {
                         if (origin & 1 /* ForStatement */ && (parser.token === 301999918 /* InKeyword */ || parser.token === 4211 /* OfKeyword */)) ;
+                        else if (origin & (2 /* FunctionArgs */ | 4 /* CatchClause */)) ;
+                        else {
+                            recordErrors(parser, 8 /* DeclarationMissingInitializer */);
+                        }
                     }
                 }
                 else if (parser.token === 33554448 /* LeftBracket */) {
                     left = parseArrayAssignmentPattern(parser, context, type);
                     if (parser.token !== 167772186 /* Assign */) {
                         if (origin & 1 /* ForStatement */ && (parser.token === 301999918 /* InKeyword */ || parser.token === 4211 /* OfKeyword */)) ;
+                        else if (origin & (2 /* FunctionArgs */ | 4 /* CatchClause */)) ;
+                        else {
+                            recordErrors(parser, 8 /* DeclarationMissingInitializer */);
+                        }
                     }
-                    return left;
                 }
                 else if (parser.token === 33554443 /* Ellipsis */) ;
                 else if (parser.token === 33554445 /* RightParen */) ;

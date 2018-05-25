@@ -380,7 +380,7 @@ export function scan(parser: Parser, context: Context): Token {
             parser.column++;
             const token = table[first](parser, context, first);
             if ((token & Token.WhiteSpace) === Token.WhiteSpace) continue;
-            if (context & Context.OptionsTokenize) parser.tokens.push(token);
+            if (context & Context.OptionsTokenize) parser.tokens.push(token); // TODO: Replace array with callback
             return token;
         }
     }

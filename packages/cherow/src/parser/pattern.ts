@@ -317,6 +317,7 @@ function parseBindingList(
     type: BindingType,
     origin: BindingOrigin
 ) {
+
     let left: any;
     let hasInitializer = false;
     if ((parser.token & Token.Identifier) === Token.Identifier) {
@@ -329,7 +330,7 @@ function parseBindingList(
             } else if (origin & (BindingOrigin.FunctionArgs | BindingOrigin.CatchClause)) {
                 // TODO
             } else {
-                // TODO
+                recordErrors(parser, Errors.DeclarationMissingInitializer);
             }
         }
     } else if (parser.token === Token.LeftBracket) {
@@ -340,10 +341,9 @@ function parseBindingList(
             } else if (origin & (BindingOrigin.FunctionArgs | BindingOrigin.CatchClause)) {
                 // TODO
             } else {
-                // TODO
+                recordErrors(parser, Errors.DeclarationMissingInitializer);
             }
         }
-        return left;
     } else if (parser.token === Token.Ellipsis) {
 
     } else if (parser.token === Token.RightParen) {}
