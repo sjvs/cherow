@@ -63,15 +63,15 @@ export function parseBindingIdentifier(
 export function parseBindingIdentifierOrPattern(
     parser: Parser,
     context: Context,
-    type?: BindingType,
-    origin: BindingOrigin = BindingOrigin.Empty
+    type?: BindingType
 ): any {
     let left: any;
-    let o = origin;
     if (parser.token === Token.Identifier) {
         return parseBindingIdentifier(parser, context);
     }
-    if (parser.token === Token.LeftBrace) {}
+    if (parser.token === Token.LeftBrace) {
+        return parserObjectAssignmentPattern(parser, context, type as BindingType);
+    }
     if (parser.token === Token.LeftBracket) {
         return parseArrayAssignmentPattern(parser, context, type as BindingType);
     }
@@ -264,7 +264,7 @@ function parseAssignmentProperty(parser: Parser, context: Context, type: Binding
             const hasInitializer = consume(parser, context, Token.Assign);
             value = hasInitializer ? parseAssignmentPattern(parser, context, key) : key;
         } else value = parseBindingInitializer(parser, context, type);
-    } else if (computed) {
+    } else {
         key = parseComputedPropertyName(parser, context);
         expect(parser, context, Token.Colon);
         value = parseBindingInitializer(parser, context, type);

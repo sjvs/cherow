@@ -10,8 +10,7 @@ export function scanIdentifier(parser: Parser): Token {
     parser.index++;  parser.column++;
     code = parser.source.charCodeAt(parser.index);
   }
-  const ret = parser.source.slice(start, parser.index);
-
+  const ret = parser.source.slice(parser.startIndex, parser.index);
   const len = ret.length;
   parser.tokenValue = ret;
   

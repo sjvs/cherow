@@ -25,7 +25,7 @@ export function scanNumeric(parser: Parser): Token {
         scanSignedInteger(parser);
     }
     parser.tokenValue = parseFloat(parser.source.slice(index - 1, parser.index));
-    return Token.Decimal;
+    return Token.NumericLiteral;
 }
 
 /**
@@ -45,7 +45,7 @@ export function parseFractionalNumber(parser: Parser): Token {
     }
 
     parser.tokenValue = parseFloat(parser.source.slice(index - 1, parser.index));
-    return Token.Decimal;
+    return Token.NumericLiteral;
 }
 
 /**

@@ -29,6 +29,7 @@ export declare function parseAssignmentExpression(parser: Parser, context: Conte
 export declare function parseLeftHandSideExpression(parser: Parser, context: Context): any;
 export declare function parsePrimaryExpression(parser: Parser, context: Context): any;
 export declare function parseIdentifier(parser: Parser, context: Context): ESTree.Identifier;
+export declare function parseLiteral(parser: Parser, context: Context): ESTree.Literal;
 /**
  * Parses function expression
  *
@@ -47,3 +48,12 @@ export declare function parseFunctionExpression(parser: Parser, context: Context
  * @param context Context masks
  */
 export declare function parsePropertyName(parser: Parser, context: Context): any;
+/**
+ * Parse computed property names
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ComputedPropertyName)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+export declare function parseComputedPropertyName(parser: Parser, context: Context): ESTree.Expression;

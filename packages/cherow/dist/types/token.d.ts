@@ -150,13 +150,8 @@ export declare const enum Token {
     Tab = 524408,
     LineFeed = 524409,
     CarriageReturn = 524410,
-    Hex = 2097275,
-    Decimal = 2097276,
-    Binary = 2097277,
-    Octal = 2097278,
-    Implicit = 2097279,
-    BigInt = 2097280,
-    EnumKeyword = 2097281,
+    BigInt = 2097275,
+    EnumKeyword = 2097276,
 }
 /**
  * The conversion function between token and its string description/representation.

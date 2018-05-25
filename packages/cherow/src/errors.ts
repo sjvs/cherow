@@ -13,7 +13,11 @@ export const enum Errors {
     TrailingNumericSeparator,
     ZeroDigitNumericSeparator,
     DeclarationMissingInitializer,
-    ElementAfterRest
+    ElementAfterRest,
+    NoCatchOrFinally,
+    NoCatchClause,
+    NoCatchClauseDefault,
+    InvalidLHSDefaultValue
 }
 /*@internal*/
 export const errorMessages: {
@@ -30,6 +34,10 @@ export const errorMessages: {
     [Errors.InvalidOrUnexpectedToken]: 'Invalid or unexpected token',
     [Errors.DeclarationMissingInitializer]: 'Missing initializer in destructuring declaration',
     [Errors.ElementAfterRest]: 'Rest element must be last element',
+    [Errors.NoCatchOrFinally]: 'Missing catch or finally after try',
+    [Errors.NoCatchClause]: 'Missing catch clause',
+    [Errors.NoCatchClauseDefault]: 'Catch clause parameter does not support default values',
+    [Errors.InvalidLHSDefaultValue]: 'Only \'=\' operator can be used for specifying default value',
 };
 
 export function constructError(index: number, line: number, column: number, description: string): void {

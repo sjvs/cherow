@@ -17,7 +17,8 @@ import {
     nextToken,
     nextTokenIsLeftParen,
     lookahead,
-    nextTokenIsArrow
+    nextTokenIsArrow,
+    reinterpret
 } from '../common';
 
 /**
@@ -66,9 +67,21 @@ export function parseAssignmentExpression(parser: Parser, context: Context): any
     if (parser.token === Token.Arrow) {
         return parseArrowFunction(parser, context, isAsync ? ModifierState.Async : ModifierState.None, expr);
     }
+
     if ((parser.flags & Flags.IsAssignable) === Flags.IsAssignable &&
         (parser.token & Token.IsAssignOp) === Token.IsAssignOp) {
-        // TODO
+            if (expr.type === 'ArrayExpression' || expr.type === 'ObjectExpression') {
+                reinterpret(parser, expr);
+              }
+              const operator = parser.token;
+              nextToken(parser, context);
+              const right = parseAssignmentExpression(parser, context | Context.In);
+              return {
+                  type: 'AssignmentExpression',
+                  left: expr,
+                  operator: tokenDesc(operator),
+                  right,
+              };
     }
     return expr;
 }
@@ -326,6 +339,8 @@ export function parsePrimaryExpression(parser: Parser, context: Context): any {
         case Token.LetKeyword:
         case Token.Identifier:
             return parseIdentifier(parser, context);
+        case Token.NumericLiteral:
+            return parseLiteral(parser, context);
         default:    nextToken(parser, context);
     }
 }
@@ -336,6 +351,15 @@ export function parseIdentifier(parser: Parser, context: Context): ESTree.Identi
     return {
         type: 'Identifier',
         name: tokenValue
+    };
+}
+
+export function parseLiteral(parser: Parser, context: Context): ESTree.Literal {
+    const { tokenValue } = parser;
+    nextToken(parser, context);
+    return {
+        type: 'Literal',
+        value: tokenValue
     };
 }
 
@@ -428,6 +452,7 @@ function parseArrayLiteral(parser: Parser, context: Context): ESTree.ArrayExpres
     expect(parser, context, Token.LeftBracket);
     context = setContext(context, Context.In | Context.Asi);
     const elements: (ESTree.Expression | ESTree.SpreadElement | null)[] = [];
+    
     while (parser.token !== Token.RightBracket) {
         if (consume(parser, context, Token.Comma)) {
             elements.push(null);
@@ -441,10 +466,8 @@ function parseArrayLiteral(parser: Parser, context: Context): ESTree.ArrayExpres
            if (parser.token !== Token.RightBracket) expect(parser, context, Token.Comma);
         }
     }
-
     expect(parser, context, Token.RightBracket);
-
-    return {
+        return {
         type: 'ArrayExpression',
         elements,
     };

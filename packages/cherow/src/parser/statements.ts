@@ -2,11 +2,15 @@ import { Parser } from '../types';
 import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
 import { parseExpression } from './expressions';
+import { Errors, recordErrors, } from '../errors';
 import { parseVariableDeclarationList } from './declarations';
+import { parseDelimitedBindingList, parseBindingIdentifierOrPattern } from './pattern';
 import {
     Context,
+    Flags,
     nextToken,
     expect,
+    consume,
     consumeSemicolon,
     BindingType,
     BindingOrigin,
@@ -63,11 +67,163 @@ export function parseStatement(parser: Parser, context: Context): ESTree.Stateme
     switch (parser.token) {
         case Token.VarKeyword:
             return parseVariableStatement(parser, context, BindingType.Var);
-        default:
+        case Token.TryKeyword:
+            return parseTryStatement(parser, context);
+        case Token.Semicolon:
+            return parseEmptyStatement(parser, context);
+         case Token.ReturnKeyword:
+            return parseReturnStatement(parser, context);
+         case Token.LeftBrace:
+            return parseBlockStatement(parser, context);
+         case Token.DebuggerKeyword:
+            return parseDebuggerStatement(parser, context);
+         default:
         return parseExpressionOrLabelledStatement(parser, context);
     }
+ }
+
+/**
+ * Parses the debugger statement production
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-DebuggerStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseDebuggerStatement(parser: Parser, context: Context): ESTree.DebuggerStatement {
+    expect(parser, context, Token.DebuggerKeyword);
+    consumeSemicolon(parser, context);
+    return {
+      type: 'DebuggerStatement'
+    };
+  }
+
+ /**
+ * Parses block statement
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-BlockStatement)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-Block)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseBlockStatement(parser: Parser, context: Context): ESTree.BlockStatement {
+    const body: ESTree.Statement[] = [];
+    expect(parser, context, Token.LeftBrace);
+    while (parser.token !== Token.RightBrace) {
+      body.push(parseStatementListItem(parser, context));
+    }
+    expect(parser, context, Token.RightBrace);
   
+    return {
+      type: 'BlockStatement',
+      body
+    };
+  }
+  
+/**
+ * Parses return statement
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ReturnStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseReturnStatement(parser: Parser, context: Context): ESTree.ReturnStatement {
+    expect(parser, context, Token.ReturnKeyword);
+    const argument = (parser.token & Token.ASI) !== Token.ASI && !(parser.flags & Flags.NewLine)
+        ? parseExpression(parser, context | Context.In)
+        : null;
+    consumeSemicolon(parser, context);
+    return {
+      type: 'ReturnStatement',
+      argument
+    };
+  }
+  
+/**
+ * Parses empty statement
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-EmptyStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseEmptyStatement(parser: Parser, context: Context): ESTree.EmptyStatement {
+    nextToken(parser, context);
+    return {
+      type: 'EmptyStatement'
+    };
 }
+
+/**
+ * Parses try statement
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-TryStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseTryStatement(parser: Parser, context: Context): ESTree.TryStatement {
+    expect(parser, context, Token.TryKeyword);
+    const block = parseBlockStatement(parser, context);
+    const handler = parser.token === Token.CatchKeyword ? parseCatchBlock(parser, context) : null;
+    const finalizer = consume(parser, context, Token.FinallyKeyword) ? parseBlockStatement(parser, context) : null;
+    if (!handler && !finalizer) recordErrors(parser, Errors.NoCatchOrFinally);
+    return {
+      type: 'TryStatement',
+      block,
+      handler,
+      finalizer
+    };
+  }
+  
+  /**
+   * Parses catch block
+   *
+   * @see [Link](https://tc39.github.io/ecma262/#prod-Catch)
+   *
+   * @param parser  Parser object
+   * @param context Context masks
+   */
+  export function parseCatchBlock(parser: Parser, context: Context): any {
+    expect(parser, context, Token.CatchKeyword);
+    let param: ESTree.PatternTop | null = null;
+    if (consume(parser, context, Token.LeftParen)) {
+        if (parser.token === Token.RightParen) {
+            recordErrors(parser, Errors.NoCatchClause);
+        } else {
+            param = parseBindingIdentifierOrPattern(parser, context);
+            if (parser.token === Token.Assign) recordErrors(parser, Errors.NoCatchClause);
+        }
+        expect(parser, context, Token.RightParen);
+    }
+    const body = parseBlockStatement(parser, context);
+  
+    return {
+      type: 'CatchClause',
+      param,
+      body
+    };
+  }
+
+  /**
+ * Parses throw statement
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ThrowStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseThrowStatement(parser: Parser, context: Context): ESTree.ThrowStatement {
+    expect(parser, context, Token.ThrowKeyword);
+    const argument: ESTree.Expression = parseExpression(parser, context | Context.In);
+    consumeSemicolon(parser, context);
+    return {
+      type: 'ThrowStatement',
+      argument
+    };
+  }
 
 /**
  * Parses either expression or labelled statement

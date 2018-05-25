@@ -372,12 +372,12 @@ table[Chars.VerticalBar] = (parser: Parser) => {
 export function scan(parser: Parser, context: Context): Token {
     parser.flags &=  ~Flags.NewLine;
     while (parser.index < parser.length) {
+        parser.startIndex = parser.index;
         const first = parser.source.charCodeAt(parser.index);
         if (first === Chars.Dollar || (first >= Chars.LowerA && first <= Chars.LowerZ)) {
             return scanIdentifier(parser);
         } else {
-            parser.index++;
-            parser.column++;
+            parser.index++; parser.column++;
             const token = table[first](parser, context, first);
             if ((token & Token.WhiteSpace) === Token.WhiteSpace) continue;
             if (context & Context.OptionsTokenize) parser.tokens.push(token); // TODO: Replace array with callback

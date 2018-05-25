@@ -16,7 +16,7 @@ export declare function parseBindingIdentifier(parser: Parser, context: Context,
  * @param parser  Parser object
  * @param context Context masks
  */
-export declare function parseBindingIdentifierOrPattern(parser: Parser, context: Context, type?: BindingType, origin?: BindingOrigin): any;
+export declare function parseBindingIdentifierOrPattern(parser: Parser, context: Context, type?: BindingType): any;
 /**
  * Parse assignment rest element
  *

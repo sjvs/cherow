@@ -1,5 +1,6 @@
 import { Token } from './token';
 import { Parser } from './types';
+import { Errors } from './errors';
 export declare const enum Context {
     Empty = 0,
     OptionsTokenize = 1,
@@ -63,7 +64,7 @@ export declare const enum ModifierState {
 export declare function setContext(context: Context, mask: Context): Context;
 export declare function swapContext(context: Context, state: ModifierState): Context;
 export declare function nextToken(parser: Parser, context: Context): Token;
-export declare function expect(parser: Parser, context: Context, token: Token): boolean;
+export declare function expect(parser: Parser, context: Context, token: Token, errMsg?: Errors): boolean;
 export declare function consume(parser: Parser, context: Context, token: Token): boolean;
 /**
  * Automatic Semicolon Insertion
@@ -105,3 +106,12 @@ export declare function nextTokenIsArrow(parser: Parser, context: Context): bool
 export declare function isLexical(parser: Parser, context: Context): boolean;
 export declare function isInOrOf(parser: Parser): boolean;
 export declare function isBinding(parser: Parser): boolean;
+/**
+ * Reinterpret various expressions as pattern
+ * This is only used for assignment and arrow parameter list
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ * @param node AST node
+ */
+export declare function reinterpret(parser: Parser, node: any): void;

@@ -194,15 +194,10 @@ export const enum Token {
     CarriageReturn     = 122 | WhiteSpace,
 
     /* Numbers */
-    Hex                = 123 | NumericLiteral,
-    Decimal            = 124 | NumericLiteral,
-    Binary             = 125 | NumericLiteral,
-    Octal              = 126 | NumericLiteral,
-    Implicit           = 127 | NumericLiteral,
-    BigInt             = 128 | NumericLiteral,
+    BigInt             = 123 | NumericLiteral,
     
     /* Enum */
-    EnumKeyword        = 129 | NumericLiteral,
+    EnumKeyword        = 124 | NumericLiteral,
 }
 
 // Note: this *must* be kept in sync with the enum's order.
@@ -263,8 +258,8 @@ const KeywordDescTable = [
     /* WhiteSpace */
     'space', 'tab', 'line feed', 'carrige return',
 
-    /* WhiteSpace */
-    'hex', 'decimal', 'binary', 'octal', 'implicit', 'bigInt',
+    /* Numbers */
+    'bigInt',
 
     /* Enum */
 

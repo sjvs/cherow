@@ -8,7 +8,7 @@ export function createParserObject(source: string, errCallback?: any): Parser {
     return {
         source: source,
         length: source.length,
-        flags: Flags.Empty,
+        flags: Flags.IsAssignable,
         token: Token.EndOfSource,
         nextToken: Token.EndOfSource,
         lastToken: Token.EndOfSource,

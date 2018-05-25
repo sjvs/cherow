@@ -95,9 +95,9 @@ export function nextToken(parser: Parser, context: Context): Token {
     return (parser.token = scan(parser, context));
 }
 
-export function expect(parser: Parser, context: Context, token: Token): boolean {
+export function expect(parser: Parser, context: Context, token: Token, errMsg = Errors.UnexpectedToken): boolean {
     if (parser.token !== token) {
-        recordErrors(parser, Errors.UnexpectedToken, tokenDesc(parser.token));
+        recordErrors(parser, errMsg, tokenDesc(parser.token));
         return false;
     }
         nextToken(parser, context);
@@ -109,7 +109,6 @@ export function consume(parser: Parser, context: Context, token: Token): boolean
     nextToken(parser, context);
     return true;
 }
-
 
 /**
  * Automatic Semicolon Insertion
@@ -207,4 +206,42 @@ export function isInOrOf(parser: Parser): boolean {
 }
 export function isBinding(parser: Parser): boolean {
     return  parser.token === Token.LeftBrace || parser.token === Token.LeftBracket;
+}
+
+/**
+ * Reinterpret various expressions as pattern
+ * This is only used for assignment and arrow parameter list
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ * @param node AST node
+ */
+export function reinterpret(parser: Parser, node: any) {
+
+    switch (node.type) {
+        case 'ArrayExpression':
+        node.type = 'ArrayPattern';
+        let els = node.elements;
+        for (let i = 0, n = els.length; i < n; ++i) {
+          let child = els[i];
+          if (child !== null) {
+                reinterpret(parser, child);
+          }
+        }
+
+return;
+        case 'ObjectExpression':
+        node.type = 'ObjectPattern';
+        for (let i = 0, n = node.properties.length; i < n; ++i) {
+          let property = node.properties[i];
+          reinterpret(parser,property.value);
+        }
+        return;
+        case 'AssignmentExpression':
+        node.type = 'AssignmentPattern';
+        if (node.operator !== '=') recordErrors(parser, Errors.InvalidLHSDefaultValue);
+        delete node.operator;
+        return;
+        default: // ignore
+    }
 }
