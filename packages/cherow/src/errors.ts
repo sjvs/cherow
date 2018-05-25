@@ -4,6 +4,7 @@ import { Context } from './common';
 /*@internal*/
 export const enum Errors {
     Unexpected,
+    UnexpectedToken,
     InvalidOrUnexpectedToken,
     UnterminatedString,
     StrictOctalEscape,
@@ -19,6 +20,7 @@ export const errorMessages: {
     [key: string]: string;
 } = {
     [Errors.Unexpected]: 'Unexpected token',
+    [Errors.UnexpectedToken]: 'Unexpected token %0',
     [Errors.UnterminatedString]: 'Unterminated string literal',
     [Errors.StrictOctalEscape]: 'Octal escapes are not allowed in strict mode',
     [Errors.InvalidEightAndNine]: 'Escapes \\8 or \\9 are not syntactically valid escapes',

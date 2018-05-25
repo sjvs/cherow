@@ -2,7 +2,7 @@ import { Parser } from '../types';
 import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
 import { Errors, recordErrors, } from '../errors';
-import { parseAssignmentExpression, parsePropertyName } from './expressions';
+import { parseComputedPropertyName, parseAssignmentExpression, parsePropertyName } from './expressions';
 import { parseVariableDeclaration } from './declarations';
 import {
     Context,
@@ -252,9 +252,9 @@ function parserObjectAssignmentPattern(parser: Parser, context: Context, type: B
  */
 function parseAssignmentProperty(parser: Parser, context: Context, type: BindingType): any {
     const { token } = parser;
-    let key: ESTree.Literal | ESTree.Identifier | ESTree.Expression | null;
+    let key: ESTree.Literal | ESTree.Identifier | ESTree.Expression | null = null;
     let value;
-    let computed = false;
+    let computed = parser.token === Token.LeftBracket;
     let shorthand = false;
     // single name binding
     if (token & (Token.Identifier | Token.Reserved | Token.FutureReserved)) {
@@ -264,9 +264,8 @@ function parseAssignmentProperty(parser: Parser, context: Context, type: Binding
             const hasInitializer = consume(parser, context, Token.Assign);
             value = hasInitializer ? parseAssignmentPattern(parser, context, key) : key;
         } else value = parseBindingInitializer(parser, context, type);
-    } else {
-        computed = token === Token.LeftBracket;
-        key = parsePropertyName(parser, context);
+    } else if (computed) {
+        key = parseComputedPropertyName(parser, context);
         expect(parser, context, Token.Colon);
         value = parseBindingInitializer(parser, context, type);
     }
@@ -365,7 +364,7 @@ function parseBindingList(
             }
         }
     } else if (parser.token === Token.Ellipsis) {
-
+            // TODO
     } else if (parser.token === Token.RightParen) {}
 
     if (consume(parser, context, Token.Assign)) {

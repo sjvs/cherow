@@ -559,8 +559,24 @@ function parseFunctionBody(parser: Parser, context: Context): any {
         case Token.StringLiteral:
             //  return parseLiteral(parser, context);
         case Token.LeftBracket:
-            // return parseComputedPropertyName(parser, context);
+             return parseComputedPropertyName(parser, context);
         default:
             return parseIdentifier(parser, context);
     }
+}
+
+/**
+ * Parse computed property names
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ComputedPropertyName)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+
+export function parseComputedPropertyName(parser: Parser, context: Context): ESTree.Expression {
+    expect(parser, context, Token.LeftBracket);
+    const key: ESTree.Expression = parseAssignmentExpression(parser, context | Context.In);
+    expect(parser, context, Token.RightBracket);
+    return key;
 }

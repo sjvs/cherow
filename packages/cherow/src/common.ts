@@ -96,8 +96,11 @@ export function nextToken(parser: Parser, context: Context): Token {
 }
 
 export function expect(parser: Parser, context: Context, token: Token): boolean {
-    if (parser.token !== token) recordErrors(parser, Errors.Unexpected);
-    nextToken(parser, context);
+    if (parser.token !== token) {
+        recordErrors(parser, Errors.UnexpectedToken, tokenDesc(parser.token));
+        return false;
+    }
+        nextToken(parser, context);
     return true;
   }
 
