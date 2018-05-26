@@ -311,26 +311,20 @@ export function parseForStatement(parser: Parser, context: Context): any {
     let test: ESTree.Expression | null = null;
     let update: ESTree.Expression | null = null;
     let right;
+    let bindingType: BindingType = BindingType.Empty;
     if (parser.token !== Token.Semicolon) {
         let token = parser.token;
-        switch (parser.token) {
-            case Token.VarKeyword:
-                nextToken(parser, context);
-                declarations = parseVariableDeclarationList(parser, context & ~Context.In, BindingType.Var, BindingOrigin.ForStatement);
-                break;
-            case Token.ConstKeyword:
-                nextToken(parser, context);
-                declarations = parseVariableDeclarationList(parser, context & ~Context.In, BindingType.Let, BindingOrigin.ForStatement);
-                break;
-            case Token.LetKeyword:
-                nextToken(parser, context);
-                declarations = parseVariableDeclarationList(parser, context & ~Context.In, BindingType.Const, BindingOrigin.ForStatement);
-                break;
-            default:
-                init = parseAssignmentExpression(parser, context & ~Context.In);
-        }
+        if (parser.token === Token.VarKeyword) {
+            bindingType = BindingType.Var;
+        } else if (parser.token === Token.ConstKeyword) {
+            bindingType = BindingType.Const;
+        } else if (parser.token === Token.LetKeyword && lookahead(parser, context, isLexical)) {
+            bindingType = BindingType.Let;
+        } else init = parseAssignmentExpression(parser, context & ~Context.In);
 
-        if (declarations) {
+        if (bindingType & BindingType.Variable) {
+            nextToken(parser, context);
+            declarations = parseVariableDeclarationList(parser, context & ~Context.In, bindingType, BindingOrigin.ForStatement)
             init = {
                 type: 'VariableDeclaration',
                 kind: tokenDesc(token) as 'var' | 'let' | 'const',
@@ -349,7 +343,7 @@ export function parseForStatement(parser: Parser, context: Context): any {
         right = parseAssignmentExpression(parser, context | Context.In);
     } else {
         const hasComma = parser.token === Token.Comma;
-        if (parser.token === Token.Comma) init = parseSequenceExpression(parser, context, init );
+        if (parser.token === Token.Comma) init = parseSequenceExpression(parser, context, init);
         expect(parser, context, Token.Semicolon);
         if (parser.token !== Token.Semicolon) {
             test = parseExpression(parser, context);
@@ -362,22 +356,19 @@ export function parseForStatement(parser: Parser, context: Context): any {
 
     const body = parseStatement(parser, context);
 
-    return type === 'ForOfStatement' ?
-        {
+    return type === 'ForOfStatement' ? {
             type,
             body,
             left: init,
             right,
             await: awaitToken
         } :
-        right ?
-        {
+        right ? {
             type: type as 'ForInStatement',
             body,
             left: init,
             right
-        } :
-        {
+        } : {
             type: type as 'ForStatement',
             body,
             init,
