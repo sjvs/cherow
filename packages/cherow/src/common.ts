@@ -11,16 +11,17 @@ export const enum Context {
     OptionsJSX      = 1 << 1,
     OptionsRaw      = 1 << 2,
     OptionsNext     = 1 << 3,
-    Strict          = 1 << 4,
-    Module          = 1 << 5,
-    Async           = 1 << 6,
-    Yield           = 1 << 7,
-    InParameter     = 1 << 8,
-    NewTarget       = 1 << 9,
-    Template        = 1 << 10,
-    In              = 1 << 11,
-    Statement       = 1 << 12,
-    Asi             = 1 << 13,
+    OptionsWebCompat = 1 << 4,
+    Strict          = 1 << 5,
+    Module          = 1 << 6,
+    Async           = 1 << 7,
+    Yield           = 1 << 8,
+    InParameter     = 1 << 9,
+    NewTarget       = 1 << 10,
+    Template        = 1 << 11,
+    In              = 1 << 12,
+    Statement       = 1 << 13,
+    Asi             = 1 << 14,
 }
 
 /* Mutual parser flags */
@@ -28,8 +29,8 @@ export const enum Flags {
     Empty               = 0,
     NewLine             = 1 << 0,
     HasOctal            = 1 << 1,
-    IsAssignable        = 1 << 2,
-    IsBindable          = 1 << 3,
+    Assignable        = 1 << 2,
+    Bindable          = 1 << 3,
     SimpleParameterList = 1 << 4,
 }
 
@@ -74,6 +75,10 @@ export const enum ModifierState {
     Await = 1 << 1,
     Arrow = 1 << 2,
     Async = 1 << 2,
+}
+
+export function setGrammar(flags: Flags, mask: Flags): Context {
+    return (flags | flags) ^ mask;
 }
 
 export function setContext(context: Context, mask: Context): Context {
@@ -242,3 +247,4 @@ export function reinterpret(parser: Parser, node: any): void {
         default: // ignore
     }
 }
+

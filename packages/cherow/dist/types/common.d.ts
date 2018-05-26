@@ -7,23 +7,24 @@ export declare const enum Context {
     OptionsJSX = 2,
     OptionsRaw = 4,
     OptionsNext = 8,
-    Strict = 16,
-    Module = 32,
-    Async = 64,
-    Yield = 128,
-    InParameter = 256,
-    NewTarget = 512,
-    Template = 1024,
-    In = 2048,
-    Statement = 4096,
-    Asi = 8192,
+    OptionsWebCompat = 16,
+    Strict = 32,
+    Module = 64,
+    Async = 128,
+    Yield = 256,
+    InParameter = 512,
+    NewTarget = 1024,
+    Template = 2048,
+    In = 4096,
+    Statement = 8192,
+    Asi = 16384,
 }
 export declare const enum Flags {
     Empty = 0,
     NewLine = 1,
     HasOctal = 2,
-    IsAssignable = 4,
-    IsBindable = 8,
+    Assignable = 4,
+    Bindable = 8,
     SimpleParameterList = 16,
 }
 export declare const enum BindingOrigin {
@@ -61,6 +62,7 @@ export declare const enum ModifierState {
     Arrow = 4,
     Async = 4,
 }
+export declare function setGrammar(flags: Flags, mask: Flags): Context;
 export declare function setContext(context: Context, mask: Context): Context;
 export declare function swapContext(context: Context, state: ModifierState): Context;
 export declare function nextToken(parser: Parser, context: Context): Token;

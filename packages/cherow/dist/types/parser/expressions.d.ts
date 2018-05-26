@@ -16,6 +16,13 @@ import { Context, ModifierState } from '../common';
  * @param context Context masks
  */
 export declare function parseExpression(parser: Parser, context: Context): ESTree.Expression;
+/**
+ * Parse secuence expression
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+export declare function parseSequenceExpression(parser: Parser, context: Context, left: ESTree.Expression): ESTree.SequenceExpression;
 export declare function parseAssignmentExpression(parser: Parser, context: Context): any;
 /**
  * Parse left hand side expression

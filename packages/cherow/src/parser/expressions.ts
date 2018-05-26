@@ -4,6 +4,7 @@ import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
 import { parseDelimitedBindingList, parseBindingIdentifier } from './pattern';
 import { parseStatementListItem } from './statements';
+import { Errors, recordErrors, } from '../errors';
 import {
     Context,
     Flags,
@@ -18,6 +19,7 @@ import {
     nextTokenIsLeftParen,
     lookahead,
     nextTokenIsArrow,
+    setGrammar,
     reinterpret
 } from '../common';
 
@@ -36,17 +38,32 @@ import {
  * @param context Context masks
  */
 export function parseExpression(parser: Parser, context: Context): ESTree.Expression {
-    const left = parseAssignmentExpression(parser, context);
-    if (parser.token !== Token.Comma) return left;
-    const expressions: ESTree.Expression[] = [left];
-    while (consume(parser, context, Token.Comma)) {
-        expressions.push(parseAssignmentExpression(parser, context));
-    }
-    return {
-        type: 'SequenceExpression',
-        expressions,
-    };
+    const expr = parseAssignmentExpression(parser, context);
+    if (parser.token !== Token.Comma) return expr;
+    return parseSequenceExpression(parser, context, expr);
 }
+
+/**
+ * Parse secuence expression
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+
+export function parseSequenceExpression(
+    parser: Parser,
+    context: Context,
+    left: ESTree.Expression,
+  ): ESTree.SequenceExpression {
+      const expressions: ESTree.Expression[] = [left];
+      while (consume(parser, context, Token.Comma)) {
+          expressions.push(parseAssignmentExpression(parser, context));
+      }
+      return {
+          type: 'SequenceExpression',
+          expressions,
+      };
+  }
 
 export function parseAssignmentExpression(parser: Parser, context: Context): any {
     // AssignmentExpression ::
@@ -68,21 +85,20 @@ export function parseAssignmentExpression(parser: Parser, context: Context): any
         return parseArrowFunction(parser, context, isAsync ? ModifierState.Async : ModifierState.None, left);
     }
 
-    if ((parser.flags & Flags.IsAssignable) === Flags.IsAssignable &&
-        (parser.token & Token.IsAssignOp) === Token.IsAssignOp) {
-            const {type} = left;
-            if (type === 'ArrayExpression' || type === 'ObjectExpression') {
-                reinterpret(parser, left);
-              }
-              const operator = parser.token;
-              nextToken(parser, context);
-              const right = parseAssignmentExpression(parser, context | Context.In);
-              return {
-                  type: 'AssignmentExpression',
-                  left: left,
-                  operator: tokenDesc(operator),
-                  right,
-              };
+    if ((parser.token & Token.IsAssignOp) === Token.IsAssignOp) {
+        if ((parser.flags & Flags.Assignable) !== Flags.Assignable) recordErrors(parser, Errors.InvalidLHSDefaultValue);
+        if (parser.token === Token.Assign) {
+            if (left.type === 'ArrayExpression' || left.type === 'ObjectExpression') reinterpret(parser, left);
+        }
+        const operator = parser.token;
+        nextToken(parser, context);
+        const right = parseAssignmentExpression(parser, context | Context.In);
+        return {
+            type: 'AssignmentExpression',
+            left: left,
+            operator: tokenDesc(operator),
+            right,
+        };
     }
     return left;
 }
@@ -97,9 +113,9 @@ export function parseAssignmentExpression(parser: Parser, context: Context): any
  */
 
 function parseConditionalExpression(parser: Parser, context: Context): ESTree.Expression | ESTree.ConditionalExpression {
-     // ConditionalExpression ::
-     // LogicalOrExpression
-     // LogicalOrExpression '?' AssignmentExpression ':' AssignmentExpression
+    // ConditionalExpression ::
+    // LogicalOrExpression
+    // LogicalOrExpression '?' AssignmentExpression ':' AssignmentExpression
     const test = parseBinaryExpression(parser, context, 0);
     if (!consume(parser, context, Token.QuestionMark)) return test;
     const consequent = parseAssignmentExpression(parser, context | Context.In);
@@ -150,6 +166,7 @@ function parseBinaryExpression(
         // start of an expression, so we break the loop
         if (prec + delta <= minPrec) break;
         nextToken(parser, context);
+        parser.flags &= ~Flags.Assignable;
 
         left = {
             type: t & Token.IsLogical ? 'LogicalExpression' : 'BinaryExpression',
@@ -200,8 +217,8 @@ function parseUnaryExpression(parser: Parser, context: Context): any {
  * @param context Context masks
  */
 function parseUpdateExpression(parser: Parser, context: Context): any {
-     // UpdateExpression ::
-     //   LeftHandSideExpression ('++' | '--')?
+    // UpdateExpression ::
+    //   LeftHandSideExpression ('++' | '--')?
     const { token } = parser;
 
     if ((parser.token & Token.IsUpdateOp) === Token.IsUpdateOp) {
@@ -332,7 +349,7 @@ export function parsePrimaryExpression(parser: Parser, context: Context): any {
     switch (parser.token) {
         case Token.FunctionKeyword:
             return parseFunctionExpression(parser, context & ~Context.Async);
-            case Token.LeftParen:
+        case Token.LeftParen:
             return parseParenthesizedExpression(parser, context);
         case Token.LeftBracket:
             return parseArrayLiteral(parser, context);
@@ -342,7 +359,8 @@ export function parsePrimaryExpression(parser: Parser, context: Context): any {
             return parseIdentifier(parser, context);
         case Token.NumericLiteral:
             return parseLiteral(parser, context);
-        default:    nextToken(parser, context);
+        default:
+            nextToken(parser, context);
     }
 }
 
@@ -373,10 +391,10 @@ export function parseLiteral(parser: Parser, context: Context): ESTree.Literal {
  * @param context Context masks
  */
 function parseArrowFunction(
-    parser: Parser, 
-    context: Context, 
-    state: ModifierState, 
-    params: any[]): ESTree.ArrowFunctionExpression  {
+    parser: Parser,
+    context: Context,
+    state: ModifierState,
+    params: any[]): ESTree.ArrowFunctionExpression {
     expect(parser, context, Token.Arrow);
     context = swapContext(context, state);
     let body: any;
@@ -410,7 +428,7 @@ function parseParenthesizedExpression(parser: Parser, context: Context): any {
     expect(parser, context, Token.LeftParen);
     if (consume(parser, context, Token.RightParen)) {
         if (parser.token === Token.Arrow) {
-          return [];
+            return [];
         }
     }
     const expr = parseExpression(parser, context);
@@ -453,7 +471,7 @@ function parseArrayLiteral(parser: Parser, context: Context): ESTree.ArrayExpres
     expect(parser, context, Token.LeftBracket);
     context = setContext(context, Context.In | Context.Asi);
     const elements: (ESTree.Expression | ESTree.SpreadElement | null)[] = [];
-    
+
     while (parser.token !== Token.RightBracket) {
         if (consume(parser, context, Token.Comma)) {
             elements.push(null);
@@ -463,12 +481,12 @@ function parseArrayLiteral(parser: Parser, context: Context): ESTree.ArrayExpres
                 expect(parser, context, Token.Comma);
             }
         } else {
-           elements.push(parseAssignmentExpression(parser, context | Context.In));
-           if (parser.token !== Token.RightBracket) expect(parser, context, Token.Comma);
+            elements.push(parseAssignmentExpression(parser, context | Context.In));
+            if (parser.token !== Token.RightBracket) expect(parser, context, Token.Comma);
         }
     }
     expect(parser, context, Token.RightBracket);
-        return {
+    return {
         type: 'ArrayExpression',
         elements,
     };
@@ -500,8 +518,8 @@ function parseSpreadElement(parser: Parser, context: Context): ESTree.SpreadElem
  * @param context Context masks
  */
 export function parseFunctionExpression(
-    parser: Parser, 
-    context: Context, 
+    parser: Parser,
+    context: Context,
     state: ModifierState = ModifierState.None
 ): ESTree.FunctionExpression {
     expect(parser, context, Token.FunctionKeyword);
@@ -536,7 +554,10 @@ export function parseFunctionExpression(
 function parseFormalListAndBody(parser: Parser, context: Context) {
     const params = parseFormalParameters(parser, context);
     const body = parseFunctionBody(parser, context);
-    return { params, body };
+    return {
+        params,
+        body
+    };
 }
 
 /**
@@ -569,21 +590,21 @@ function parseFunctionBody(parser: Parser, context: Context): any {
         body,
     };
 }
-  /**
-   * Parse property name
-   *
-   * @see [Link](https://tc39.github.io/ecma262/#prod-PropertyName)
-   *
-   * @param parser Parser object
-   * @param context Context masks
-   */
-  export function parsePropertyName(parser: Parser, context: Context): any {
+/**
+ * Parse property name
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-PropertyName)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+export function parsePropertyName(parser: Parser, context: Context): any {
     switch (parser.token) {
         case Token.NumericLiteral:
         case Token.StringLiteral:
             //  return parseLiteral(parser, context);
         case Token.LeftBracket:
-             return parseComputedPropertyName(parser, context);
+            return parseComputedPropertyName(parser, context);
         default:
             return parseIdentifier(parser, context);
     }

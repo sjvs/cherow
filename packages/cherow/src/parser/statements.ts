@@ -1,7 +1,8 @@
+import { VariableDeclarator } from './../estree';
 import { Parser } from '../types';
 import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
-import { parseExpression } from './expressions';
+import { parseSequenceExpression, parseExpression, parseAssignmentExpression } from './expressions';
 import { Errors, recordErrors, } from '../errors';
 import { parseVariableDeclarationList } from './declarations';
 import { parseDelimitedBindingList, parseBindingIdentifierOrPattern } from './pattern';
@@ -15,7 +16,8 @@ import {
     BindingType,
     BindingOrigin,
     lookahead,
-    isLexical
+    isLexical,
+    reinterpret
 } from '../common';
 
 /**
@@ -77,6 +79,8 @@ export function parseStatement(parser: Parser, context: Context): ESTree.Stateme
             return parseBlockStatement(parser, context);
          case Token.DebuggerKeyword:
             return parseDebuggerStatement(parser, context);
+            case Token.ForKeyword:
+            return parseForStatement(parser, context);
          default:
         return parseExpressionOrLabelledStatement(parser, context);
     }
@@ -296,6 +300,88 @@ export function parseVariableStatement(
  * @param parser  Parser object
  * @param context Context masks
  */
+
 export function parseForStatement(parser: Parser, context: Context): any {
     expect(parser, context, Token.ForKeyword);
+    const awaitToken = consume(parser, context, Token.AwaitKeyword);
+    expect(parser, context, Token.LeftParen);
+    let init: any = null;
+    let declarations: ESTree.VariableDeclarator[] | null = null;
+    let type: any = 'ForStatement';
+    let test: ESTree.Expression | null = null;
+    let update: ESTree.Expression | null = null;
+    let right;
+    if (parser.token !== Token.Semicolon) {
+        let token = parser.token;
+        switch (parser.token) {
+            case Token.VarKeyword:
+                nextToken(parser, context);
+                declarations = parseVariableDeclarationList(parser, context & ~Context.In, BindingType.Var, BindingOrigin.ForStatement);
+                break;
+            case Token.ConstKeyword:
+                nextToken(parser, context);
+                declarations = parseVariableDeclarationList(parser, context & ~Context.In, BindingType.Let, BindingOrigin.ForStatement);
+                break;
+            case Token.LetKeyword:
+                nextToken(parser, context);
+                declarations = parseVariableDeclarationList(parser, context & ~Context.In, BindingType.Const, BindingOrigin.ForStatement);
+                break;
+            default:
+                init = parseAssignmentExpression(parser, context & ~Context.In);
+        }
+
+        if (declarations) {
+            init = {
+                type: 'VariableDeclaration',
+                kind: tokenDesc(token) as 'var' | 'let' | 'const',
+                declarations
+            };
+        }
+    }
+
+    if (awaitToken ? expect(parser, context, Token.OfKeyword) : consume(parser, context, Token.OfKeyword)) {
+        type = 'ForOfStatement';
+        if (init) reinterpret(parser, init); else init = declarations;
+        right = parseExpression(parser, context | Context.In);
+    } else if (consume(parser, context, Token.InKeyword)) {
+        type = 'ForInStatement';
+        if (init) reinterpret(parser, init); else init = declarations;
+        right = parseAssignmentExpression(parser, context | Context.In);
+    } else {
+        const hasComma = parser.token === Token.Comma;
+        if (parser.token === Token.Comma) init = parseSequenceExpression(parser, context, init );
+        expect(parser, context, Token.Semicolon);
+        if (parser.token !== Token.Semicolon) {
+            test = parseExpression(parser, context);
+        }
+        expect(parser, context, Token.Semicolon);
+        if (parser.token !== Token.RightParen) update = parseExpression(parser, context | Context.In);
+    }
+
+    expect(parser, context, Token.RightParen);
+
+    const body = parseStatement(parser, context);
+
+    return type === 'ForOfStatement' ?
+        {
+            type,
+            body,
+            left: init,
+            right,
+            await: awaitToken
+        } :
+        right ?
+        {
+            type: type as 'ForInStatement',
+            body,
+            left: init,
+            right
+        } :
+        {
+            type: type as 'ForStatement',
+            body,
+            init,
+            test,
+            update
+        };
 }

@@ -8,7 +8,7 @@ export function createParserObject(source: string, errCallback?: any): Parser {
     return {
         source: source,
         length: source.length,
-        flags: Flags.IsAssignable,
+        flags: Flags.Assignable,
         token: Token.EndOfSource,
         nextToken: Token.EndOfSource,
         lastToken: Token.EndOfSource,
@@ -43,6 +43,8 @@ export function parseSource(source: string, options: any, /*@internal*/ context:
         if (options.jsx) context |= Context.OptionsJSX;
         // The flag to attach raw property to each literal node
         if (options.raw) context |= Context.OptionsRaw;
+        // The flag to enable web compat (annexB)
+        if (options.webcompat) context |= Context.OptionsWebCompat;
     }
 
     const parser = createParserObject(source, errCallback);

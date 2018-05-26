@@ -57,5 +57,5 @@ export function recordErrors(parser: Parser, type: Errors, ...params: string[]) 
     const message = errorMessages[type].replace(/%(\d+)/g, (_: string, i: number) => params[i]);
     const error = constructError(index, line, column, message);
     if (parser.onError) parser.onError(message, line, column);
-    //throw error;
+   // throw error;
 }

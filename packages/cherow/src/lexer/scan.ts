@@ -370,7 +370,7 @@ table[Chars.VerticalBar] = (parser: Parser) => {
 };
 
 export function scan(parser: Parser, context: Context): Token {
-    parser.flags &=  ~Flags.NewLine;
+    parser.flags &= ~Flags.NewLine;
     while (parser.index < parser.length) {
         parser.startIndex = parser.index;
         const first = parser.source.charCodeAt(parser.index);
