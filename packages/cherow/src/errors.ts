@@ -17,7 +17,8 @@ export const enum Errors {
     NoCatchOrFinally,
     NoCatchClause,
     NoCatchClauseDefault,
-    InvalidLHSDefaultValue
+    InvalidLHSDefaultValue,
+    InvalidLhsInFor
 }
 /*@internal*/
 export const errorMessages: {
@@ -38,6 +39,8 @@ export const errorMessages: {
     [Errors.NoCatchClause]: 'Missing catch clause',
     [Errors.NoCatchClauseDefault]: 'Catch clause parameter does not support default values',
     [Errors.InvalidLHSDefaultValue]: 'Only \'=\' operator can be used for specifying default value',
+    [Errors.InvalidLhsInFor]: 'Invalid left-hand side in for-loop',
+    
 };
 
 export function constructError(index: number, line: number, column: number, description: string): void {
