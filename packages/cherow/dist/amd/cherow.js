@@ -138,6 +138,7 @@ define('cherow', ['exports'], function (exports) { 'use strict';
         [12 /* NoCatchClause */]: 'Missing catch clause',
         [13 /* NoCatchClauseDefault */]: 'Catch clause parameter does not support default values',
         [14 /* InvalidLHSDefaultValue */]: 'Only \'=\' operator can be used for specifying default value',
+        [15 /* InvalidLhsInFor */]: 'Invalid left-hand side in for-loop',
     };
     function constructError(index, line, column, description) {
         const error = new SyntaxError(`Line ${line}, column ${column}: ${description}`);
@@ -156,6 +157,8 @@ define('cherow', ['exports'], function (exports) { 'use strict';
         // throw error;
     }
 
+    function parseFunctionDeclaration(parser, context) {
+    }
     /**
      * VariableDeclaration :
      *   BindingIdentifier Initializeropt
@@ -2145,6 +2148,8 @@ define('cherow', ['exports'], function (exports) { 'use strict';
                 return parseVariableStatement(parser, context, 8 /* Const */);
             case 16453 /* LetKeyword */:
                 return parseLetOrExpressionStatement(parser, context);
+            case 8282 /* SwitchKeyword */:
+                return parseSwitchStatement(parser, context);
             default:
                 return parseStatement(parser, context);
         }
@@ -2157,7 +2162,7 @@ define('cherow', ['exports'], function (exports) { 'use strict';
      * @param parser  Parser object
      * @param context Context masks
      */
-    function parseStatement(parser, context) {
+    function parseStatement(parser, context, label = 1 /* Disallow */) {
         switch (parser.token) {
             case 8260 /* VarKeyword */:
                 return parseVariableStatement(parser, context, 2 /* Var */);
@@ -2174,7 +2179,7 @@ define('cherow', ['exports'], function (exports) { 'use strict';
             case 8275 /* ForKeyword */:
                 return parseForStatement(parser, context);
             default:
-                return parseExpressionOrLabelledStatement(parser, context);
+                return parseExpressionOrLabelledStatement(parser, context, label);
         }
     }
     /**
@@ -2306,8 +2311,24 @@ define('cherow', ['exports'], function (exports) { 'use strict';
      * @param parser  Parser object
      * @param context Context masks
      */
-    function parseExpressionOrLabelledStatement(parser, context) {
+    function parseExpressionOrLabelledStatement(parser, context, label) {
+        const { tokenValue, token } = parser;
         const expr = parseExpression(parser, context);
+        if (token & (8388608 /* Identifier */ | 8417280 /* IsKeyword */) && parser.token === 33554450 /* Colon */) {
+            expect(parser, context, 33554450 /* Colon */);
+            let body = null;
+            if (parser.token === 8276 /* FunctionKeyword */ && !(context & 32 /* Strict */) &&
+                label === 0 /* Allow */) {
+                body = parseFunctionDeclaration(parser, context);
+            }
+            else
+                body = parseStatement(parser, context, 0 /* Allow */);
+            return {
+                type: 'LabeledStatement',
+                label: expr,
+                body
+            };
+        }
         consumeSemicolon(parser, context);
         return {
             type: 'ExpressionStatement',
@@ -2326,7 +2347,7 @@ define('cherow', ['exports'], function (exports) { 'use strict';
     function parseLetOrExpressionStatement(parser, context) {
         return lookahead(parser, context, isLexical)
             ? parseVariableStatement(parser, context, 4 /* Let */)
-            : parseExpressionOrLabelledStatement(parser, context);
+            : parseExpressionOrLabelledStatement(parser, context, 1 /* Disallow */);
     }
     /**
      * Parses variable statement
@@ -2358,7 +2379,7 @@ define('cherow', ['exports'], function (exports) { 'use strict';
      */
     function parseForStatement(parser, context) {
         expect(parser, context, 8275 /* ForKeyword */);
-        const awaitToken = consume(parser, context, 536875118 /* AwaitKeyword */);
+        const forAwait = context & 128 /* Async */ && consume(parser, context, 536875118 /* AwaitKeyword */);
         expect(parser, context, 33554440 /* LeftParen */);
         let init = null;
         let declarations = null;
@@ -2366,25 +2387,23 @@ define('cherow', ['exports'], function (exports) { 'use strict';
         let test = null;
         let update = null;
         let right;
+        let bindingType = 0 /* Empty */;
         if (parser.token !== 33685518 /* Semicolon */) {
-            let token = parser.token;
-            switch (parser.token) {
-                case 8260 /* VarKeyword */:
-                    nextToken(parser, context);
-                    declarations = parseVariableDeclarationList(parser, context & ~4096 /* In */, 2 /* Var */, 1 /* ForStatement */);
-                    break;
-                case 8262 /* ConstKeyword */:
-                    nextToken(parser, context);
-                    declarations = parseVariableDeclarationList(parser, context & ~4096 /* In */, 4 /* Let */, 1 /* ForStatement */);
-                    break;
-                case 16453 /* LetKeyword */:
-                    nextToken(parser, context);
-                    declarations = parseVariableDeclarationList(parser, context & ~4096 /* In */, 8 /* Const */, 1 /* ForStatement */);
-                    break;
-                default:
-                    init = parseAssignmentExpression(parser, context & ~4096 /* In */);
+            const token = parser.token;
+            if (token === 8260 /* VarKeyword */) {
+                bindingType = 2 /* Var */;
             }
-            if (declarations) {
+            else if (token === 8262 /* ConstKeyword */) {
+                bindingType = 8 /* Const */;
+            }
+            else if (token === 16453 /* LetKeyword */ && lookahead(parser, context, isLexical)) {
+                bindingType = 4 /* Let */;
+            }
+            else
+                init = parseAssignmentExpression(parser, context & ~4096 /* In */);
+            if (bindingType & 14 /* Variable */) {
+                nextToken(parser, context);
+                declarations = parseVariableDeclarationList(parser, context & ~4096 /* In */, bindingType, 1 /* ForStatement */);
                 init = {
                     type: 'VariableDeclaration',
                     kind: tokenDesc(token),
@@ -2392,7 +2411,7 @@ define('cherow', ['exports'], function (exports) { 'use strict';
                 };
             }
         }
-        if (awaitToken ? expect(parser, context, 4211 /* OfKeyword */) : consume(parser, context, 4211 /* OfKeyword */)) {
+        if (forAwait ? expect(parser, context, 4211 /* OfKeyword */) : consume(parser, context, 4211 /* OfKeyword */)) {
             type = 'ForOfStatement';
             if (init)
                 reinterpret(parser, init);
@@ -2409,10 +2428,9 @@ define('cherow', ['exports'], function (exports) { 'use strict';
             right = parseAssignmentExpression(parser, context | 4096 /* In */);
         }
         else {
-            const hasComma = parser.token === 33554447 /* Comma */;
             if (parser.token === 33554447 /* Comma */)
                 init = parseSequenceExpression(parser, context, init);
-            expect(parser, context, 33685518 /* Semicolon */);
+            expect(parser, context, 33685518 /* Semicolon */, 15 /* InvalidLhsInFor */);
             if (parser.token !== 33685518 /* Semicolon */) {
                 test = parseExpression(parser, context);
             }
@@ -2422,28 +2440,83 @@ define('cherow', ['exports'], function (exports) { 'use strict';
         }
         expect(parser, context, 33554445 /* RightParen */);
         const body = parseStatement(parser, context);
-        return type === 'ForOfStatement' ?
-            {
-                type,
+        return type === 'ForOfStatement' ? {
+            type,
+            body,
+            left: init,
+            right,
+            await: forAwait
+        } :
+            right ? {
+                type: type,
                 body,
                 left: init,
-                right,
-                await: awaitToken
-            } :
-            right ?
-                {
-                    type: type,
-                    body,
-                    left: init,
-                    right
-                } :
-                {
-                    type: type,
-                    body,
-                    init,
-                    test,
-                    update
-                };
+                right
+            } : {
+                type: type,
+                body,
+                init,
+                test,
+                update
+            };
+    }
+    /**
+     * Parses switch statement
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-SwitchStatement)
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
+    function parseSwitchStatement(parser, context) {
+        expect(parser, context, 8282 /* SwitchKeyword */);
+        expect(parser, context, 33554440 /* LeftParen */);
+        const discriminant = parseExpression(parser, context | 4096 /* In */);
+        context = setContext(context, 2048 /* Template */);
+        expect(parser, context, 33554445 /* RightParen */);
+        expect(parser, context, 33554441 /* LeftBrace */);
+        const cases = [];
+        let seenDefault = false;
+        while (parser.token !== 33685516 /* RightBrace */) {
+            let test = null;
+            if (consume(parser, context, 8264 /* CaseKeyword */)) {
+                test = parseExpression(parser, context);
+            }
+            else {
+                expect(parser, context, 8269 /* DefaultKeyword */);
+                if (seenDefault)
+                    recordErrors(parser, 0 /* Unexpected */);
+                seenDefault = true;
+            }
+            cases.push(parseCaseOrDefaultClauses(parser, context, test));
+        }
+        expect(parser, context, 33685516 /* RightBrace */);
+        return {
+            type: 'SwitchStatement',
+            discriminant,
+            cases
+        };
+    }
+    /**
+     * Parses either default clause or case clauses
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-CaseClauses)
+     * @see [Link](https://tc39.github.io/ecma262/#prod-DefaultClause)
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
+    function parseCaseOrDefaultClauses(parser, context, test) {
+        expect(parser, context, 33554450 /* Colon */);
+        const consequent = [];
+        while (parser.token !== 8264 /* CaseKeyword */ && parser.token !== 33685516 /* RightBrace */ && parser.tokenValue !== 'default') {
+            consequent.push(parseStatementListItem(parser, context | 4096 /* In */));
+        }
+        return {
+            type: 'SwitchCase',
+            test,
+            consequent
+        };
     }
 
     function createParserObject(source, errCallback) {

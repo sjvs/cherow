@@ -1,6 +1,10 @@
 import { Parser } from '../types';
 import * as ESTree from '../estree';
 import { Context, BindingType } from '../common';
+export declare const enum LabelledFunctionState {
+    Allow = 0,
+    Disallow = 1,
+}
 /**
  * Parse statement list
  *
@@ -27,7 +31,7 @@ export declare function parseStatementListItem(parser: Parser, context: Context)
  * @param parser  Parser object
  * @param context Context masks
  */
-export declare function parseStatement(parser: Parser, context: Context): ESTree.Statement;
+export declare function parseStatement(parser: Parser, context: Context, label?: LabelledFunctionState): ESTree.Statement;
 /**
  * Parses the debugger statement production
  *
@@ -101,7 +105,7 @@ export declare function parseThrowStatement(parser: Parser, context: Context): E
  * @param parser  Parser object
  * @param context Context masks
  */
-export declare function parseExpressionOrLabelledStatement(parser: Parser, context: Context): any;
+export declare function parseExpressionOrLabelledStatement(parser: Parser, context: Context, label: LabelledFunctionState): any;
 /**
  * Parses variable statement
  *
@@ -121,3 +125,22 @@ export declare function parseVariableStatement(parser: Parser, context: Context,
  * @param context Context masks
  */
 export declare function parseForStatement(parser: Parser, context: Context): any;
+/**
+ * Parses either default clause or case clauses
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-CaseClauses)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-DefaultClause)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export declare function parseCaseOrDefaultClauses(parser: Parser, context: Context, test: ESTree.Expression | null): ESTree.SwitchCase;
+/**
+ * Parses the if statement production
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#sec-if-statement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export declare function parseIfStatement(parser: Parser, context: Context): ESTree.IfStatement;

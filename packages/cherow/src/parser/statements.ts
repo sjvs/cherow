@@ -4,7 +4,7 @@ import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
 import { parseSequenceExpression, parseExpression, parseAssignmentExpression } from './expressions';
 import { Errors, recordErrors, } from '../errors';
-import { parseVariableDeclarationList } from './declarations';
+import { parseFunctionDeclaration, parseVariableDeclarationList } from './declarations';
 import { parseDelimitedBindingList, parseBindingIdentifierOrPattern } from './pattern';
 import {
     Context,
@@ -16,9 +16,16 @@ import {
     BindingType,
     BindingOrigin,
     lookahead,
+    setContext,
     isLexical,
-    reinterpret
+    reinterpret,
+    swapContext
 } from '../common';
+
+export const enum LabelledFunctionState {
+    Allow,
+    Disallow,
+  };
 
 /**
  * Parse statement list
@@ -52,6 +59,8 @@ export function parseStatementListItem(parser: Parser, context: Context): ESTree
             return parseVariableStatement(parser, context, BindingType.Const);
         case Token.LetKeyword:
             return parseLetOrExpressionStatement(parser, context);
+        case Token.SwitchKeyword:
+            return parseSwitchStatement(parser, context);
         default:
         return parseStatement(parser, context);
     }
@@ -65,7 +74,11 @@ export function parseStatementListItem(parser: Parser, context: Context): ESTree
  * @param parser  Parser object
  * @param context Context masks
  */
-export function parseStatement(parser: Parser, context: Context): ESTree.Statement {
+export function parseStatement(
+    parser: Parser, 
+    context: Context, 
+    label: LabelledFunctionState = LabelledFunctionState.Disallow
+): ESTree.Statement {
     switch (parser.token) {
         case Token.VarKeyword:
             return parseVariableStatement(parser, context, BindingType.Var);
@@ -82,7 +95,7 @@ export function parseStatement(parser: Parser, context: Context): ESTree.Stateme
             case Token.ForKeyword:
             return parseForStatement(parser, context);
          default:
-        return parseExpressionOrLabelledStatement(parser, context);
+        return parseExpressionOrLabelledStatement(parser, context, label);
     }
  }
 
@@ -238,10 +251,28 @@ export function parseThrowStatement(parser: Parser, context: Context): ESTree.Th
  * @param parser  Parser object
  * @param context Context masks
  */
-export function parseExpressionOrLabelledStatement(parser: Parser, context: Context): any {
-
+export function parseExpressionOrLabelledStatement(
+    parser: Parser, 
+    context: Context, 
+    label: LabelledFunctionState
+): any {
+    const { tokenValue, token } = parser;
     const expr: ESTree.Expression = parseExpression(parser, context);
+    if (token & (Token.Identifier | Token.IsKeyword) && parser.token === Token.Colon) {
+        expect(parser, context, Token.Colon);
+        let body: ESTree.Statement | ESTree.FunctionDeclaration | null = null;
+        if (parser.token === Token.FunctionKeyword && !(context & Context.Strict) &&
+        label === LabelledFunctionState.Allow) {
+            body = parseFunctionDeclaration(parser, context);
+        } else body = parseStatement(parser, context, LabelledFunctionState.Allow);
 
+        return {
+          type: 'LabeledStatement',
+          label: expr as ESTree.Identifier,
+          body
+        };
+      }
+    
     consumeSemicolon(parser, context);
     return {
     type: 'ExpressionStatement',
@@ -264,7 +295,7 @@ function parseLetOrExpressionStatement(
   ): any {
       return lookahead(parser, context, isLexical)
         ? parseVariableStatement(parser, context, BindingType.Let)
-        : parseExpressionOrLabelledStatement(parser, context);
+        : parseExpressionOrLabelledStatement(parser, context, LabelledFunctionState.Disallow);
   }
 
 /**
@@ -375,3 +406,99 @@ export function parseForStatement(parser: Parser, context: Context): any {
             update
         };
 }
+/**
+ * Parses switch statement
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-SwitchStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+function parseSwitchStatement(parser: Parser, context: Context): ESTree.SwitchStatement {
+    expect(parser, context, Token.SwitchKeyword);
+    expect(parser, context, Token.LeftParen);
+    const discriminant = parseExpression(parser, context | Context.In);
+    context = setContext(context, Context.Template);
+    expect(parser, context, Token.RightParen);
+    expect(parser, context, Token.LeftBrace);
+    const cases: ESTree.SwitchCase[] = [];
+    let seenDefault = false;
+    while (parser.token !== Token.RightBrace) {
+        let test: ESTree.Expression | null = null;
+        if (consume(parser, context, Token.CaseKeyword)) {
+            test = parseExpression(parser, context);
+        } else {
+            expect(parser, context, Token.DefaultKeyword);
+            if (seenDefault) recordErrors(parser, Errors.Unexpected);
+            seenDefault = true;
+        }
+        cases.push(parseCaseOrDefaultClauses(parser, context, test));
+    }
+    expect(parser, context, Token.RightBrace);
+
+    return {
+        type: 'SwitchStatement',
+        discriminant,
+        cases
+    }
+}
+
+/**
+ * Parses either default clause or case clauses
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-CaseClauses)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-DefaultClause)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseCaseOrDefaultClauses(
+    parser: Parser, 
+    context: Context, 
+    test: ESTree.Expression | null
+): ESTree.SwitchCase {
+    expect(parser, context, Token.Colon);
+    const consequent: ESTree.Statement[] = [];
+    while (parser.token !== Token.CaseKeyword && parser.token !== Token.RightBrace && parser.tokenValue !== 'default') {
+        consequent.push(parseStatementListItem(parser, context | Context.In));
+    }
+    return {
+        type: 'SwitchCase',
+        test,
+        consequent
+    };
+}
+
+/**
+ * Parses the if statement production
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#sec-if-statement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseIfStatement(parser: Parser, context: Context): ESTree.IfStatement {
+    expect(parser, context, Token.IfKeyword);
+    expect(parser, context, Token.LeftParen);
+    const test = parseExpression(parser, context | Context.In);
+    expect(parser, context, Token.RightParen);
+    const consequent = parseConsequentOrAlternate(parser, context);
+    const alternate = consume(parser, context, Token.ElseKeyword) ? parseConsequentOrAlternate(parser, context) : null;
+    return {
+      type: 'IfStatement',
+      test,
+      consequent,
+      alternate
+    };
+  }
+
+  /**
+   * Parse either consequent or alternate. Supports AnnexB.
+   * @param parser  Parser object
+   * @param context Context masks
+   */
+function parseConsequentOrAlternate(parser: Parser, context: Context): ESTree.Statement | ESTree.FunctionDeclaration {
+    return context & Context.Strict || parser.token !== Token.FunctionKeyword
+      ? parseStatement(parser, context)
+      : parseFunctionDeclaration(parser, context);
+  }

@@ -5,6 +5,11 @@ import { parseAssignmentExpression } from './expressions';
 import { Context, BindingType, BindingOrigin } from '../common';
 import { parseDelimitedBindingList } from './pattern';
 
+export function parseFunctionDeclaration(parser: Parser, context: Context): any {
+    let p = parser;
+    let c = context;
+}
+
 /**
  * VariableDeclaration :
  *   BindingIdentifier Initializeropt

@@ -1,6 +1,7 @@
 import { Parser } from '../types';
 import * as ESTree from '../estree';
 import { Context, BindingType, BindingOrigin } from '../common';
+export declare function parseFunctionDeclaration(parser: Parser, context: Context): any;
 /**
  * VariableDeclaration :
  *   BindingIdentifier Initializeropt
