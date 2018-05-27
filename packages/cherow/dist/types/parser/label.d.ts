@@ -7,7 +7,7 @@ import { Parser } from '../types';
  */
 export declare function addLabel(parser: Parser, label: string): void;
 /**
- * Add label
+ * Add function
  *
  * @param parser Parser object
  * @param label Label to be added
@@ -33,4 +33,4 @@ export declare function validateBreakStatement(parser: Parser, label: any): void
  * @param parser Parser object
  * @param label Label to be added
  */
-export declare function getLabel(parser: Parser, label: string, iterationStatement?: boolean, stopAtFunctionBoundary?: boolean): LabelState;
+export declare function getLabel(parser: Parser, label: string, iterationStatement?: boolean, crossBoundary?: boolean): LabelState;

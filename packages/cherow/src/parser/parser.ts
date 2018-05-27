@@ -22,7 +22,7 @@ export function createParserObject(source: string, errCallback?: any): Parser {
         tokenRaw: '',
         tokenRegExp: undefined,
         onError: errCallback,
-        functionBoundarySentinel: undefined,
+        functionBoundaryStack: undefined,
         labelSet: undefined,
         labelSetStack: [],
         iterationStack: [],

@@ -1649,13 +1649,13 @@
         parser.labelDepth++;
     }
     /**
-     * Add label
+     * Add function
      *
      * @param parser Parser object
      * @param label Label to be added
      */
     function addCrossingBoundary(parser) {
-        parser.labelSetStack[parser.labelDepth] = parser.functionBoundarySentinel;
+        parser.labelSetStack[parser.labelDepth] = parser.functionBoundaryStack;
         parser.iterationStack[parser.labelDepth] = 0 /* Empty */;
         parser.labelDepth++;
     }
@@ -1693,21 +1693,21 @@
      * @param parser Parser object
      * @param label Label to be added
      */
-    function getLabel(parser, label, iterationStatement = false, stopAtFunctionBoundary = false) {
+    function getLabel(parser, label, iterationStatement = false, crossBoundary = false) {
         if (!iterationStatement && parser.labelSet && parser.labelSet[label] === true) {
             return 1 /* Iteration */;
         }
         if (!parser.labelSetStack)
             return 0 /* Empty */;
-        let breakBoundaries = false;
+        let stopAtTheBorder = false;
         for (let i = parser.labelDepth - 1; i >= 0; i--) {
             let labelSet = parser.labelSetStack[i];
-            if (labelSet === parser.functionBoundarySentinel) {
-                if (stopAtFunctionBoundary) {
+            if (labelSet === parser.functionBoundaryStack) {
+                if (crossBoundary) {
                     break;
                 }
                 else {
-                    breakBoundaries = true;
+                    stopAtTheBorder = true;
                     continue;
                 }
             }
@@ -1715,7 +1715,7 @@
                 continue;
             }
             if (labelSet[label] === true) {
-                return breakBoundaries ? 2 /* CrossingBoundary */ : 1 /* Iteration */;
+                return stopAtTheBorder ? 2 /* CrossingBoundary */ : 1 /* Iteration */;
             }
         }
         return 0 /* Empty */;
@@ -2912,7 +2912,7 @@
             tokenRaw: '',
             tokenRegExp: undefined,
             onError: errCallback,
-            functionBoundarySentinel: undefined,
+            functionBoundaryStack: undefined,
             labelSet: undefined,
             labelSetStack: [],
             iterationStack: [],

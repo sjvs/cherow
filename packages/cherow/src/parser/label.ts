@@ -34,13 +34,13 @@ export function addLabel(parser: Parser, label: string): void {
 }
 
 /**
- * Add label
+ * Add function 
  * 
  * @param parser Parser object
  * @param label Label to be added
  */
 export function addCrossingBoundary(parser: Parser): void {
-    parser.labelSetStack[parser.labelDepth] = parser.functionBoundarySentinel;
+    parser.labelSetStack[parser.labelDepth] = parser.functionBoundaryStack;
     parser.iterationStack[parser.labelDepth] = LabelState.Empty;
     parser.labelDepth++;
 }
@@ -83,7 +83,7 @@ export function getLabel(
     parser: Parser,
     label: string,
     iterationStatement: boolean = false,
-    stopAtFunctionBoundary: boolean = false
+    crossBoundary: boolean = false
 ): LabelState {
     if (!iterationStatement && parser.labelSet && parser.labelSet[label] === true) {
         return LabelState.Iteration;
@@ -91,14 +91,14 @@ export function getLabel(
 
     if (!parser.labelSetStack) return LabelState.Empty;
 
-    let breakBoundaries = false;
+    let stopAtTheBorder = false;
     for (let i = parser.labelDepth - 1; i >= 0; i--) {
         let labelSet = parser.labelSetStack[i];
-        if (labelSet === parser.functionBoundarySentinel) {
-            if (stopAtFunctionBoundary) {
+        if (labelSet === parser.functionBoundaryStack) {
+            if (crossBoundary) {
                 break;
             } else {
-                breakBoundaries = true;
+                stopAtTheBorder = true;
                 continue;
             }
         }
@@ -108,7 +108,7 @@ export function getLabel(
         }
 
         if (labelSet[label] === true) {
-            return breakBoundaries ? LabelState.CrossingBoundary : LabelState.Iteration;
+            return stopAtTheBorder ? LabelState.CrossingBoundary : LabelState.Iteration;
         }
     }
 

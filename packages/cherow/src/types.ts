@@ -17,7 +17,7 @@ export interface Parser {
     tokenRaw: string;
     tokens: Token[];
     onError?: any;
-    functionBoundarySentinel: any;
+    functionBoundaryStack: any;
     labelSet: any;
     labelSetStack: Array<{[key: string]: boolean}>;
     iterationStack: Array<boolean | LabelState>;
