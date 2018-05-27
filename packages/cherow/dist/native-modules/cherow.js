@@ -1260,6 +1260,101 @@ function reinterpret(parser, node) {
         default: // ignore
     }
 }
+/**
+ * Returns true if start of an iteration statement
+ *
+ * @param parser Parser object
+ */
+function isIterationStatement(parser) {
+    return parser.token === 8286 /* WhileKeyword */ || parser.token === 8270 /* DoKeyword */ || parser.token === 8275 /* ForKeyword */;
+}
+/**
+ * Add label to the stack
+ *
+ * @param parser Parser object
+ * @param label Label to be added
+ */
+function addLabel(parser, label) {
+    if (!parser.labelSet)
+        parser.labelSet = {};
+    parser.labelSet[label] = true;
+    parser.labelSetStack[parser.labelDepth] = parser.labelSet;
+    parser.iterationStack[parser.labelDepth] = isIterationStatement(parser);
+    parser.labelSet = undefined;
+    parser.labelDepth++;
+}
+/**
+ * Add function
+ *
+ * @param parser Parser object
+ * @param label Label to be added
+ */
+function addCrossingBoundary(parser) {
+    parser.labelSetStack[parser.labelDepth] = parser.functionBoundaryStack;
+    parser.iterationStack[parser.labelDepth] = 0 /* Empty */;
+    parser.labelDepth++;
+}
+/**
+ * Validates continue statement
+ *
+ * @param parser Parser object
+ * @param label Label
+ */
+function validateContinueLabel(parser, label) {
+    const state = getLabel(parser, label, true);
+    if ((state & 1 /* Iteration */) !== 1 /* Iteration */) {
+        if (state & 2 /* CrossingBoundary */) {
+            recordErrors(parser, 23 /* InvalidNestedStatement */);
+        }
+        else {
+            recordErrors(parser, 21 /* UnknownLabel */, label);
+        }
+    }
+}
+/**
+ * Validates break statement
+ *
+ * @param parser Parser object
+ * @param label Label
+ */
+function validateBreakStatement(parser, label) {
+    const state = getLabel(parser, label);
+    if ((state & 1 /* Iteration */) !== 1 /* Iteration */)
+        recordErrors(parser, 21 /* UnknownLabel */, label);
+}
+/**
+ * Add label
+ *
+ * @param parser Parser object
+ * @param label Label to be added
+ */
+function getLabel(parser, label, iterationStatement = false, crossBoundary = false) {
+    if (!iterationStatement && parser.labelSet && parser.labelSet[label] === true) {
+        return 1 /* Iteration */;
+    }
+    if (!parser.labelSetStack)
+        return 0 /* Empty */;
+    let stopAtTheBorder = false;
+    for (let i = parser.labelDepth - 1; i >= 0; i--) {
+        let labelSet = parser.labelSetStack[i];
+        if (labelSet === parser.functionBoundaryStack) {
+            if (crossBoundary) {
+                break;
+            }
+            else {
+                stopAtTheBorder = true;
+                continue;
+            }
+        }
+        if (iterationStatement && parser.iterationStack[i] === false) {
+            continue;
+        }
+        if (labelSet[label] === true) {
+            return stopAtTheBorder ? 2 /* CrossingBoundary */ : 1 /* Iteration */;
+        }
+    }
+    return 0 /* Empty */;
+}
 
 function parseFunctionDeclaration(parser, context, state = 0 /* None */) {
     expect(parser, context, 8276 /* FunctionKeyword */);
@@ -1617,102 +1712,6 @@ function parseBindingList(parser, context, type, origin) {
     }
     return type & 14 /* Variable */ ?
         parseVariableDeclaration(left, null) : left;
-}
-
-/**
- * Returns true if start of an iteration statement
- *
- * @param parser Parser object
- */
-function isIterationStatement(parser) {
-    return parser.token === 8286 /* WhileKeyword */ || parser.token === 8270 /* DoKeyword */ || parser.token === 8275 /* ForKeyword */;
-}
-/**
- * Add label to the stack
- *
- * @param parser Parser object
- * @param label Label to be added
- */
-function addLabel(parser, label) {
-    if (!parser.labelSet)
-        parser.labelSet = {};
-    parser.labelSet[label] = true;
-    parser.labelSetStack[parser.labelDepth] = parser.labelSet;
-    parser.iterationStack[parser.labelDepth] = isIterationStatement(parser);
-    parser.labelSet = undefined;
-    parser.labelDepth++;
-}
-/**
- * Add function
- *
- * @param parser Parser object
- * @param label Label to be added
- */
-function addCrossingBoundary(parser) {
-    parser.labelSetStack[parser.labelDepth] = parser.functionBoundaryStack;
-    parser.iterationStack[parser.labelDepth] = 0 /* Empty */;
-    parser.labelDepth++;
-}
-/**
- * Validates continue statement
- *
- * @param parser Parser object
- * @param label Label
- */
-function validateContinueLabel(parser, label) {
-    const state = getLabel(parser, label, true);
-    if ((state & 1 /* Iteration */) !== 1 /* Iteration */) {
-        if (state & 2 /* CrossingBoundary */) {
-            recordErrors(parser, 23 /* InvalidNestedStatement */);
-        }
-        else {
-            recordErrors(parser, 21 /* UnknownLabel */, label);
-        }
-    }
-}
-/**
- * Validates break statement
- *
- * @param parser Parser object
- * @param label Label
- */
-function validateBreakStatement(parser, label) {
-    const state = getLabel(parser, label);
-    if ((state & 1 /* Iteration */) !== 1 /* Iteration */)
-        recordErrors(parser, 21 /* UnknownLabel */, label);
-}
-/**
- * Add label
- *
- * @param parser Parser object
- * @param label Label to be added
- */
-function getLabel(parser, label, iterationStatement = false, crossBoundary = false) {
-    if (!iterationStatement && parser.labelSet && parser.labelSet[label] === true) {
-        return 1 /* Iteration */;
-    }
-    if (!parser.labelSetStack)
-        return 0 /* Empty */;
-    let stopAtTheBorder = false;
-    for (let i = parser.labelDepth - 1; i >= 0; i--) {
-        let labelSet = parser.labelSetStack[i];
-        if (labelSet === parser.functionBoundaryStack) {
-            if (crossBoundary) {
-                break;
-            }
-            else {
-                stopAtTheBorder = true;
-                continue;
-            }
-        }
-        if (iterationStatement && parser.iterationStack[i] === false) {
-            continue;
-        }
-        if (labelSet[label] === true) {
-            return stopAtTheBorder ? 2 /* CrossingBoundary */ : 1 /* Iteration */;
-        }
-    }
-    return 0 /* Empty */;
 }
 
 /**

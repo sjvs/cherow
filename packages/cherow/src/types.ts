@@ -1,7 +1,6 @@
 
 import { Token } from './token';
-import { Flags } from './common';
-import { LabelState } from './parser/label';
+import { Flags, LabelState } from './common';
 export interface Parser {
     source: string;
     length: number;

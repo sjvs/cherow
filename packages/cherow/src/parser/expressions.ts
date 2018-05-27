@@ -4,7 +4,6 @@ import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
 import { parseDelimitedBindingList, parseBindingIdentifier } from './pattern';
 import { parseStatementListItem } from './statements';
-import { addCrossingBoundary, LabelState } from './label';
 import { Errors, recordErrors, } from '../errors';
 import {
     Context,
@@ -22,6 +21,8 @@ import {
     nextTokenIsArrow,
     setGrammar,
     reinterpret,
+    addCrossingBoundary, 
+    LabelState
 } from '../common';
 
 /**

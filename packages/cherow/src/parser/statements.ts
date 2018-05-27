@@ -6,7 +6,6 @@ import { parseIdentifier, parseSequenceExpression, parseExpression, parseAssignm
 import { Errors, recordErrors, } from '../errors';
 import { parseFunctionDeclaration, parseVariableDeclarationList } from './declarations';
 import { parseDelimitedBindingList, parseBindingIdentifierOrPattern } from './pattern';
-import { getLabel, addLabel, LabelState, validateContinueLabel, validateBreakStatement } from './label';
 import {
     Context,
     Flags,
@@ -23,6 +22,11 @@ import {
     swapContext,
     nextTokenIsFuncKeywordOnSameLine,
     ModifierState,
+    getLabel, 
+    addLabel, 
+    LabelState,
+    validateContinueLabel, 
+    validateBreakStatement
 } from '../common';
 
 export const enum LabelledFunctionState {

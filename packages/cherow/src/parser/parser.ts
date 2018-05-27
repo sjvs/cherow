@@ -1,6 +1,5 @@
 import { Token } from '../token';
-import { Context, Flags } from '../common';
-import { LabelState } from './label';
+import { Context, Flags, LabelState } from '../common';
 import { Parser } from '../types';
 import * as ESTree from '../estree';
 import { parseStatementList } from './statements';
