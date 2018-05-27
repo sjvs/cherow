@@ -1188,17 +1188,9 @@ function nextTokenIsFuncKeywordOnSameLine(parser, context) {
     nextToken(parser, context);
     return !(parser.flags & 1 /* NewLine */) && parser.token === 8276 /* FunctionKeyword */;
 }
-/**
-* Validates if the next token in the stream is left parenthesis.
-*
-* @param parser Parser object
-* @param context  Context masks
-*/
 function nextTokenIsLeftParen(parser, context) {
     nextToken(parser, context);
-    return (parser.token & 8388608 /* Identifier */) === 8388608 /* Identifier */ ||
-        parser.token === 8417280 /* IsKeyword */ ||
-        parser.token === 33554440 /* LeftParen */;
+    return parser.token === 33554440 /* LeftParen */;
 }
 /**
  * Validates if the next token in the stream is arrow
@@ -1929,7 +1921,58 @@ function parseUpdateExpression(parser, context) {
 function parseLeftHandSideExpression(parser, context) {
     // LeftHandSideExpression ::
     //   (NewExpression | MemberExpression) ...
-    let expr = parser.token === 8279 /* NewKeyword */ ? parseNewExpression(parser, context) : parsePrimaryExpression(parser, context | 32768 /* In */);
+    if (parser.token === 8278 /* ImportKeyword */) {
+        return parseCallImportOrMetaProperty(parser, context);
+    }
+    const expr = parseMemberExpression(parser, context | 32768 /* In */);
+    return parseCallExpression(parser, context | 32768 /* In */, expr);
+}
+/**
+ * Parse either call expression or import expressions
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+function parseCallImportOrMetaProperty(parser, context) {
+    const id = parseIdentifier(parser, context);
+    // Import.meta - Stage 3 proposal
+    if (consume(parser, context, 33554442 /* Period */)) {
+        if (!(context & 256 /* Module */) || parser.tokenValue !== 'meta') {
+            recordErrors(parser, 0 /* Unexpected */);
+        }
+        return parseMetaProperty(parser, context, id);
+    }
+    let expr = parseImportExpression();
+    expect(parser, context, 33554440 /* LeftParen */);
+    const args = parseAssignmentExpression(parser, context | 32768 /* In */);
+    expect(parser, context, 33554445 /* RightParen */);
+    expr = {
+        type: 'CallExpression',
+        callee: expr,
+        arguments: [args],
+    };
+    return expr;
+}
+/**
+ * Parse Import() expression. (Stage 3 proposal)
+ *
+ */
+function parseImportExpression() {
+    return {
+        type: 'Import',
+    };
+}
+/**
+ * Parse member expression
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-MemberExpression)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ * @param pos Location info
+ * @param expr Expression
+ */
+function parseMemberExpression(parser, context, expr = parsePrimaryExpression(parser, context)) {
     while (true) {
         switch (parser.token) {
             case 33554448 /* LeftBracket */:
@@ -1941,20 +1984,6 @@ function parseLeftHandSideExpression(parser, context) {
                         object: expr,
                         computed: true,
                         property,
-                    };
-                    break;
-                }
-            case 33554440 /* LeftParen */:
-                {
-                    const args = parseArgumentList(parser, context);
-                    if (parser.token === 33554439 /* Arrow */) {
-                        parser.flags |= 16 /* SimpleParameterList */;
-                        return args;
-                    }
-                    expr = {
-                        type: 'CallExpression',
-                        callee: expr,
-                        arguments: args,
                     };
                     break;
                 }
@@ -1977,6 +2006,30 @@ function parseLeftHandSideExpression(parser, context) {
             default:
                 return expr;
         }
+    }
+}
+/**
+ * Parse call expression
+ *
+ * @param parser Parer instance
+ * @param context Context masks
+ * @param expr Expression
+ */
+function parseCallExpression(parser, context, expr) {
+    while (true) {
+        expr = parseMemberExpression(parser, context, expr);
+        if (parser.token !== 33554440 /* LeftParen */)
+            return expr;
+        const args = parseArgumentList(parser, context);
+        if (parser.token === 33554439 /* Arrow */) {
+            parser.flags |= 16 /* SimpleParameterList */;
+            return args;
+        }
+        expr = {
+            type: 'CallExpression',
+            callee: expr,
+            arguments: args,
+        };
     }
 }
 /**
@@ -2012,11 +2065,27 @@ function parseNewExpression(parser, context) {
         }
         recordErrors(parser, 28 /* UnexpectedNewTarget */);
     }
+    let callee = parseImportOrMemberExpression(parser, context);
+    while (true) {
+        callee = parseMemberExpression(parser, context, callee);
+        break;
+    }
     return {
         type: 'NewExpression',
-        callee: parseLeftHandSideExpression(parser, context),
+        callee,
         arguments: parser.token === 33554440 /* LeftParen */ ? parseArgumentList(parser, context) : [],
     };
+}
+function parseImportOrMemberExpression(parser, context) {
+    const { token } = parser;
+    if (context & 8 /* OptionsNext */ && token === 8278 /* ImportKeyword */) {
+        // Invalid: '"new import(x)"'
+        if (lookahead(parser, context, nextTokenIsLeftParen))
+            recordErrors(parser, 1 /* UnexpectedToken */, tokenDesc(token));
+        // Fixes cases like ''new import.meta','
+        return parseCallImportOrMetaProperty(parser, context);
+    }
+    return parsePrimaryExpression(parser, context);
 }
 /**
  * Parse argument list
@@ -2064,6 +2133,8 @@ function parsePrimaryExpression(parser, context) {
         case 4194304 /* StringLiteral */:
         case 2097152 /* NumericLiteral */:
             return parseLiteral(parser, context);
+        case 8279 /* NewKeyword */:
+            return parseNewExpression(parser, context);
         default:
             nextToken(parser, context);
     }

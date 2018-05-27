@@ -21,8 +21,9 @@ import {
     nextTokenIsArrow,
     setGrammar,
     reinterpret,
-    addCrossingBoundary, 
-    LabelState
+    addCrossingBoundary,
+    LabelState,
+    nextTokenIsPeriod
 } from '../common';
 
 /**
@@ -56,16 +57,16 @@ export function parseSequenceExpression(
     parser: Parser,
     context: Context,
     left: ESTree.Expression,
-  ): ESTree.SequenceExpression {
-      const expressions: ESTree.Expression[] = [left];
-      while (consume(parser, context, Token.Comma)) {
-          expressions.push(parseAssignmentExpression(parser, context));
-      }
-      return {
-          type: 'SequenceExpression',
-          expressions,
-      };
-  }
+): ESTree.SequenceExpression {
+    const expressions: ESTree.Expression[] = [left];
+    while (consume(parser, context, Token.Comma)) {
+        expressions.push(parseAssignmentExpression(parser, context));
+    }
+    return {
+        type: 'SequenceExpression',
+        expressions,
+    };
+}
 
 export function parseAssignmentExpression(parser: Parser, context: Context): any {
     // AssignmentExpression ::
@@ -195,7 +196,6 @@ function parseUnaryExpression(parser: Parser, context: Context): any {
     //   '!' UnaryExpression
     //   [+Await] AwaitExpression[?Yield]
     const { token } = parser;
-
     if ((token & Token.IsUnaryOp) === Token.IsUnaryOp) {
         nextToken(parser, context);
         const argument: ESTree.Expression = parseUnaryExpression(parser, context);
@@ -222,7 +222,6 @@ function parseUpdateExpression(parser: Parser, context: Context): any {
     // UpdateExpression ::
     //   LeftHandSideExpression ('++' | '--')?
     const { token } = parser;
-
     if ((parser.token & Token.IsUpdateOp) === Token.IsUpdateOp) {
         nextToken(parser, context);
         const expr = parseLeftHandSideExpression(parser, context);
@@ -263,7 +262,70 @@ function parseUpdateExpression(parser: Parser, context: Context): any {
 export function parseLeftHandSideExpression(parser: Parser, context: Context): any {
     // LeftHandSideExpression ::
     //   (NewExpression | MemberExpression) ...
-    let expr: any = parser.token === Token.NewKeyword ? parseNewExpression(parser, context) : parsePrimaryExpression(parser, context | Context.In);
+
+    if (parser.token === Token.ImportKeyword) {
+        return parseCallImportOrMetaProperty(parser, context);
+    }
+    const expr = parseMemberExpression(parser, context | Context.In);
+
+    return parseCallExpression(parser, context | Context.In, expr);
+}
+
+/**
+ * Parse either call expression or import expressions
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+
+function parseCallImportOrMetaProperty(parser: Parser, context: Context): ESTree.Expression {
+    const id = parseIdentifier(parser, context);
+
+    // Import.meta - Stage 3 proposal
+    if (consume(parser, context, Token.Period)) {
+        if (!(context & Context.Module) || parser.tokenValue !== 'meta') {
+            recordErrors(parser, Errors.Unexpected)
+        }
+        return parseMetaProperty(parser, context, id);
+    }
+
+    let expr: any = parseImportExpression();
+    expect(parser, context, Token.LeftParen);
+    const args = parseAssignmentExpression(parser, context | Context.In);
+    expect(parser, context, Token.RightParen);
+    expr = {
+        type: 'CallExpression',
+        callee: expr,
+        arguments: [args],
+    };
+    return expr;
+}
+
+/**
+ * Parse Import() expression. (Stage 3 proposal)
+ *
+ */
+function parseImportExpression(): ESTree.ImportExpression {
+    return {
+        type: 'Import',
+    };
+}
+/**
+ * Parse member expression
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-MemberExpression)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ * @param pos Location info
+ * @param expr Expression
+ */
+
+function parseMemberExpression(
+    parser: Parser,
+    context: Context,
+    expr: ESTree.CallExpression | ESTree.Expression = parsePrimaryExpression(parser, context),
+): ESTree.Expression {
     while (true) {
         switch (parser.token) {
             case Token.LeftBracket:
@@ -275,20 +337,6 @@ export function parseLeftHandSideExpression(parser: Parser, context: Context): a
                         object: expr,
                         computed: true,
                         property,
-                    };
-                    break;
-                }
-            case Token.LeftParen:
-                {
-                    const args = parseArgumentList(parser, context);
-                    if (parser.token === Token.Arrow) {
-                        parser.flags |= Flags.SimpleParameterList;
-                        return args;
-                    }
-                    expr = {
-                        type: 'CallExpression',
-                        callee: expr,
-                        arguments: args,
                     };
                     break;
                 }
@@ -312,6 +360,35 @@ export function parseLeftHandSideExpression(parser: Parser, context: Context): a
             default:
                 return expr;
         }
+    }
+}
+
+/**
+ * Parse call expression
+ *
+ * @param parser Parer instance
+ * @param context Context masks
+ * @param expr Expression
+ */
+function parseCallExpression(
+    parser: Parser,
+    context: Context,
+    expr: ESTree.Expression
+): ESTree.Expression | ESTree.CallExpression | (ESTree.Expression | ESTree.SpreadElement)[] {
+
+    while (true) {
+        expr = parseMemberExpression(parser, context, expr);
+        if (parser.token !== Token.LeftParen) return expr;
+        const args = parseArgumentList(parser, context);
+        if (parser.token === Token.Arrow) {
+            parser.flags |= Flags.SimpleParameterList;
+            return args;
+        }
+        expr = {
+            type: 'CallExpression',
+            callee: expr,
+            arguments: args,
+        };
     }
 }
 
@@ -350,13 +427,30 @@ function parseNewExpression(parser: Parser, context: Context): ESTree.NewExpress
         }
         recordErrors(parser, Errors.UnexpectedNewTarget);
     }
+
+    let callee: any = parseImportOrMemberExpression(parser, context);
+
+    while (true) {
+        callee = parseMemberExpression(parser, context, callee);
+        break;
+    }
     return {
         type: 'NewExpression',
-        callee: parseLeftHandSideExpression(parser, context),
+        callee,
         arguments: parser.token === Token.LeftParen ? parseArgumentList(parser, context) : [],
     };
 }
 
+function parseImportOrMemberExpression(parser: Parser, context: Context): ESTree.Expression {
+    const { token } = parser;
+    if (context & Context.OptionsNext && token === Token.ImportKeyword) {
+        // Invalid: '"new import(x)"'
+        if (lookahead(parser, context, nextTokenIsLeftParen)) recordErrors(parser, Errors.UnexpectedToken, tokenDesc(token));
+        // Fixes cases like ''new import.meta','
+        return parseCallImportOrMetaProperty(parser, context);
+    }
+    return parsePrimaryExpression(parser, context);
+}
 /**
  * Parse argument list
  *
@@ -404,6 +498,8 @@ export function parsePrimaryExpression(parser: Parser, context: Context): any {
         case Token.StringLiteral:
         case Token.NumericLiteral:
             return parseLiteral(parser, context);
+        case Token.NewKeyword:
+            return parseNewExpression(parser, context);
         default:
             nextToken(parser, context);
     }
@@ -574,7 +670,10 @@ export function parseFunctionExpression(
         id = parseBindingIdentifier(parser, context);
     }
     context = swapContext(context, state | isGenerator);
-    const { params, body } = parseFormalListAndBody(parser, context);
+    const {
+        params,
+        body
+    } = parseFormalListAndBody(parser, context);
     return {
         type: 'FunctionExpression',
         body,

@@ -197,12 +197,22 @@ export function nextTokenIsFuncKeywordOnSameLine(parser: Parser, context: Contex
  * @param parser Parser object
  * @param context  Context masks
  */
-export function nextTokenIsLeftParen(parser: Parser, context: Context): boolean {
+export function nextTokenIsLeftParenOrKeyword(parser: Parser, context: Context): boolean {
     nextToken(parser, context);
 
     return (parser.token & Token.Identifier) === Token.Identifier || 
             parser.token === Token.IsKeyword ||
             parser.token === Token.LeftParen;
+  }
+
+  export function nextTokenIsLeftParen(parser: Parser, context: Context): boolean {
+    nextToken(parser, context);
+    return parser.token === Token.LeftParen;
+  }
+
+  export function nextTokenIsPeriod(parser: Parser, context: Context): boolean {
+    nextToken(parser, context);
+    return parser.token === Token.Period;
   }
 
 /**

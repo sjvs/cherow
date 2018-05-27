@@ -103,7 +103,9 @@ export declare function nextTokenIsFuncKeywordOnSameLine(parser: Parser, context
 * @param parser Parser object
 * @param context  Context masks
 */
+export declare function nextTokenIsLeftParenOrKeyword(parser: Parser, context: Context): boolean;
 export declare function nextTokenIsLeftParen(parser: Parser, context: Context): boolean;
+export declare function nextTokenIsPeriod(parser: Parser, context: Context): boolean;
 /**
  * Validates if the next token in the stream is arrow
  *
