@@ -19,7 +19,9 @@ import {
     setContext,
     isLexical,
     reinterpret,
-    swapContext
+    swapContext,
+    nextTokenIsFuncKeywordOnSameLine,
+    ModifierState
 } from '../common';
 
 export const enum LabelledFunctionState {
@@ -55,14 +57,18 @@ export function parseStatementList(parser: Parser, context: Context): any {
  */
 export function parseStatementListItem(parser: Parser, context: Context): ESTree.Statement {
     switch (parser.token) {
+        case Token.FunctionKeyword:
+            return parseFunctionDeclaration(parser, context);
         case Token.ConstKeyword:
             return parseVariableStatement(parser, context, BindingType.Const);
         case Token.LetKeyword:
             return parseLetOrExpressionStatement(parser, context);
         case Token.SwitchKeyword:
             return parseSwitchStatement(parser, context);
+        case Token.AsyncKeyword:
+            return parseAsyncFunctionDeclarationOrStatement(parser, context);
         default:
-        return parseStatement(parser, context, LabelledFunctionState.Allow);
+            return parseStatement(parser, context, LabelledFunctionState.Allow);
     }
 }
 
@@ -110,6 +116,12 @@ export function parseStatement(
             return parseWithStatement(parser, context);
         case Token.ThrowKeyword:
             return parseThrowStatement(parser, context);
+            case Token.AsyncKeyword:
+                if (lookahead(parser, context, nextTokenIsFuncKeywordOnSameLine, /* isLookaHead */false)) {
+                    if (context & Context.OptionsEditorMode) return parseFunctionDeclaration(parser, context, ModifierState.Async);
+                    recordErrors(parser, Errors.AsyncFunctionInSingleStatementContext);
+            }
+            return parseExpressionOrLabelledStatement(parser, context, label);
         case Token.FunctionKeyword:
             // A function declaration has to be parsed out for 'editor mode'
             if (context & Context.OptionsEditorMode) return parseFunctionDeclaration(parser, context | Context.RequireIdentifier);
@@ -637,3 +649,22 @@ export function parseWithStatement(parser: Parser, context: Context): ESTree.Wit
       body
     };
   }
+
+  /**
+ * Parses either async function declaration or statement
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-AsyncFunctionDeclaration)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-Statement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+function parseAsyncFunctionDeclarationOrStatement(
+    parser: Parser,
+    context: Context
+  ): any {
+    return lookahead(parser, context, nextTokenIsFuncKeywordOnSameLine, /* isLookaHead */false)
+      ? parseFunctionDeclaration(parser, context, ModifierState.Async)
+      : parseStatement(parser, context);
+  }
+  

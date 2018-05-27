@@ -22,7 +22,8 @@ export const enum Errors {
     StrictFunction,
     SloppyFunction,
     UnNamedFunctionDecl,
-    StrictModeWith
+    StrictModeWith,
+    AsyncFunctionInSingleStatementContext
 }
 /*@internal*/
 export const errorMessages: {
@@ -48,6 +49,7 @@ export const errorMessages: {
     [Errors.SloppyFunction]: 'In non-strict mode code, functions can only be declared at top level, inside a block, or as the body of an if statement',
     [Errors.UnNamedFunctionDecl]: 'Function declaration must have a name in this context',
     [Errors.StrictModeWith]: 'Strict mode code may not include a with statement',
+    [Errors.AsyncFunctionInSingleStatementContext]: 'Async functions can only be declared at the top level or inside a block',
 };
 
 export function constructError(index: number, line: number, column: number, description: string): void {

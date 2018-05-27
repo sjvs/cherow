@@ -130,43 +130,58 @@ export function consumeSemicolon(parser: Parser, context: Context): void | boole
       ? consume(parser, context, Token.Semicolon)
       : recordErrors(parser, Errors.Unexpected);
   }
-// WIP!! The lookahead will be replaced no point to rewind
-// if we got a match
+
+ /**
+  * Does a lookahead
+  *
+  * @param parser Parser object
+  * @param context  Context masks
+  * @param callback Callback function to be invoked
+  * @param isLookahead  If set to false, the parser will not rewind
+  */
+ export function lookahead<T>(
+     parser: Parser, 
+     context: Context, 
+     callback: (parser: Parser, context: Context) => T, 
+     isLookahead: boolean = true): T {
+    const {
+        tokenValue,
+        flags,
+        line,
+        column,
+        index,
+        startIndex,
+        tokenRaw,
+        token,
+        tokenRegExp,
+      } = parser;
+      const result = callback(parser, context);
+      if (!result || isLookahead) {
+      parser.index = index;
+      parser.token = token;
+      parser.tokenValue = tokenValue;
+      parser.tokenValue = tokenValue;
+      parser.flags = flags;
+      parser.line = line;
+      parser.column = column;
+      parser.tokenRaw = tokenRaw;
+      parser.startIndex = startIndex;
+      parser.tokenRegExp = tokenRegExp;
+      parser.tokenRegExp = tokenRegExp;
+    }
+      return result;
+}
 /**
- * Does a lookahead.
+ * Validates if the next token in the stream is a function keyword on the same line.
  *
  * @param parser Parser object
  * @param context  Context masks
- * @param callback Callback function to be invoked
  */
-export function lookahead<T>(parser: Parser, context: Context, callback: (parser: Parser, context: Context) => T): T {
-    const {
-      tokenValue,
-      flags,
-      line,
-      column,
-      index,
-      startIndex,
-      tokenRaw,
-      token,
-      tokenRegExp,
-    } = parser;
-    const res = callback(parser, context);
-    parser.index = index;
-    parser.token = token;
-    parser.tokenValue = tokenValue;
-    parser.tokenValue = tokenValue;
-    parser.flags = flags;
-    parser.line = line;
-    parser.column = column;
-    parser.tokenRaw = tokenRaw;
-    parser.startIndex = startIndex;
-    parser.tokenRegExp = tokenRegExp;
-    parser.tokenRegExp = tokenRegExp;
-  
-    return res;
+export function nextTokenIsFuncKeywordOnSameLine(parser: Parser, context: Context): boolean {
+    nextToken(parser, context);
+    return !(parser.flags & Flags.NewLine) && parser.token === Token.FunctionKeyword;
   }
-
+  
   /**
  * Validates if the next token in the stream is left parenthesis.
  *
