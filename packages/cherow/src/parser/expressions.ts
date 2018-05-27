@@ -530,7 +530,6 @@ export function parseFunctionExpression(
     }
     context = swapContext(context, state | isGenerator);
     const { params, body } = parseFormalListAndBody(parser, context);
-    expect(parser, context, Token.RightBrace);
     return {
         type: 'FunctionExpression',
         body,
@@ -551,7 +550,7 @@ export function parseFunctionExpression(
  * @param parser Parser object
  * @param context Context masks
  */
-function parseFormalListAndBody(parser: Parser, context: Context) {
+export function parseFormalListAndBody(parser: Parser, context: Context) {
     const params = parseFormalParameters(parser, context);
     const body = parseFunctionBody(parser, context);
     return {

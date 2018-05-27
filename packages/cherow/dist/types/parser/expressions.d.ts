@@ -47,6 +47,19 @@ export declare function parseLiteral(parser: Parser, context: Context): ESTree.L
  */
 export declare function parseFunctionExpression(parser: Parser, context: Context, state?: ModifierState): ESTree.FunctionExpression;
 /**
+ * Parses formal parameters and function body.
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-FunctionBody)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-FormalParameters)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+export declare function parseFormalListAndBody(parser: Parser, context: Context): {
+    params: any;
+    body: any;
+};
+/**
  * Parse property name
  *
  * @see [Link](https://tc39.github.io/ecma262/#prod-PropertyName)

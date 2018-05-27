@@ -137,6 +137,10 @@ const errorMessages = {
     [13 /* NoCatchClauseDefault */]: 'Catch clause parameter does not support default values',
     [14 /* InvalidLHSDefaultValue */]: 'Only \'=\' operator can be used for specifying default value',
     [15 /* InvalidLhsInFor */]: 'Invalid left-hand side in for-loop',
+    [16 /* StrictFunction */]: 'In strict mode code, functions can only be declared at top level or inside a block',
+    [17 /* SloppyFunction */]: 'In non-strict mode code, functions can only be declared at top level, inside a block, or as the body of an if statement',
+    [18 /* UnNamedFunctionDecl */]: 'Function declaration must have a name in this context',
+    [19 /* StrictModeWith */]: 'Strict mode code may not include a with statement',
 };
 function constructError(index, line, column, description) {
     const error = new SyntaxError(`Line ${line}, column ${column}: ${description}`);
@@ -153,36 +157,6 @@ function recordErrors(parser, type, ...params) {
     if (parser.onError)
         parser.onError(message, line, column);
     // throw error;
-}
-
-function parseFunctionDeclaration(parser, context) {
-}
-/**
- * VariableDeclaration :
- *   BindingIdentifier Initializeropt
- *   BindingPattern Initializer
- *
- * VariableDeclarationNoIn :
- *   BindingIdentifier InitializerNoInopt
- *   BindingPattern InitializerNoIn
- *
- *
- * @see [Link](https://tc39.github.io/ecma262/#prod-VariableDeclaration)
- *
- * @param parser  Parser object
- * @param context Context masks
- */
-function parseVariableDeclaration(id, init) {
-    return {
-        type: 'VariableDeclarator',
-        init,
-        id,
-    };
-}
-function parseVariableDeclarationList(parser, context, type, origin) {
-    const list = [];
-    parseDelimitedBindingList(parser, context, type, origin, list);
-    return list;
 }
 
 function consumeOpt(parser, code) {
@@ -1128,16 +1102,16 @@ function setContext(context, mask) {
     return (context | context) ^ mask;
 }
 function swapContext(context, state) {
-    context = setContext(context, 256 /* Yield */);
-    context = setContext(context, 128 /* Async */);
-    context = setContext(context, 512 /* InParameter */);
+    context = setContext(context, 512 /* Yield */);
+    context = setContext(context, 256 /* Async */);
+    context = setContext(context, 1024 /* InParameter */);
     if (state & 1 /* Generator */)
-        context = context | 256 /* Yield */;
+        context = context | 512 /* Yield */;
     if (state & 4 /* Async */)
-        context = context | 128 /* Async */;
+        context = context | 256 /* Async */;
     // `new.target` disallowed for arrows in global scope
     if (!(state & 4 /* Arrow */))
-        context = context | 1024 /* NewTarget */;
+        context = context | 2048 /* NewTarget */;
     return context;
 }
 function nextToken(parser, context) {
@@ -1270,6 +1244,55 @@ function reinterpret(parser, node) {
     }
 }
 
+function parseFunctionDeclaration(parser, context, state = 0 /* None */) {
+    expect(parser, context, 8276 /* FunctionKeyword */);
+    const isGenerator = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ : 0 /* None */;
+    let id = null;
+    if (parser.token !== 33554440 /* LeftParen */) {
+        id = parseBindingIdentifier(parser, context);
+    }
+    else if (!(context & 65536 /* RequireIdentifier */))
+        recordErrors(parser, 18 /* UnNamedFunctionDecl */);
+    context = swapContext(context, state | isGenerator);
+    const { params, body } = parseFormalListAndBody(parser, context);
+    return {
+        type: 'FunctionDeclaration',
+        body,
+        params,
+        async: !!(state & 4 /* Async */),
+        generator: !!(isGenerator & 1 /* Generator */),
+        expression: false,
+        id
+    };
+}
+/**
+ * VariableDeclaration :
+ *   BindingIdentifier Initializeropt
+ *   BindingPattern Initializer
+ *
+ * VariableDeclarationNoIn :
+ *   BindingIdentifier InitializerNoInopt
+ *   BindingPattern InitializerNoIn
+ *
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-VariableDeclaration)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+function parseVariableDeclaration(id, init) {
+    return {
+        type: 'VariableDeclarator',
+        init,
+        id,
+    };
+}
+function parseVariableDeclarationList(parser, context, type, origin) {
+    const list = [];
+    parseDelimitedBindingList(parser, context, type, origin, list);
+    return list;
+}
+
 /**
  * Parse binding identifier
  *
@@ -1280,7 +1303,7 @@ function reinterpret(parser, node) {
  */
 function parseBindingIdentifier(parser, context, kind = 'var') {
     const { token: t } = parser;
-    if (context & 16 /* Strict */) {
+    if (context & 64 /* Strict */) {
         if ((t & 16384 /* FutureReserved */) === 16384 /* FutureReserved */)
             recordErrors(parser, 0 /* Unexpected */);
         if (t === 8388705 /* Eval */ || t === 8388704 /* Arguments */)
@@ -1291,7 +1314,7 @@ function parseBindingIdentifier(parser, context, kind = 'var') {
     // Reserved 
     if ((t & 8192 /* Reserved */) === 8192 /* Reserved */)
         recordErrors(parser, 0 /* Unexpected */);
-    if (t === 536875118 /* AwaitKeyword */ && context & (16 /* Strict */ | 64 /* Async */)) {
+    if (t === 536875118 /* AwaitKeyword */ && context & (64 /* Strict */ | 256 /* Async */)) {
         recordErrors(parser, 0 /* Unexpected */);
     }
     if (t === 8388705 /* Eval */ || t === 8388704 /* Arguments */ && kind === 'let' || kind === 'const')
@@ -1409,7 +1432,7 @@ function parseAssignmentPattern(parser, context, left) {
     return {
         type: 'AssignmentPattern',
         left,
-        right: parseAssignmentExpression(parser, context | 2048 /* In */),
+        right: parseAssignmentExpression(parser, context | 8192 /* In */),
     };
 }
 /**
@@ -1528,7 +1551,7 @@ function parseAssignmentProperty(parser, context, type) {
  */
 function parseDelimitedBindingList(parser, context, type, origin, args = []) {
     let isBinding$$1 = parser.token === 33554441 /* LeftBrace */ || parser.token === 33554448 /* LeftBracket */;
-    while (true) {
+    while (parser.token !== 33554445 /* RightParen */) {
         args.push(parseBindingList(parser, context, type, origin));
         if (!consume(parser, context, 33554447 /* Comma */))
             break;
@@ -1641,7 +1664,7 @@ function parseAssignmentExpression(parser, context) {
         }
         const operator = parser.token;
         nextToken(parser, context);
-        const right = parseAssignmentExpression(parser, context | 4096 /* In */);
+        const right = parseAssignmentExpression(parser, context | 8192 /* In */);
         return {
             type: 'AssignmentExpression',
             left: left,
@@ -1666,7 +1689,7 @@ function parseConditionalExpression(parser, context) {
     const test = parseBinaryExpression(parser, context, 0);
     if (!consume(parser, context, 33554451 /* QuestionMark */))
         return test;
-    const consequent = parseAssignmentExpression(parser, context | 4096 /* In */);
+    const consequent = parseAssignmentExpression(parser, context | 8192 /* In */);
     expect(parser, context, 33554450 /* Colon */);
     const alternate = parseAssignmentExpression(parser, context);
     return {
@@ -1697,7 +1720,7 @@ function parseConditionalExpression(parser, context) {
 function parseBinaryExpression(parser, context, minPrec, left = parseUnaryExpression(parser, context)) {
     // Shift-reduce parser for the binary operator part of the JS expression
     // syntax.
-    const bit = context & 4096 /* In */ ^ 4096 /* In */;
+    const bit = context & 8192 /* In */ ^ 8192 /* In */;
     while ((parser.token & 268435456 /* IsBinaryOp */) === 268435456 /* IsBinaryOp */) {
         const t = parser.token;
         const prec = t & 3840 /* Precedence */;
@@ -1713,7 +1736,7 @@ function parseBinaryExpression(parser, context, minPrec, left = parseUnaryExpres
         left = {
             type: t & 262144 /* IsLogical */ ? 'LogicalExpression' : 'BinaryExpression',
             left,
-            right: parseBinaryExpression(parser, context & ~4096 /* In */, prec),
+            right: parseBinaryExpression(parser, context & ~8192 /* In */, prec),
             operator: tokenDesc(t),
         };
     }
@@ -1792,7 +1815,7 @@ function parseUpdateExpression(parser, context) {
 function parseLeftHandSideExpression(parser, context) {
     // LeftHandSideExpression ::
     //   (NewExpression | MemberExpression) ...
-    let expr = parsePrimaryExpression(parser, context | 4096 /* In */);
+    let expr = parsePrimaryExpression(parser, context | 8192 /* In */);
     while (true) {
         switch (parser.token) {
             case 33554448 /* LeftBracket */:
@@ -1865,7 +1888,7 @@ function parseArgumentList(parser, context) {
             expressions.push(parseSpreadElement(parser, context));
         }
         else {
-            expressions.push(parseAssignmentExpression(parser, context | 4096 /* In */));
+            expressions.push(parseAssignmentExpression(parser, context | 8192 /* In */));
         }
         if (parser.token !== 33554445 /* RightParen */)
             expect(parser, context, 33554447 /* Comma */);
@@ -1876,7 +1899,7 @@ function parseArgumentList(parser, context) {
 function parsePrimaryExpression(parser, context) {
     switch (parser.token) {
         case 8276 /* FunctionKeyword */:
-            return parseFunctionExpression(parser, context & ~128 /* Async */);
+            return parseFunctionExpression(parser, context & ~256 /* Async */);
         case 33554440 /* LeftParen */:
             return parseParenthesizedExpression(parser, context);
         case 33554448 /* LeftBracket */:
@@ -1987,7 +2010,7 @@ function parseArrayLiteral(parser, context) {
     //
     //
     expect(parser, context, 33554448 /* LeftBracket */);
-    context = setContext(context, 4096 /* In */ | 16384 /* Asi */);
+    context = setContext(context, 8192 /* In */ | 32768 /* Asi */);
     const elements = [];
     while (parser.token !== 33554449 /* RightBracket */) {
         if (consume(parser, context, 33554447 /* Comma */)) {
@@ -2000,7 +2023,7 @@ function parseArrayLiteral(parser, context) {
             }
         }
         else {
-            elements.push(parseAssignmentExpression(parser, context | 4096 /* In */));
+            elements.push(parseAssignmentExpression(parser, context | 8192 /* In */));
             if (parser.token !== 33554449 /* RightBracket */)
                 expect(parser, context, 33554447 /* Comma */);
         }
@@ -2021,7 +2044,7 @@ function parseArrayLiteral(parser, context) {
  */
 function parseSpreadElement(parser, context) {
     expect(parser, context, 33554443 /* Ellipsis */);
-    const argument = parseAssignmentExpression(parser, context | 4096 /* In */);
+    const argument = parseAssignmentExpression(parser, context | 8192 /* In */);
     return {
         type: 'SpreadElement',
         argument,
@@ -2044,7 +2067,6 @@ function parseFunctionExpression(parser, context, state = 0 /* None */) {
     }
     context = swapContext(context, state | isGenerator);
     const { params, body } = parseFormalListAndBody(parser, context);
-    expect(parser, context, 33685516 /* RightBrace */);
     return {
         type: 'FunctionExpression',
         body,
@@ -2082,7 +2104,7 @@ function parseFormalListAndBody(parser, context) {
  * @param Optional objectstate. Default to none
  */
 function parseFormalParameters(parser, context) {
-    context = context | 512 /* InParameter */;
+    context = context | 1024 /* InParameter */;
     expect(parser, context, 33554440 /* LeftParen */);
     const args = [];
     parseDelimitedBindingList(parser, context, 1 /* Args */, 2 /* FunctionArgs */, args);
@@ -2111,7 +2133,7 @@ function parseFunctionBody(parser, context) {
  */
 function parseComputedPropertyName(parser, context) {
     expect(parser, context, 33554448 /* LeftBracket */);
-    const key = parseAssignmentExpression(parser, context | 4096 /* In */);
+    const key = parseAssignmentExpression(parser, context | 8192 /* In */);
     expect(parser, context, 33554449 /* RightBracket */);
     return key;
 }
@@ -2149,7 +2171,7 @@ function parseStatementListItem(parser, context) {
         case 8282 /* SwitchKeyword */:
             return parseSwitchStatement(parser, context);
         default:
-            return parseStatement(parser, context);
+            return parseStatement(parser, context, 0 /* Allow */);
     }
 }
 /**
@@ -2176,6 +2198,29 @@ function parseStatement(parser, context, label = 1 /* Disallow */) {
             return parseDebuggerStatement(parser, context);
         case 8275 /* ForKeyword */:
             return parseForStatement(parser, context);
+        case 8286 /* WhileKeyword */:
+            return parseWhileStatement(parser, context);
+        case 8270 /* DoKeyword */:
+            return parseDoWhileStatement(parser, context);
+        case 8277 /* IfKeyword */:
+            return parseIfStatement(parser, context);
+        case 8263 /* BreakKeyword */:
+            return parseBreakStatement(parser, context);
+        case 8267 /* ContinueKeyword */:
+            return parseContinueStatement(parser, context);
+        case 8268 /* DebuggerKeyword */:
+            return parseDebuggerStatement(parser, context);
+        case 8287 /* WithKeyword */:
+            return parseWithStatement(parser, context);
+        case 8284 /* ThrowKeyword */:
+            return parseThrowStatement(parser, context);
+        case 8276 /* FunctionKeyword */:
+            // A function declaration has to be parsed out for 'editor mode'
+            if (context & 32 /* OptionsEditorMode */)
+                return parseFunctionDeclaration(parser, context | 65536 /* RequireIdentifier */);
+            recordErrors(parser, context & 64 /* Strict */ ? 16 /* StrictFunction */ : 17 /* SloppyFunction */);
+        case 8266 /* ClassKeyword */:
+            recordErrors(parser, 0 /* Unexpected */);
         default:
             return parseExpressionOrLabelledStatement(parser, context, label);
     }
@@ -2227,7 +2272,7 @@ function parseBlockStatement(parser, context) {
 function parseReturnStatement(parser, context) {
     expect(parser, context, 8280 /* ReturnKeyword */);
     const argument = (parser.token & 131072 /* ASI */) !== 131072 /* ASI */ && !(parser.flags & 1 /* NewLine */)
-        ? parseExpression(parser, context | 4096 /* In */)
+        ? parseExpression(parser, context | 8192 /* In */)
         : null;
     consumeSemicolon(parser, context);
     return {
@@ -2301,6 +2346,23 @@ function parseCatchBlock(parser, context) {
     };
 }
 /**
+* Parses throw statement
+*
+* @see [Link](https://tc39.github.io/ecma262/#prod-ThrowStatement)
+*
+* @param parser  Parser object
+* @param context Context masks
+*/
+function parseThrowStatement(parser, context) {
+    expect(parser, context, 8284 /* ThrowKeyword */);
+    const argument = parseExpression(parser, context | 8192 /* In */);
+    consumeSemicolon(parser, context);
+    return {
+        type: 'ThrowStatement',
+        argument
+    };
+}
+/**
  * Parses either expression or labelled statement
  *
  * @see [Link](https://tc39.github.io/ecma262/#prod-ExpressionStatement)
@@ -2315,7 +2377,7 @@ function parseExpressionOrLabelledStatement(parser, context, label) {
     if (token & (8388608 /* Identifier */ | 8417280 /* IsKeyword */) && parser.token === 33554450 /* Colon */) {
         expect(parser, context, 33554450 /* Colon */);
         let body = null;
-        if (parser.token === 8276 /* FunctionKeyword */ && !(context & 32 /* Strict */) &&
+        if (parser.token === 8276 /* FunctionKeyword */ && !(context & 64 /* Strict */) &&
             label === 0 /* Allow */) {
             body = parseFunctionDeclaration(parser, context);
         }
@@ -2377,7 +2439,7 @@ function parseVariableStatement(parser, context, type) {
  */
 function parseForStatement(parser, context) {
     expect(parser, context, 8275 /* ForKeyword */);
-    const forAwait = context & 128 /* Async */ && consume(parser, context, 536875118 /* AwaitKeyword */);
+    const forAwait = context & 256 /* Async */ && consume(parser, context, 536875118 /* AwaitKeyword */);
     expect(parser, context, 33554440 /* LeftParen */);
     let init = null;
     let declarations = null;
@@ -2398,10 +2460,10 @@ function parseForStatement(parser, context) {
             bindingType = 4 /* Let */;
         }
         else
-            init = parseAssignmentExpression(parser, context & ~4096 /* In */);
+            init = parseAssignmentExpression(parser, context & ~8192 /* In */);
         if (bindingType & 14 /* Variable */) {
             nextToken(parser, context);
-            declarations = parseVariableDeclarationList(parser, context & ~4096 /* In */, bindingType, 1 /* ForStatement */);
+            declarations = parseVariableDeclarationList(parser, context & ~8192 /* In */, bindingType, 1 /* ForStatement */);
             init = {
                 type: 'VariableDeclaration',
                 kind: tokenDesc(token),
@@ -2415,7 +2477,7 @@ function parseForStatement(parser, context) {
             reinterpret(parser, init);
         else
             init = declarations;
-        right = parseExpression(parser, context | 4096 /* In */);
+        right = parseExpression(parser, context | 8192 /* In */);
     }
     else if (consume(parser, context, 301999918 /* InKeyword */)) {
         type = 'ForInStatement';
@@ -2423,7 +2485,7 @@ function parseForStatement(parser, context) {
             reinterpret(parser, init);
         else
             init = declarations;
-        right = parseAssignmentExpression(parser, context | 4096 /* In */);
+        right = parseAssignmentExpression(parser, context | 8192 /* In */);
     }
     else {
         if (parser.token === 33554447 /* Comma */)
@@ -2434,7 +2496,7 @@ function parseForStatement(parser, context) {
         }
         expect(parser, context, 33685518 /* Semicolon */);
         if (parser.token !== 33554445 /* RightParen */)
-            update = parseExpression(parser, context | 4096 /* In */);
+            update = parseExpression(parser, context | 8192 /* In */);
     }
     expect(parser, context, 33554445 /* RightParen */);
     const body = parseStatement(parser, context);
@@ -2469,8 +2531,8 @@ function parseForStatement(parser, context) {
 function parseSwitchStatement(parser, context) {
     expect(parser, context, 8282 /* SwitchKeyword */);
     expect(parser, context, 33554440 /* LeftParen */);
-    const discriminant = parseExpression(parser, context | 4096 /* In */);
-    context = setContext(context, 2048 /* Template */);
+    const discriminant = parseExpression(parser, context | 8192 /* In */);
+    context = setContext(context, 4096 /* Template */);
     expect(parser, context, 33554445 /* RightParen */);
     expect(parser, context, 33554441 /* LeftBrace */);
     const cases = [];
@@ -2508,12 +2570,152 @@ function parseCaseOrDefaultClauses(parser, context, test) {
     expect(parser, context, 33554450 /* Colon */);
     const consequent = [];
     while (parser.token !== 8264 /* CaseKeyword */ && parser.token !== 33685516 /* RightBrace */ && parser.tokenValue !== 'default') {
-        consequent.push(parseStatementListItem(parser, context | 4096 /* In */));
+        consequent.push(parseStatementListItem(parser, context | 8192 /* In */));
     }
     return {
         type: 'SwitchCase',
         test,
         consequent
+    };
+}
+/**
+ * Parses the if statement production
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#sec-if-statement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+function parseIfStatement(parser, context) {
+    expect(parser, context, 8277 /* IfKeyword */);
+    expect(parser, context, 33554440 /* LeftParen */);
+    const test = parseExpression(parser, context | 8192 /* In */);
+    expect(parser, context, 33554445 /* RightParen */);
+    const consequent = parseConsequentOrAlternate(parser, context);
+    const alternate = consume(parser, context, 8271 /* ElseKeyword */) ? parseConsequentOrAlternate(parser, context) : null;
+    return {
+        type: 'IfStatement',
+        test,
+        consequent,
+        alternate
+    };
+}
+/**
+ * Parse either consequent or alternate. Supports AnnexB.
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+function parseConsequentOrAlternate(parser, context) {
+    return context & 64 /* Strict */ || parser.token !== 8276 /* FunctionKeyword */
+        ? parseStatement(parser, context)
+        : parseFunctionDeclaration(parser, context);
+}
+/**
+* Parses do while statement
+*
+* @param parser  Parser object
+* @param context Context masks
+*/
+function parseDoWhileStatement(parser, context) {
+    expect(parser, context, 8270 /* DoKeyword */);
+    const body = parseStatement(parser, context, 1 /* Disallow */);
+    expect(parser, context, 8286 /* WhileKeyword */);
+    expect(parser, context, 33554440 /* LeftParen */);
+    const test = parseExpression(parser, context | 8192 /* In */);
+    expect(parser, context, 33554445 /* RightParen */);
+    consume(parser, context, 33685518 /* Semicolon */);
+    return {
+        type: 'DoWhileStatement',
+        body,
+        test
+    };
+}
+/**
+ * Parses while statement
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-grammar-notation-WhileStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+function parseWhileStatement(parser, context) {
+    expect(parser, context, 8286 /* WhileKeyword */);
+    expect(parser, context, 33554440 /* LeftParen */);
+    const test = parseExpression(parser, context | 8192 /* In */);
+    expect(parser, context, 33554445 /* RightParen */);
+    const body = parseStatement(parser, context, 1 /* Disallow */);
+    return {
+        type: 'WhileStatement',
+        test,
+        body
+    };
+}
+/**
+* Parses the continue statement production
+*
+* @see [Link](https://tc39.github.io/ecma262/#prod-ContinueStatement)
+*
+* @param parser  Parser object
+* @param context Context masks
+*/
+function parseContinueStatement(parser, context) {
+    expect(parser, context, 8267 /* ContinueKeyword */);
+    let label = null;
+    if (!(parser.flags & 1 /* NewLine */) &&
+        parser.token !== 33685518 /* Semicolon */ &&
+        parser.token !== 33685516 /* RightBrace */ &&
+        parser.token !== 131072 /* EndOfSource */) {
+        label = parseIdentifier(parser, context);
+    }
+    consumeSemicolon(parser, context);
+    return {
+        type: 'ContinueStatement',
+        label
+    };
+}
+/**
+ * Parses the break statement production
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-BreakStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+function parseBreakStatement(parser, context) {
+    expect(parser, context, 8263 /* BreakKeyword */);
+    let label = null;
+    if (!(parser.flags & 1 /* NewLine */) &&
+        parser.token !== 33685518 /* Semicolon */ &&
+        parser.token !== 33685516 /* RightBrace */ &&
+        parser.token !== 131072 /* EndOfSource */) {
+        label = parseIdentifier(parser, context);
+    }
+    consumeSemicolon(parser, context);
+    return {
+        type: 'BreakStatement',
+        label
+    };
+}
+/**
+ * Parses with statement
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-WithStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+function parseWithStatement(parser, context) {
+    if (context & 64 /* Strict */)
+        recordErrors(parser, 19 /* StrictModeWith */);
+    expect(parser, context, 8287 /* WithKeyword */);
+    expect(parser, context, 33554440 /* LeftParen */);
+    const object = parseExpression(parser, context | 8192 /* In */);
+    expect(parser, context, 33554445 /* RightParen */);
+    const body = parseStatement(parser, context);
+    return {
+        type: 'WithStatement',
+        object,
+        body
     };
 }
 
@@ -2547,7 +2749,7 @@ function parseSource(source, options, /*@internal*/ context, errCallback) {
     if (!!options) {
         // The flag to enable module syntax support
         if (options.module)
-            context |= 64 /* Module */;
+            context |= 128 /* Module */;
         // The flag to enable stage 3 support (ESNext)
         if (options.next)
             context |= 8 /* OptionsNext */;
@@ -2563,12 +2765,15 @@ function parseSource(source, options, /*@internal*/ context, errCallback) {
         // The flag to enable web compat (annexB)
         if (options.webcompat)
             context |= 16 /* OptionsWebCompat */;
+        // The flag to enable editor mode
+        if (options.edit)
+            context |= 32 /* OptionsEditorMode */;
     }
     const parser = createParserObject(source, errCallback);
     const body = parseStatementList(parser, context);
     return {
         type: 'Program',
-        sourceType: context & 64 /* Module */ ? 'module' : 'script',
+        sourceType: context & 128 /* Module */ ? 'module' : 'script',
         body: body,
     };
 }
@@ -2606,7 +2811,7 @@ function parseScript(source, options, errCallback) {
  * @param options parser options
  */
 function parseModule(source, options, errCallback) {
-    return parseSource(source, options, 32 /* Strict */ | 64 /* Module */, errCallback);
+    return parseSource(source, options, 64 /* Strict */ | 128 /* Module */, errCallback);
 }
 
 const version = '1.6.5';

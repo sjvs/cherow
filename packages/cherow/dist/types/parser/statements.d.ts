@@ -144,3 +144,46 @@ export declare function parseCaseOrDefaultClauses(parser: Parser, context: Conte
  * @param context Context masks
  */
 export declare function parseIfStatement(parser: Parser, context: Context): ESTree.IfStatement;
+/**
+* Parses do while statement
+*
+* @param parser  Parser object
+* @param context Context masks
+*/
+export declare function parseDoWhileStatement(parser: Parser, context: Context): ESTree.DoWhileStatement;
+/**
+ * Parses while statement
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-grammar-notation-WhileStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export declare function parseWhileStatement(parser: Parser, context: Context): ESTree.WhileStatement;
+/**
+* Parses the continue statement production
+*
+* @see [Link](https://tc39.github.io/ecma262/#prod-ContinueStatement)
+*
+* @param parser  Parser object
+* @param context Context masks
+*/
+export declare function parseContinueStatement(parser: Parser, context: Context): ESTree.ContinueStatement;
+/**
+ * Parses the break statement production
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-BreakStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export declare function parseBreakStatement(parser: Parser, context: Context): ESTree.BreakStatement;
+/**
+ * Parses with statement
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-WithStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export declare function parseWithStatement(parser: Parser, context: Context): ESTree.WithStatement;

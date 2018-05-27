@@ -6,42 +6,44 @@ import { Errors, recordErrors, } from './errors';
 /* Context masks */
 export const enum Context {
 
-    Empty            = 0,
-    OptionsTokenize = 1 << 0,
-    OptionsJSX      = 1 << 1,
-    OptionsRaw      = 1 << 2,
-    OptionsNext     = 1 << 3,
-    OptionsWebCompat = 1 << 4,
-    Strict          = 1 << 5,
-    Module          = 1 << 6,
-    Async           = 1 << 7,
-    Yield           = 1 << 8,
-    InParameter     = 1 << 9,
-    NewTarget       = 1 << 10,
-    Template        = 1 << 11,
-    In              = 1 << 12,
-    Statement       = 1 << 13,
-    Asi             = 1 << 14,
+    Empty             = 0,
+    OptionsTokenize   = 1 << 0,
+    OptionsJSX        = 1 << 1,
+    OptionsRaw        = 1 << 2,
+    OptionsNext       = 1 << 3,
+    OptionsWebCompat  = 1 << 4,
+    OptionsEditorMode = 1 << 5,
+    Strict            = 1 << 6,
+    Module            = 1 << 7,
+    Async             = 1 << 8,
+    Yield             = 1 << 9,
+    InParameter       = 1 << 10,
+    NewTarget         = 1 << 11,
+    Template          = 1 << 12,
+    In                = 1 << 13,
+    Statement         = 1 << 14,
+    Asi               = 1 << 15,
+    RequireIdentifier = 1 << 16,
 }
 
 /* Mutual parser flags */
 export const enum Flags {
-    Empty               = 0,
-    NewLine             = 1 << 0,
-    HasOctal            = 1 << 1,
-    Assignable        = 1 << 2,
-    Bindable          = 1 << 3,
-    SimpleParameterList = 1 << 4,
+    Empty                = 0,
+    NewLine              = 1 << 0,
+    HasOctal             = 1 << 1,
+    Assignable           = 1 << 2,
+    Bindable             = 1 << 3,
+    SimpleParameterList  = 1 << 4,
 }
 
 export const enum BindingOrigin {
-    Empty = 0,
-    ForStatement = 1 << 0,
-    FunctionArgs = 1 << 1,
-    CatchClause = 1 << 2,
-    Export = 1 << 3,
-    Import = 1 << 4,
-    Statement = 1 << 5,
+    Empty           = 0,
+    ForStatement    = 1 << 0,
+    FunctionArgs    = 1 << 1,
+    CatchClause     = 1 << 2,
+    Export          = 1 << 3,
+    Import          = 1 << 4,
+    Statement       = 1 << 5,
 
 }
 
@@ -58,8 +60,8 @@ export const enum BindingType {
 
 /* Recovery state */
 export const enum Recovery {
-    Empty   = 0,
-    Unterminated = 1 << 0,
+    Empty         = 0,
+    Unterminated  = 1 << 0,
 }
 
 /* Tokenizer state */
@@ -72,9 +74,9 @@ export const enum Tokenize {
 export const enum ModifierState {
     None = 0,
     Generator = 1 << 0,
-    Await = 1 << 1,
-    Arrow = 1 << 2,
-    Async = 1 << 2,
+    Await     = 1 << 1,
+    Arrow     = 1 << 2,
+    Async     = 1 << 2,
 }
 
 export function setGrammar(flags: Flags, mask: Flags): Context {

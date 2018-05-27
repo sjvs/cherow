@@ -1,7 +1,7 @@
 import { Parser } from '../types';
 import * as ESTree from '../estree';
-import { Context, BindingType, BindingOrigin } from '../common';
-export declare function parseFunctionDeclaration(parser: Parser, context: Context): any;
+import { Context, BindingType, BindingOrigin, ModifierState } from '../common';
+export declare function parseFunctionDeclaration(parser: Parser, context: Context, state?: ModifierState): ESTree.FunctionDeclaration;
 /**
  * VariableDeclaration :
  *   BindingIdentifier Initializeropt

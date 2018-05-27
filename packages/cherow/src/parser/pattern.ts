@@ -306,7 +306,7 @@ export function parseDelimitedBindingList(
     let elementCount = 0;
     let inited = false;
     let isBinding = parser.token === Token.LeftBrace || parser.token === Token.LeftBracket;
-    while (true) {
+    while (parser.token !== Token.RightParen) {
         ++elementCount;
         args.push(parseBindingList(parser, context, type, origin));
         if (!consume(parser, context, Token.Comma)) break;

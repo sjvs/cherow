@@ -2,7 +2,7 @@ import { VariableDeclarator } from './../estree';
 import { Parser } from '../types';
 import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
-import { parseSequenceExpression, parseExpression, parseAssignmentExpression } from './expressions';
+import { parseIdentifier, parseSequenceExpression, parseExpression, parseAssignmentExpression } from './expressions';
 import { Errors, recordErrors, } from '../errors';
 import { parseFunctionDeclaration, parseVariableDeclarationList } from './declarations';
 import { parseDelimitedBindingList, parseBindingIdentifierOrPattern } from './pattern';
@@ -62,7 +62,7 @@ export function parseStatementListItem(parser: Parser, context: Context): ESTree
         case Token.SwitchKeyword:
             return parseSwitchStatement(parser, context);
         default:
-        return parseStatement(parser, context);
+        return parseStatement(parser, context, LabelledFunctionState.Allow);
     }
 }
 
@@ -92,8 +92,30 @@ export function parseStatement(
             return parseBlockStatement(parser, context);
          case Token.DebuggerKeyword:
             return parseDebuggerStatement(parser, context);
-            case Token.ForKeyword:
+        case Token.ForKeyword:
             return parseForStatement(parser, context);
+        case Token.WhileKeyword:
+            return parseWhileStatement(parser, context);
+        case Token.DoKeyword:
+            return parseDoWhileStatement(parser, context);
+        case Token.IfKeyword:
+            return parseIfStatement(parser, context);
+        case Token.BreakKeyword:
+            return parseBreakStatement(parser, context);
+        case Token.ContinueKeyword:
+            return parseContinueStatement(parser, context);
+        case Token.DebuggerKeyword:
+            return parseDebuggerStatement(parser, context);
+        case Token.WithKeyword:
+            return parseWithStatement(parser, context);
+        case Token.ThrowKeyword:
+            return parseThrowStatement(parser, context);
+        case Token.FunctionKeyword:
+            // A function declaration has to be parsed out for 'editor mode'
+            if (context & Context.OptionsEditorMode) return parseFunctionDeclaration(parser, context | Context.RequireIdentifier);
+            recordErrors(parser, context & Context.Strict ? Errors.StrictFunction : Errors.SloppyFunction);
+        case Token.ClassKeyword:
+            recordErrors(parser, Errors.Unexpected);
          default:
         return parseExpressionOrLabelledStatement(parser, context, label);
     }
@@ -501,4 +523,117 @@ function parseConsequentOrAlternate(parser: Parser, context: Context): ESTree.St
     return context & Context.Strict || parser.token !== Token.FunctionKeyword
       ? parseStatement(parser, context)
       : parseFunctionDeclaration(parser, context);
+  }
+  
+  /**
+ * Parses do while statement
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseDoWhileStatement(parser: Parser, context: Context): ESTree.DoWhileStatement {
+    expect(parser, context, Token.DoKeyword);
+    const body = parseStatement(parser, context, LabelledFunctionState.Disallow);
+    expect(parser, context, Token.WhileKeyword);
+    expect(parser, context, Token.LeftParen);
+    const test = parseExpression(parser, context | Context.In);
+    expect(parser, context, Token.RightParen);
+    consume(parser, context, Token.Semicolon);
+    return {
+      type: 'DoWhileStatement',
+      body,
+      test
+    };
+  }
+  
+  /**
+   * Parses while statement
+   *
+   * @see [Link](https://tc39.github.io/ecma262/#prod-grammar-notation-WhileStatement)
+   *
+   * @param parser  Parser object
+   * @param context Context masks
+   */
+  export function parseWhileStatement(parser: Parser, context: Context): ESTree.WhileStatement {
+    expect(parser, context, Token.WhileKeyword);
+    expect(parser, context, Token.LeftParen);
+    const test = parseExpression(parser, context | Context.In);
+    expect(parser, context, Token.RightParen);
+    const body = parseStatement(parser, context, LabelledFunctionState.Disallow);
+    return {
+      type: 'WhileStatement',
+      test,
+      body
+    };
+  }
+
+  /**
+ * Parses the continue statement production
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ContinueStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseContinueStatement(parser: Parser, context: Context): ESTree.ContinueStatement {
+    expect(parser, context, Token.ContinueKeyword);
+    let label: ESTree.Identifier | undefined | null = null;
+    if (!(parser.flags & Flags.NewLine) && 
+        parser.token !== Token.Semicolon && 
+        parser.token !== Token.RightBrace && 
+        parser.token !== Token.EndOfSource) {
+      const { tokenValue } = parser;
+      label = parseIdentifier(parser, context);
+    }
+    consumeSemicolon(parser, context);
+    return {
+      type: 'ContinueStatement',
+      label
+    };
+  }
+  
+  /**
+   * Parses the break statement production
+   *
+   * @see [Link](https://tc39.github.io/ecma262/#prod-BreakStatement)
+   *
+   * @param parser  Parser object
+   * @param context Context masks
+   */
+  export function parseBreakStatement(parser: Parser, context: Context): ESTree.BreakStatement {
+    expect(parser, context, Token.BreakKeyword);
+    let label: ESTree.Identifier | undefined | null = null;
+    if (!(parser.flags & Flags.NewLine) && 
+    parser.token !== Token.Semicolon && 
+    parser.token !== Token.RightBrace && 
+    parser.token !== Token.EndOfSource) {
+        label = parseIdentifier(parser, context);
+    }
+    consumeSemicolon(parser, context);
+    return {
+        type: 'BreakStatement',
+        label
+    };
+  }
+
+/**
+ * Parses with statement
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-WithStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseWithStatement(parser: Parser, context: Context): ESTree.WithStatement {
+    if (context & Context.Strict) recordErrors(parser, Errors.StrictModeWith);
+    expect(parser, context, Token.WithKeyword);
+    expect(parser, context, Token.LeftParen);
+    const object = parseExpression(parser, context | Context.In);
+    expect(parser, context, Token.RightParen);
+    const body = parseStatement(parser, context);
+    return {
+      type: 'WithStatement',
+      object,
+      body
+    };
   }

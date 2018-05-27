@@ -45,6 +45,8 @@ export function parseSource(source: string, options: any, /*@internal*/ context:
         if (options.raw) context |= Context.OptionsRaw;
         // The flag to enable web compat (annexB)
         if (options.webcompat) context |= Context.OptionsWebCompat;
+        // The flag to enable editor mode
+        if (options.edit) context |= Context.OptionsEditorMode;
     }
 
     const parser = createParserObject(source, errCallback);
