@@ -45,11 +45,19 @@ export const enum LabelledFunctionState {
 
 export function parseStatementList(parser: Parser, context: Context): ESTree.Statement[] {
     nextToken(parser, context);
-    let body = [];
+    const statements: ESTree.Statement[] = [];
     while (parser.token !== Token.EndOfSource) {
-        body.push(parseStatementListItem(parser, context));
+        if ((parser.token & Token.StringLiteral) === Token.StringLiteral) {
+            if (!(context & Context.Strict) && parser.tokenRaw.length === 12 && parser.tokenValue === 'use strict') {
+                context |= Context.Strict;
+            }
+            statements.push(parseDirective(parser, context));
+        } else {
+            statements.push(parseStatementListItem(parser, context));
+        }
     }
-    return body;
+
+    return statements;
 }
 
 /**
@@ -698,3 +706,22 @@ function parseAsyncFunctionDeclarationOrStatement(
         parseFunctionDeclaration(parser, context, ModifierState.Async) :
         parseStatement(parser, context);
 }
+
+/**
+ * Parse directive
+ *
+ * * @see [Link](https://tc39.github.io/ecma262/#sec-directive-prologues-and-the-use-strict-directive)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+export function parseDirective(parser: Parser, context: Context): any {
+    const directive = parser.tokenRaw.slice(1, -1);
+    const expr = parseExpression(parser, context | Context.In);
+    consumeSemicolon(parser, context);
+    return {
+      type: 'ExpressionStatement',
+      expression: expr,
+      directive
+    };
+  }

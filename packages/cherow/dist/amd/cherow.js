@@ -342,8 +342,6 @@ define('cherow', ['exports'], function (exports) { 'use strict';
      * @param quote codepoint
      */
     function scanStringLiteral(parser, context, quote) {
-        parser.index++;
-        parser.column++; // consume quote
         let { index, column } = parser;
         let ret = '';
         let ch = parser.source.charCodeAt(parser.index);
@@ -382,8 +380,7 @@ define('cherow', ['exports'], function (exports) { 'use strict';
                     ret += parser.source.slice(index, parser.index);
                     parser.index++;
                     parser.column++; // consume the quote
-                    if (context & 4 /* OptionsRaw */)
-                        parser.source.slice(index, parser.index);
+                    parser.tokenRaw = parser.source.slice(index - 1, parser.index);
                     parser.tokenValue = ret;
                     return 4194304 /* StringLiteral */;
                 default:
@@ -459,12 +456,12 @@ define('cherow', ['exports'], function (exports) { 'use strict';
                     if (next < 48 /* Zero */ || next > 55 /* Seven */) {
                         // Strict mode code allows only \0, then a non-digit.
                         if (code !== 0 || next === 56 /* Eight */ || next === 57 /* Nine */) {
-                            if (context & 64 /* Strict */)
+                            if (context & 128 /* Strict */)
                                 return -2 /* StrictOctal */;
                             parser.flags |= 2 /* HasOctal */;
                         }
                     }
-                    else if (context & 64 /* Strict */) {
+                    else if (context & 128 /* Strict */) {
                         return -2 /* StrictOctal */;
                     }
                     else {
@@ -487,7 +484,7 @@ define('cherow', ['exports'], function (exports) { 'use strict';
         table[53 /* Five */] =
             table[54 /* Six */] =
                 table[55 /* Seven */] = (parser, context, first) => {
-                    if (context & 64 /* Strict */)
+                    if (context & 128 /* Strict */)
                         return -2 /* StrictOctal */;
                     let code = first - 48 /* Zero */;
                     const index = parser.index + 1;
@@ -796,7 +793,9 @@ define('cherow', ['exports'], function (exports) { 'use strict';
     // `)`
     table$1[41 /* RightParen */] = () => 33554445 /* RightParen */;
     // `"`, `'`
-    table$1[39 /* SingleQuote */] = table$1[34 /* DoubleQuote */] = () => scanStringLiteral;
+    table$1[39 /* SingleQuote */] = table$1[34 /* DoubleQuote */] = (parser, context, first) => {
+        return scanStringLiteral(parser, context, first);
+    };
     // `0`
     table$1[48 /* Zero */] = parseLeadingZero;
     // `/`, `/=`, `/>`
@@ -2024,6 +2023,7 @@ define('cherow', ['exports'], function (exports) { 'use strict';
             case 16453 /* LetKeyword */:
             case 8388608 /* Identifier */:
                 return parseIdentifier(parser, context);
+            case 4194304 /* StringLiteral */:
             case 2097152 /* NumericLiteral */:
                 return parseLiteral(parser, context);
             default:
@@ -2284,11 +2284,19 @@ define('cherow', ['exports'], function (exports) { 'use strict';
      */
     function parseStatementList(parser, context) {
         nextToken(parser, context);
-        let body = [];
+        const statements = [];
         while (parser.token !== 131072 /* EndOfSource */) {
-            body.push(parseStatementListItem(parser, context));
+            if ((parser.token & 4194304 /* StringLiteral */) === 4194304 /* StringLiteral */) {
+                if (!(context & 128 /* Strict */) && parser.tokenRaw.length === 12 && parser.tokenValue === 'use strict') {
+                    context |= 128 /* Strict */;
+                }
+                statements.push(parseDirective(parser, context));
+            }
+            else {
+                statements.push(parseStatementListItem(parser, context));
+            }
         }
-        return body;
+        return statements;
     }
     /**
      * Parses statement list items
@@ -2905,6 +2913,24 @@ define('cherow', ['exports'], function (exports) { 'use strict';
         return lookahead(parser, context, nextTokenIsFuncKeywordOnSameLine, /* isLookaHead */ false) ?
             parseFunctionDeclaration(parser, context, 4 /* Async */) :
             parseStatement(parser, context);
+    }
+    /**
+     * Parse directive
+     *
+     * * @see [Link](https://tc39.github.io/ecma262/#sec-directive-prologues-and-the-use-strict-directive)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function parseDirective(parser, context) {
+        const directive = parser.tokenRaw.slice(1, -1);
+        const expr = parseExpression(parser, context | 32768 /* In */);
+        consumeSemicolon(parser, context);
+        return {
+            type: 'ExpressionStatement',
+            expression: expr,
+            directive
+        };
     }
 
     function createParserObject(source, errCallback) {

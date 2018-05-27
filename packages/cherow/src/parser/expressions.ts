@@ -359,6 +359,7 @@ export function parsePrimaryExpression(parser: Parser, context: Context): any {
         case Token.LetKeyword:
         case Token.Identifier:
             return parseIdentifier(parser, context);
+        case Token.StringLiteral:
         case Token.NumericLiteral:
             return parseLiteral(parser, context);
         default:

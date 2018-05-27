@@ -63,7 +63,9 @@ table[Chars.LeftParen] = () => Token.LeftParen;
 table[Chars.RightParen] = () => Token.RightParen;
 
 // `"`, `'`
-table[Chars.SingleQuote] = table[Chars.DoubleQuote] = () => scanStringLiteral;
+table[Chars.SingleQuote] = table[Chars.DoubleQuote] = (parser: Parser, context: Context, first: number) => {
+    return scanStringLiteral(parser, context, first);
+}
 
 // `0`
 table[Chars.Zero] = parseLeadingZero;

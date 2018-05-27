@@ -85,3 +85,4 @@ export function recordErrors(parser: Parser, type: Errors, ...params: string[]) 
     if (parser.onError) parser.onError(message, line, column);
 //    throw error;
 }
+

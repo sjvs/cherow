@@ -187,3 +187,12 @@ export declare function parseBreakStatement(parser: Parser, context: Context): E
  * @param context Context masks
  */
 export declare function parseWithStatement(parser: Parser, context: Context): ESTree.WithStatement;
+/**
+ * Parse directive
+ *
+ * * @see [Link](https://tc39.github.io/ecma262/#sec-directive-prologues-and-the-use-strict-directive)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+export declare function parseDirective(parser: Parser, context: Context): any;
