@@ -57,7 +57,7 @@ export declare function parseFunctionExpression(parser: Parser, context: Context
  */
 export declare function parseFormalListAndBody(parser: Parser, context: Context): {
     params: any;
-    body: any;
+    body: ESTree.BlockStatement;
 };
 /**
  * Parse property name

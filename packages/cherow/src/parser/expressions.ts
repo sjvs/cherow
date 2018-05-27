@@ -579,7 +579,15 @@ function parseFormalParameters(parser: Parser, context: Context) {
     return args;
 }
 
-function parseFunctionBody(parser: Parser, context: Context): any {
+/**
+ * Parse funciton body
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-FunctionBody)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+function parseFunctionBody(parser: Parser, context: Context): ESTree.BlockStatement {
     const body: ESTree.Statement[] = [];
     expect(parser, context, Token.LeftBrace);
     const previousSwitchStatement = parser.switchStatement;

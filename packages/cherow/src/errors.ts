@@ -28,7 +28,9 @@ export const enum Errors {
     LabelRedeclaration,
     InvalidNestedStatement,
     IllegalContinue,
-    IllegalBreak
+    IllegalBreak,
+    NewlineAfterThrow,
+    IllegalReturn
 }
 /*@internal*/
 export const errorMessages: {
@@ -60,6 +62,8 @@ export const errorMessages: {
     [Errors.InvalidNestedStatement]: '%0  statement must be nested within an iteration statement',
     [Errors.IllegalContinue]: 'Illegal continue statement: no surrounding iteration statement',
     [Errors.IllegalBreak]: 'Illegal break statement',
+    [Errors.NewlineAfterThrow]: 'Illegal newline after throw',
+    [Errors.IllegalReturn]: 'Illegal return statement',
 };
 
 export function constructError(index: number, line: number, column: number, description: string): void {
@@ -79,5 +83,5 @@ export function recordErrors(parser: Parser, type: Errors, ...params: string[]) 
     const message = errorMessages[type].replace(/%(\d+)/g, (_: string, i: number) => params[i]);
     const error = constructError(index, line, column, message);
     if (parser.onError) parser.onError(message, line, column);
-   // throw error;
+//    throw error;
 }

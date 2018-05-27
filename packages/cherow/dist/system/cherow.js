@@ -156,6 +156,8 @@ System.register([], function (exports, module) {
                 [23 /* InvalidNestedStatement */]: '%0  statement must be nested within an iteration statement',
                 [24 /* IllegalContinue */]: 'Illegal continue statement: no surrounding iteration statement',
                 [25 /* IllegalBreak */]: 'Illegal break statement',
+                [26 /* NewlineAfterThrow */]: 'Illegal newline after throw',
+                [27 /* IllegalReturn */]: 'Illegal return statement',
             };
             function constructError(index, line, column, description) {
                 const error = new SyntaxError(`Line ${line}, column ${column}: ${description}`);
@@ -171,7 +173,7 @@ System.register([], function (exports, module) {
                 const error = constructError(index, line, column, message);
                 if (parser.onError)
                     parser.onError(message, line, column);
-                // throw error;
+                //    throw error;
             }
 
             function consumeOpt(parser, code) {
@@ -1117,16 +1119,16 @@ System.register([], function (exports, module) {
                 return (context | context) ^ mask;
             }
             function swapContext(context, state) {
-                context = setContext(context, 512 /* Yield */);
-                context = setContext(context, 256 /* Async */);
-                context = setContext(context, 1024 /* InParameter */);
+                context = setContext(context, 2048 /* Yield */);
+                context = setContext(context, 1024 /* Async */);
+                context = setContext(context, 4096 /* InParameter */);
                 if (state & 1 /* Generator */)
-                    context = context | 512 /* Yield */;
+                    context = context | 2048 /* Yield */;
                 if (state & 4 /* Async */)
-                    context = context | 256 /* Async */;
+                    context = context | 1024 /* Async */;
                 // `new.target` disallowed for arrows in global scope
                 if (!(state & 4 /* Arrow */))
-                    context = context | 2048 /* NewTarget */;
+                    context = context | 8192 /* NewTarget */;
                 return context;
             }
             function nextToken(parser, context) {
@@ -1785,7 +1787,7 @@ System.register([], function (exports, module) {
                     }
                     const operator = parser.token;
                     nextToken(parser, context);
-                    const right = parseAssignmentExpression(parser, context | 8192 /* In */);
+                    const right = parseAssignmentExpression(parser, context | 32768 /* In */);
                     return {
                         type: 'AssignmentExpression',
                         left: left,
@@ -1810,7 +1812,7 @@ System.register([], function (exports, module) {
                 const test = parseBinaryExpression(parser, context, 0);
                 if (!consume(parser, context, 33554451 /* QuestionMark */))
                     return test;
-                const consequent = parseAssignmentExpression(parser, context | 8192 /* In */);
+                const consequent = parseAssignmentExpression(parser, context | 32768 /* In */);
                 expect(parser, context, 33554450 /* Colon */);
                 const alternate = parseAssignmentExpression(parser, context);
                 return {
@@ -1841,7 +1843,7 @@ System.register([], function (exports, module) {
             function parseBinaryExpression(parser, context, minPrec, left = parseUnaryExpression(parser, context)) {
                 // Shift-reduce parser for the binary operator part of the JS expression
                 // syntax.
-                const bit = context & 8192 /* In */ ^ 8192 /* In */;
+                const bit = context & 32768 /* In */ ^ 32768 /* In */;
                 while ((parser.token & 268435456 /* IsBinaryOp */) === 268435456 /* IsBinaryOp */) {
                     const t = parser.token;
                     const prec = t & 3840 /* Precedence */;
@@ -1857,7 +1859,7 @@ System.register([], function (exports, module) {
                     left = {
                         type: t & 262144 /* IsLogical */ ? 'LogicalExpression' : 'BinaryExpression',
                         left,
-                        right: parseBinaryExpression(parser, context & ~8192 /* In */, prec),
+                        right: parseBinaryExpression(parser, context & ~32768 /* In */, prec),
                         operator: tokenDesc(t),
                     };
                 }
@@ -1936,7 +1938,7 @@ System.register([], function (exports, module) {
             function parseLeftHandSideExpression(parser, context) {
                 // LeftHandSideExpression ::
                 //   (NewExpression | MemberExpression) ...
-                let expr = parsePrimaryExpression(parser, context | 8192 /* In */);
+                let expr = parsePrimaryExpression(parser, context | 32768 /* In */);
                 while (true) {
                     switch (parser.token) {
                         case 33554448 /* LeftBracket */:
@@ -2009,7 +2011,7 @@ System.register([], function (exports, module) {
                         expressions.push(parseSpreadElement(parser, context));
                     }
                     else {
-                        expressions.push(parseAssignmentExpression(parser, context | 8192 /* In */));
+                        expressions.push(parseAssignmentExpression(parser, context | 32768 /* In */));
                     }
                     if (parser.token !== 33554445 /* RightParen */)
                         expect(parser, context, 33554447 /* Comma */);
@@ -2020,7 +2022,7 @@ System.register([], function (exports, module) {
             function parsePrimaryExpression(parser, context) {
                 switch (parser.token) {
                     case 8276 /* FunctionKeyword */:
-                        return parseFunctionExpression(parser, context & ~256 /* Async */);
+                        return parseFunctionExpression(parser, context & ~1024 /* Async */);
                     case 33554440 /* LeftParen */:
                         return parseParenthesizedExpression(parser, context);
                     case 33554448 /* LeftBracket */:
@@ -2131,7 +2133,7 @@ System.register([], function (exports, module) {
                 //
                 //
                 expect(parser, context, 33554448 /* LeftBracket */);
-                context = setContext(context, 8192 /* In */ | 32768 /* Asi */);
+                context = setContext(context, 32768 /* In */ | 131072 /* Asi */);
                 const elements = [];
                 while (parser.token !== 33554449 /* RightBracket */) {
                     if (consume(parser, context, 33554447 /* Comma */)) {
@@ -2144,7 +2146,7 @@ System.register([], function (exports, module) {
                         }
                     }
                     else {
-                        elements.push(parseAssignmentExpression(parser, context | 8192 /* In */));
+                        elements.push(parseAssignmentExpression(parser, context | 32768 /* In */));
                         if (parser.token !== 33554449 /* RightBracket */)
                             expect(parser, context, 33554447 /* Comma */);
                     }
@@ -2165,7 +2167,7 @@ System.register([], function (exports, module) {
              */
             function parseSpreadElement(parser, context) {
                 expect(parser, context, 33554443 /* Ellipsis */);
-                const argument = parseAssignmentExpression(parser, context | 8192 /* In */);
+                const argument = parseAssignmentExpression(parser, context | 32768 /* In */);
                 return {
                     type: 'SpreadElement',
                     argument,
@@ -2225,13 +2227,21 @@ System.register([], function (exports, module) {
              * @param Optional objectstate. Default to none
              */
             function parseFormalParameters(parser, context) {
-                context = context | 1024 /* InParameter */;
+                context = context | 4096 /* InParameter */;
                 expect(parser, context, 33554440 /* LeftParen */);
                 const args = [];
                 parseDelimitedBindingList(parser, context, 1 /* Args */, 2 /* FunctionArgs */, args);
                 expect(parser, context, 33554445 /* RightParen */);
                 return args;
             }
+            /**
+             * Parse funciton body
+             *
+             * @see [Link](https://tc39.github.io/ecma262/#prod-FunctionBody)
+             *
+             * @param parser Parser object
+             * @param context Context masks
+             */
             function parseFunctionBody(parser, context) {
                 const body = [];
                 expect(parser, context, 33554441 /* LeftBrace */);
@@ -2266,7 +2276,7 @@ System.register([], function (exports, module) {
              */
             function parseComputedPropertyName(parser, context) {
                 expect(parser, context, 33554448 /* LeftBracket */);
-                const key = parseAssignmentExpression(parser, context | 8192 /* In */);
+                const key = parseAssignmentExpression(parser, context | 32768 /* In */);
                 expect(parser, context, 33554449 /* RightBracket */);
                 return key;
             }
@@ -2361,8 +2371,8 @@ System.register([], function (exports, module) {
                     case 8276 /* FunctionKeyword */:
                         // A function declaration has to be parsed out for 'editor mode'
                         if (context & 32 /* OptionsEditorMode */)
-                            return parseFunctionDeclaration(parser, context | 65536 /* RequireIdentifier */);
-                        recordErrors(parser, context & 64 /* Strict */ ? 16 /* StrictFunction */ : 17 /* SloppyFunction */);
+                            return parseFunctionDeclaration(parser, context | 262144 /* RequireIdentifier */);
+                        recordErrors(parser, context & 128 /* Strict */ ? 16 /* StrictFunction */ : 17 /* SloppyFunction */);
                     case 8266 /* ClassKeyword */:
                         recordErrors(parser, 0 /* Unexpected */);
                     default:
@@ -2414,9 +2424,12 @@ System.register([], function (exports, module) {
              * @param context Context masks
              */
             function parseReturnStatement(parser, context) {
+                if (!(context & (64 /* OptionsGlobalReturn */ | 512 /* InFunctionBody */))) {
+                    recordErrors(parser, 27 /* IllegalReturn */);
+                }
                 expect(parser, context, 8280 /* ReturnKeyword */);
                 const argument = (parser.token & 131072 /* ASI */) !== 131072 /* ASI */ && !(parser.flags & 1 /* NewLine */) ?
-                    parseExpression(parser, context | 8192 /* In */) :
+                    parseExpression(parser, context & ~512 /* InFunctionBody */ | 32768 /* In */) :
                     null;
                 consumeSemicolon(parser, context);
                 return {
@@ -2499,7 +2512,9 @@ System.register([], function (exports, module) {
              */
             function parseThrowStatement(parser, context) {
                 expect(parser, context, 8284 /* ThrowKeyword */);
-                const argument = parseExpression(parser, context | 8192 /* In */);
+                if (parser.flags & 1 /* NewLine */)
+                    recordErrors(parser, 26 /* NewlineAfterThrow */);
+                const argument = parseExpression(parser, context | 32768 /* In */);
                 consumeSemicolon(parser, context);
                 return {
                     type: 'ThrowStatement',
@@ -2520,12 +2535,12 @@ System.register([], function (exports, module) {
                 const expr = parseExpression(parser, context);
                 if (token & (8388608 /* Identifier */ | 8417280 /* IsKeyword */) && parser.token === 33554450 /* Colon */) {
                     expect(parser, context, 33554450 /* Colon */);
-                    if (getLabel(parser, expr.name, false, true)) {
-                        recordErrors(parser, 22 /* LabelRedeclaration */, expr.name);
+                    if (getLabel(parser, tokenValue, false, true)) {
+                        recordErrors(parser, 22 /* LabelRedeclaration */, tokenValue);
                     }
-                    addLabel(parser, expr.name);
+                    addLabel(parser, tokenValue);
                     let body = null;
-                    if (parser.token === 8276 /* FunctionKeyword */ && !(context & 64 /* Strict */) &&
+                    if (parser.token === 8276 /* FunctionKeyword */ && !(context & 128 /* Strict */) &&
                         label === 0 /* Allow */) {
                         body = parseFunctionDeclaration(parser, context);
                     }
@@ -2588,7 +2603,7 @@ System.register([], function (exports, module) {
              */
             function parseForStatement(parser, context) {
                 expect(parser, context, 8275 /* ForKeyword */);
-                const forAwait = context & 256 /* Async */ && consume(parser, context, 536875118 /* AwaitKeyword */);
+                const forAwait = context & 1024 /* Async */ && consume(parser, context, 536875118 /* AwaitKeyword */);
                 expect(parser, context, 33554440 /* LeftParen */);
                 let init = null;
                 let declarations = null;
@@ -2609,10 +2624,10 @@ System.register([], function (exports, module) {
                         bindingType = 4 /* Let */;
                     }
                     else
-                        init = parseAssignmentExpression(parser, context & ~8192 /* In */);
+                        init = parseAssignmentExpression(parser, context & ~32768 /* In */);
                     if (bindingType & 14 /* Variable */) {
                         nextToken(parser, context);
-                        declarations = parseVariableDeclarationList(parser, context & ~8192 /* In */, bindingType, 1 /* ForStatement */);
+                        declarations = parseVariableDeclarationList(parser, context & ~32768 /* In */, bindingType, 1 /* ForStatement */);
                         init = {
                             type: 'VariableDeclaration',
                             kind: tokenDesc(token),
@@ -2626,7 +2641,7 @@ System.register([], function (exports, module) {
                         reinterpret(parser, init);
                     else
                         init = declarations;
-                    right = parseExpression(parser, context | 8192 /* In */);
+                    right = parseExpression(parser, context | 32768 /* In */);
                 }
                 else if (consume(parser, context, 301999918 /* InKeyword */)) {
                     type = 'ForInStatement';
@@ -2634,7 +2649,7 @@ System.register([], function (exports, module) {
                         reinterpret(parser, init);
                     else
                         init = declarations;
-                    right = parseAssignmentExpression(parser, context | 8192 /* In */);
+                    right = parseAssignmentExpression(parser, context | 32768 /* In */);
                 }
                 else {
                     if (parser.token === 33554447 /* Comma */)
@@ -2645,7 +2660,7 @@ System.register([], function (exports, module) {
                     }
                     expect(parser, context, 33685518 /* Semicolon */);
                     if (parser.token !== 33554445 /* RightParen */)
-                        update = parseExpression(parser, context | 8192 /* In */);
+                        update = parseExpression(parser, context | 32768 /* In */);
                 }
                 expect(parser, context, 33554445 /* RightParen */);
                 const previousIterationStatement = parser.iterationStatement;
@@ -2683,8 +2698,8 @@ System.register([], function (exports, module) {
             function parseSwitchStatement(parser, context) {
                 expect(parser, context, 8282 /* SwitchKeyword */);
                 expect(parser, context, 33554440 /* LeftParen */);
-                const discriminant = parseExpression(parser, context | 8192 /* In */);
-                context = setContext(context, 4096 /* Template */);
+                const discriminant = parseExpression(parser, context | 32768 /* In */);
+                context = setContext(context, 16384 /* Template */);
                 expect(parser, context, 33554445 /* RightParen */);
                 expect(parser, context, 33554441 /* LeftBrace */);
                 const cases = [];
@@ -2725,7 +2740,7 @@ System.register([], function (exports, module) {
                 expect(parser, context, 33554450 /* Colon */);
                 const consequent = [];
                 while (parser.token !== 8264 /* CaseKeyword */ && parser.token !== 33685516 /* RightBrace */ && parser.tokenValue !== 'default') {
-                    consequent.push(parseStatementListItem(parser, context | 8192 /* In */));
+                    consequent.push(parseStatementListItem(parser, context | 32768 /* In */));
                 }
                 return {
                     type: 'SwitchCase',
@@ -2744,7 +2759,7 @@ System.register([], function (exports, module) {
             function parseIfStatement(parser, context) {
                 expect(parser, context, 8277 /* IfKeyword */);
                 expect(parser, context, 33554440 /* LeftParen */);
-                const test = parseExpression(parser, context | 8192 /* In */);
+                const test = parseExpression(parser, context | 32768 /* In */);
                 expect(parser, context, 33554445 /* RightParen */);
                 const consequent = parseConsequentOrAlternate(parser, context);
                 const alternate = consume(parser, context, 8271 /* ElseKeyword */) ? parseConsequentOrAlternate(parser, context) : null;
@@ -2761,7 +2776,7 @@ System.register([], function (exports, module) {
              * @param context Context masks
              */
             function parseConsequentOrAlternate(parser, context) {
-                return context & 64 /* Strict */ || parser.token !== 8276 /* FunctionKeyword */ ?
+                return context & 128 /* Strict */ || parser.token !== 8276 /* FunctionKeyword */ ?
                     parseStatement(parser, context) :
                     parseFunctionDeclaration(parser, context);
             }
@@ -2779,7 +2794,7 @@ System.register([], function (exports, module) {
                 parser.iterationStatement = previousIterationStatement;
                 expect(parser, context, 8286 /* WhileKeyword */);
                 expect(parser, context, 33554440 /* LeftParen */);
-                const test = parseExpression(parser, context | 8192 /* In */);
+                const test = parseExpression(parser, context | 32768 /* In */);
                 expect(parser, context, 33554445 /* RightParen */);
                 consume(parser, context, 33685518 /* Semicolon */);
                 return {
@@ -2799,7 +2814,7 @@ System.register([], function (exports, module) {
             function parseWhileStatement(parser, context) {
                 expect(parser, context, 8286 /* WhileKeyword */);
                 expect(parser, context, 33554440 /* LeftParen */);
-                const test = parseExpression(parser, context | 8192 /* In */);
+                const test = parseExpression(parser, context | 32768 /* In */);
                 expect(parser, context, 33554445 /* RightParen */);
                 const previousIterationStatement = parser.iterationStatement;
                 parser.iterationStatement = 1 /* Iteration */;
@@ -2823,8 +2838,9 @@ System.register([], function (exports, module) {
                 expect(parser, context, 8267 /* ContinueKeyword */);
                 let label = null;
                 if (!(parser.flags & 1 /* NewLine */) && parser.token & (8388608 /* Identifier */ | 8417280 /* IsKeyword */)) {
+                    const { tokenValue } = parser;
                     label = parseIdentifier(parser, context);
-                    validateContinueLabel(parser, label.name);
+                    validateContinueLabel(parser, tokenValue);
                 }
                 consumeSemicolon(parser, context);
                 if (label === null && (parser.iterationStatement & 0 /* Empty */) !== 0 /* Empty */) {
@@ -2847,8 +2863,9 @@ System.register([], function (exports, module) {
                 expect(parser, context, 8263 /* BreakKeyword */);
                 let label = null;
                 if (!(parser.flags & 1 /* NewLine */) && parser.token & (8388608 /* Identifier */ | 8417280 /* IsKeyword */)) {
+                    const { tokenValue } = parser;
                     label = parseIdentifier(parser, context);
-                    validateBreakStatement(parser, label.name);
+                    validateBreakStatement(parser, tokenValue);
                 }
                 else if ((parser.iterationStatement & 0 /* Empty */) !== 0 /* Empty */ &&
                     (parser.switchStatement & 0 /* Empty */) !== 0 /* Empty */) {
@@ -2869,11 +2886,11 @@ System.register([], function (exports, module) {
              * @param context Context masks
              */
             function parseWithStatement(parser, context) {
-                if (context & 64 /* Strict */)
+                if (context & 128 /* Strict */)
                     recordErrors(parser, 19 /* StrictModeWith */);
                 expect(parser, context, 8287 /* WithKeyword */);
                 expect(parser, context, 33554440 /* LeftParen */);
-                const object = parseExpression(parser, context | 8192 /* In */);
+                const object = parseExpression(parser, context | 32768 /* In */);
                 expect(parser, context, 33554445 /* RightParen */);
                 const body = parseStatement(parser, context);
                 return {

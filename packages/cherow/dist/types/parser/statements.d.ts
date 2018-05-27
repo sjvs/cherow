@@ -13,7 +13,7 @@ export declare const enum LabelledFunctionState {
  * @param Parser instance
  * @param Context masks
  */
-export declare function parseStatementList(parser: Parser, context: Context): any;
+export declare function parseStatementList(parser: Parser, context: Context): ESTree.Statement[];
 /**
  * Parses statement list items
  *
@@ -105,7 +105,7 @@ export declare function parseThrowStatement(parser: Parser, context: Context): E
  * @param parser  Parser object
  * @param context Context masks
  */
-export declare function parseExpressionOrLabelledStatement(parser: Parser, context: Context, label: LabelledFunctionState): any;
+export declare function parseExpressionOrLabelledStatement(parser: Parser, context: Context, label: LabelledFunctionState): ESTree.ExpressionStatement | ESTree.LabeledStatement;
 /**
  * Parses variable statement
  *
@@ -114,7 +114,7 @@ export declare function parseExpressionOrLabelledStatement(parser: Parser, conte
  * @param parser  Parser object
  * @param context Context masks
  */
-export declare function parseVariableStatement(parser: Parser, context: Context, type: BindingType): any;
+export declare function parseVariableStatement(parser: Parser, context: Context, type: BindingType): ESTree.VariableDeclaration;
 /**
  * Parses either For, ForIn or ForOf statement
  *
