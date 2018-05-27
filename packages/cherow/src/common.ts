@@ -78,7 +78,7 @@ export const enum ModifierState {
     Generator = 1 << 0,
     Await     = 1 << 1,
     Arrow     = 1 << 2,
-    Async     = 1 << 2,
+    Async     = 1 << 3,
 }
 
 /*@internal*/

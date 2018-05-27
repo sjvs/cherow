@@ -84,7 +84,7 @@ export function parseAssignmentExpression(parser: Parser, context: Context): any
     }
 
     if (parser.token === Token.Arrow) {
-        return parseArrowFunction(parser, context, isAsync ? ModifierState.Async : ModifierState.None, left);
+        return parseArrowFunction(parser, context, isAsync ? ModifierState.Async | ModifierState.Arrow : ModifierState.Arrow, left);
     }
 
     if ((parser.token & Token.IsAssignOp) === Token.IsAssignOp) {
@@ -263,7 +263,7 @@ function parseUpdateExpression(parser: Parser, context: Context): any {
 export function parseLeftHandSideExpression(parser: Parser, context: Context): any {
     // LeftHandSideExpression ::
     //   (NewExpression | MemberExpression) ...
-    let expr: any = parsePrimaryExpression(parser, context | Context.In);
+    let expr: any = parser.token === Token.NewKeyword ? parseNewExpression(parser, context) : parsePrimaryExpression(parser, context | Context.In);
     while (true) {
         switch (parser.token) {
             case Token.LeftBracket:
@@ -313,6 +313,48 @@ export function parseLeftHandSideExpression(parser: Parser, context: Context): a
                 return expr;
         }
     }
+}
+
+/**
+ * Parse meta property
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-StatementList)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ * @param meta Identifier
+ * @param pos Location
+ */
+
+function parseMetaProperty(parser: Parser, context: Context, meta: ESTree.Identifier): ESTree.MetaProperty {
+    return {
+        meta,
+        type: 'MetaProperty',
+        property: parseIdentifier(parser, context),
+    };
+}
+
+/**
+ * Parse new expression
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-NewExpression)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+function parseNewExpression(parser: Parser, context: Context): ESTree.NewExpression | ESTree.MetaProperty {
+    const id = parseIdentifier(parser, context);
+    if (consume(parser, context, Token.Period)) {
+        if ((context & Context.NewTarget) === Context.NewTarget && parser.tokenValue === 'target') {
+            return parseMetaProperty(parser, context, id as ESTree.Identifier);
+        }
+        recordErrors(parser, Errors.UnexpectedNewTarget);
+    }
+    return {
+        type: 'NewExpression',
+        callee: parseLeftHandSideExpression(parser, context),
+        arguments: parser.token === Token.LeftParen ? parseArgumentList(parser, context) : [],
+    };
 }
 
 /**

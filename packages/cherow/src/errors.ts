@@ -30,7 +30,8 @@ export const enum Errors {
     IllegalContinue,
     IllegalBreak,
     NewlineAfterThrow,
-    IllegalReturn
+    IllegalReturn,
+    UnexpectedNewTarget
 }
 /*@internal*/
 export const errorMessages: {
@@ -64,6 +65,7 @@ export const errorMessages: {
     [Errors.IllegalBreak]: 'Illegal break statement',
     [Errors.NewlineAfterThrow]: 'Illegal newline after throw',
     [Errors.IllegalReturn]: 'Illegal return statement',
+    [Errors.UnexpectedNewTarget]: 'new.target expression is not allowed here',
 };
 
 export function constructError(index: number, line: number, column: number, description: string): void {

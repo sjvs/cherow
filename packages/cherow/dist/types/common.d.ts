@@ -64,7 +64,7 @@ export declare const enum ModifierState {
     Generator = 1,
     Await = 2,
     Arrow = 4,
-    Async = 4,
+    Async = 8,
 }
 export declare function setGrammar(flags: Flags, mask: Flags): Context;
 export declare function setContext(context: Context, mask: Context): Context;

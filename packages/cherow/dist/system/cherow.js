@@ -158,6 +158,7 @@ System.register([], function (exports, module) {
                 [25 /* IllegalBreak */]: 'Illegal break statement',
                 [26 /* NewlineAfterThrow */]: 'Illegal newline after throw',
                 [27 /* IllegalReturn */]: 'Illegal return statement',
+                [28 /* UnexpectedNewTarget */]: 'new.target expression is not allowed here',
             };
             function constructError(index, line, column, description) {
                 const error = new SyntaxError(`Line ${line}, column ${column}: ${description}`);
@@ -1123,7 +1124,7 @@ System.register([], function (exports, module) {
                 context = setContext(context, 4096 /* InParameter */);
                 if (state & 1 /* Generator */)
                     context = context | 2048 /* Yield */;
-                if (state & 4 /* Async */)
+                if (state & 8 /* Async */)
                     context = context | 1024 /* Async */;
                 // `new.target` disallowed for arrows in global scope
                 if (!(state & 4 /* Arrow */))
@@ -1775,7 +1776,7 @@ System.register([], function (exports, module) {
                     left = [parseIdentifier(parser, context)];
                 }
                 if (parser.token === 33554439 /* Arrow */) {
-                    return parseArrowFunction(parser, context, isAsync ? 4 /* Async */ : 0 /* None */, left);
+                    return parseArrowFunction(parser, context, isAsync ? 8 /* Async */ | 4 /* Arrow */ : 4 /* Arrow */, left);
                 }
                 if ((parser.token & 134217728 /* IsAssignOp */) === 134217728 /* IsAssignOp */) {
                     if ((parser.flags & 4 /* Assignable */) !== 4 /* Assignable */)
@@ -1937,7 +1938,7 @@ System.register([], function (exports, module) {
             function parseLeftHandSideExpression(parser, context) {
                 // LeftHandSideExpression ::
                 //   (NewExpression | MemberExpression) ...
-                let expr = parsePrimaryExpression(parser, context | 32768 /* In */);
+                let expr = parser.token === 8279 /* NewKeyword */ ? parseNewExpression(parser, context) : parsePrimaryExpression(parser, context | 32768 /* In */);
                 while (true) {
                     switch (parser.token) {
                         case 33554448 /* LeftBracket */:
@@ -1986,6 +1987,45 @@ System.register([], function (exports, module) {
                             return expr;
                     }
                 }
+            }
+            /**
+             * Parse meta property
+             *
+             * @see [Link](https://tc39.github.io/ecma262/#prod-StatementList)
+             *
+             * @param parser Parser object
+             * @param context Context masks
+             * @param meta Identifier
+             * @param pos Location
+             */
+            function parseMetaProperty(parser, context, meta) {
+                return {
+                    meta,
+                    type: 'MetaProperty',
+                    property: parseIdentifier(parser, context),
+                };
+            }
+            /**
+             * Parse new expression
+             *
+             * @see [Link](https://tc39.github.io/ecma262/#prod-NewExpression)
+             *
+             * @param parser Parser object
+             * @param context Context masks
+             */
+            function parseNewExpression(parser, context) {
+                const id = parseIdentifier(parser, context);
+                if (consume(parser, context, 33554442 /* Period */)) {
+                    if ((context & 8192 /* NewTarget */) === 8192 /* NewTarget */ && parser.tokenValue === 'target') {
+                        return parseMetaProperty(parser, context, id);
+                    }
+                    recordErrors(parser, 28 /* UnexpectedNewTarget */);
+                }
+                return {
+                    type: 'NewExpression',
+                    callee: parseLeftHandSideExpression(parser, context),
+                    arguments: parser.token === 33554440 /* LeftParen */ ? parseArgumentList(parser, context) : [],
+                };
             }
             /**
              * Parse argument list
@@ -2077,7 +2117,7 @@ System.register([], function (exports, module) {
                     body,
                     params,
                     id: null,
-                    async: !!(state & 4 /* Async */),
+                    async: !!(state & 8 /* Async */),
                     generator: false,
                     expression,
                 };
@@ -2194,7 +2234,7 @@ System.register([], function (exports, module) {
                     type: 'FunctionExpression',
                     body,
                     params,
-                    async: !!(state & 4 /* Async */),
+                    async: !!(state & 8 /* Async */),
                     generator: !!(isGenerator & 1 /* Generator */),
                     expression: false,
                     id
