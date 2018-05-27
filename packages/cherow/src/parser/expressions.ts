@@ -4,6 +4,7 @@ import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
 import { parseDelimitedBindingList, parseBindingIdentifier } from './pattern';
 import { parseStatementListItem } from './statements';
+import { addCrossingBoundary, LabelState } from './label';
 import { Errors, recordErrors, } from '../errors';
 import {
     Context,
@@ -20,7 +21,7 @@ import {
     lookahead,
     nextTokenIsArrow,
     setGrammar,
-    reinterpret
+    reinterpret,
 } from '../common';
 
 /**
@@ -580,9 +581,21 @@ function parseFormalParameters(parser: Parser, context: Context) {
 function parseFunctionBody(parser: Parser, context: Context): any {
     const body: ESTree.Statement[] = [];
     expect(parser, context, Token.LeftBrace);
+    const previousSwitchStatement = parser.switchStatement;
+    const previousIterationStatement = parser.iterationStatement;
+    if ((parser.switchStatement & LabelState.Iteration) === LabelState.Iteration) {
+        parser.switchStatement = LabelState.CrossingBoundary;
+    }
+    if ((parser.iterationStatement & LabelState.Iteration) === LabelState.Iteration) {
+        parser.iterationStatement = LabelState.CrossingBoundary;
+    }
+    addCrossingBoundary(parser);
     while (parser.token !== Token.RightBrace) {
         body.push(parseStatementListItem(parser, context));
     }
+    parser.labelDepth--;
+    parser.switchStatement = previousSwitchStatement;
+    parser.iterationStatement = previousIterationStatement;
     expect(parser, context, Token.RightBrace);
     return {
         type: 'BlockStatement',

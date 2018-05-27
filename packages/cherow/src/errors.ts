@@ -23,7 +23,12 @@ export const enum Errors {
     SloppyFunction,
     UnNamedFunctionDecl,
     StrictModeWith,
-    AsyncFunctionInSingleStatementContext
+    AsyncFunctionInSingleStatementContext,
+    UnknownLabel,
+    LabelRedeclaration,
+    InvalidNestedStatement,
+    IllegalContinue,
+    IllegalBreak
 }
 /*@internal*/
 export const errorMessages: {
@@ -50,6 +55,11 @@ export const errorMessages: {
     [Errors.UnNamedFunctionDecl]: 'Function declaration must have a name in this context',
     [Errors.StrictModeWith]: 'Strict mode code may not include a with statement',
     [Errors.AsyncFunctionInSingleStatementContext]: 'Async functions can only be declared at the top level or inside a block',
+    [Errors.UnknownLabel]: 'Undefined label \'%0\'',
+    [Errors.LabelRedeclaration]: 'Label \'%0\' has already been declared',
+    [Errors.InvalidNestedStatement]: '%0  statement must be nested within an iteration statement',
+    [Errors.IllegalContinue]: 'Illegal continue statement: no surrounding iteration statement',
+    [Errors.IllegalBreak]: 'Illegal break statement',
 };
 
 export function constructError(index: number, line: number, column: number, description: string): void {
@@ -69,5 +79,5 @@ export function recordErrors(parser: Parser, type: Errors, ...params: string[]) 
     const message = errorMessages[type].replace(/%(\d+)/g, (_: string, i: number) => params[i]);
     const error = constructError(index, line, column, message);
     if (parser.onError) parser.onError(message, line, column);
-    // throw error;
+   // throw error;
 }

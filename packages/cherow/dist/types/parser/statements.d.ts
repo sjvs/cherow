@@ -42,14 +42,14 @@ export declare function parseStatement(parser: Parser, context: Context, label?:
  */
 export declare function parseDebuggerStatement(parser: Parser, context: Context): ESTree.DebuggerStatement;
 /**
-* Parses block statement
-*
-* @see [Link](https://tc39.github.io/ecma262/#prod-BlockStatement)
-* @see [Link](https://tc39.github.io/ecma262/#prod-Block)
-*
-* @param parser  Parser object
-* @param context Context masks
-*/
+ * Parses block statement
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-BlockStatement)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-Block)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
 export declare function parseBlockStatement(parser: Parser, context: Context): ESTree.BlockStatement;
 /**
  * Parses return statement
@@ -88,13 +88,13 @@ export declare function parseTryStatement(parser: Parser, context: Context): EST
  */
 export declare function parseCatchBlock(parser: Parser, context: Context): any;
 /**
-* Parses throw statement
-*
-* @see [Link](https://tc39.github.io/ecma262/#prod-ThrowStatement)
-*
-* @param parser  Parser object
-* @param context Context masks
-*/
+ * Parses throw statement
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ThrowStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
 export declare function parseThrowStatement(parser: Parser, context: Context): ESTree.ThrowStatement;
 /**
  * Parses either expression or labelled statement
@@ -145,11 +145,11 @@ export declare function parseCaseOrDefaultClauses(parser: Parser, context: Conte
  */
 export declare function parseIfStatement(parser: Parser, context: Context): ESTree.IfStatement;
 /**
-* Parses do while statement
-*
-* @param parser  Parser object
-* @param context Context masks
-*/
+ * Parses do while statement
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
 export declare function parseDoWhileStatement(parser: Parser, context: Context): ESTree.DoWhileStatement;
 /**
  * Parses while statement
@@ -161,13 +161,13 @@ export declare function parseDoWhileStatement(parser: Parser, context: Context):
  */
 export declare function parseWhileStatement(parser: Parser, context: Context): ESTree.WhileStatement;
 /**
-* Parses the continue statement production
-*
-* @see [Link](https://tc39.github.io/ecma262/#prod-ContinueStatement)
-*
-* @param parser  Parser object
-* @param context Context masks
-*/
+ * Parses the continue statement production
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ContinueStatement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
 export declare function parseContinueStatement(parser: Parser, context: Context): ESTree.ContinueStatement;
 /**
  * Parses the break statement production

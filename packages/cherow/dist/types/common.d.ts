@@ -80,13 +80,21 @@ export declare function consume(parser: Parser, context: Context, token: Token):
  */
 export declare function consumeSemicolon(parser: Parser, context: Context): void | boolean;
 /**
- * Does a lookahead.
+ * Does a lookahead
  *
  * @param parser Parser object
  * @param context  Context masks
  * @param callback Callback function to be invoked
+ * @param isLookahead  If set to false, the parser will not rewind
  */
-export declare function lookahead<T>(parser: Parser, context: Context, callback: (parser: Parser, context: Context) => T): T;
+export declare function lookahead<T>(parser: Parser, context: Context, callback: (parser: Parser, context: Context) => T, isLookahead?: boolean): T;
+/**
+ * Validates if the next token in the stream is a function keyword on the same line.
+ *
+ * @param parser Parser object
+ * @param context  Context masks
+ */
+export declare function nextTokenIsFuncKeywordOnSameLine(parser: Parser, context: Context): boolean;
 /**
 * Validates if the next token in the stream is left parenthesis.
 *

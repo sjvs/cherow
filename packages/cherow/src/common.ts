@@ -264,4 +264,3 @@ export function reinterpret(parser: Parser, node: any): void {
         default: // ignore
     }
 }
-

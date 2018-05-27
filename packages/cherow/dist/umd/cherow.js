@@ -147,6 +147,12 @@
         [17 /* SloppyFunction */]: 'In non-strict mode code, functions can only be declared at top level, inside a block, or as the body of an if statement',
         [18 /* UnNamedFunctionDecl */]: 'Function declaration must have a name in this context',
         [19 /* StrictModeWith */]: 'Strict mode code may not include a with statement',
+        [20 /* AsyncFunctionInSingleStatementContext */]: 'Async functions can only be declared at the top level or inside a block',
+        [21 /* UnknownLabel */]: 'Undefined label \'%0\'',
+        [22 /* LabelRedeclaration */]: 'Label \'%0\' has already been declared',
+        [23 /* InvalidNestedStatement */]: '%0  statement must be nested within an iteration statement',
+        [24 /* IllegalContinue */]: 'Illegal continue statement: no surrounding iteration statement',
+        [25 /* IllegalBreak */]: 'Illegal break statement',
     };
     function constructError(index, line, column, description) {
         const error = new SyntaxError(`Line ${line}, column ${column}: ${description}`);
@@ -388,7 +394,7 @@
             }
         }
         // Unterminated string literal
-        recordErrors(parser, 2 /* UnterminatedString */);
+        recordErrors(parser, 3 /* UnterminatedString */);
         return 65536 /* Invalid */;
     }
     /**
@@ -413,7 +419,7 @@
     function recordStringErrors(parser, code) {
         if (code === -1 /* Empty */)
             return;
-        recordErrors(parser, 2 /* UnterminatedString */);
+        recordErrors(parser, 3 /* UnterminatedString */);
         return 65536 /* Invalid */;
     }
     const table = new Array(128).fill(nextUnicodeChar);
@@ -455,12 +461,12 @@
                     if (next < 48 /* Zero */ || next > 55 /* Seven */) {
                         // Strict mode code allows only \0, then a non-digit.
                         if (code !== 0 || next === 56 /* Eight */ || next === 57 /* Nine */) {
-                            if (context & 16 /* Strict */)
+                            if (context & 64 /* Strict */)
                                 return -2 /* StrictOctal */;
                             parser.flags |= 2 /* HasOctal */;
                         }
                     }
-                    else if (context & 16 /* Strict */) {
+                    else if (context & 64 /* Strict */) {
                         return -2 /* StrictOctal */;
                     }
                     else {
@@ -483,7 +489,7 @@
         table[53 /* Five */] =
             table[54 /* Six */] =
                 table[55 /* Seven */] = (parser, context, first) => {
-                    if (context & 16 /* Strict */)
+                    if (context & 64 /* Strict */)
                         return -2 /* StrictOctal */;
                     let code = first - 48 /* Zero */;
                     const index = parser.index + 1;
@@ -721,7 +727,7 @@
      * @param context Context masks
      */
     function scanImplicitOctalDigits(parser, context) {
-        if (context & 16 /* Strict */)
+        if (context & 64 /* Strict */)
             recordErrors(parser, 0 /* Unexpected */);
         let next = parser.source.charCodeAt(parser.index);
         let value = 0;
@@ -1150,30 +1156,41 @@
             ? consume(parser, context, 33685518 /* Semicolon */)
             : recordErrors(parser, 0 /* Unexpected */);
     }
-    // WIP!! The lookahead will be replaced no point to rewind
-    // if we got a match
     /**
-     * Does a lookahead.
+     * Does a lookahead
      *
      * @param parser Parser object
      * @param context  Context masks
      * @param callback Callback function to be invoked
+     * @param isLookahead  If set to false, the parser will not rewind
      */
-    function lookahead(parser, context, callback) {
+    function lookahead(parser, context, callback, isLookahead = true) {
         const { tokenValue, flags, line, column, index, startIndex, tokenRaw, token, tokenRegExp, } = parser;
-        const res = callback(parser, context);
-        parser.index = index;
-        parser.token = token;
-        parser.tokenValue = tokenValue;
-        parser.tokenValue = tokenValue;
-        parser.flags = flags;
-        parser.line = line;
-        parser.column = column;
-        parser.tokenRaw = tokenRaw;
-        parser.startIndex = startIndex;
-        parser.tokenRegExp = tokenRegExp;
-        parser.tokenRegExp = tokenRegExp;
-        return res;
+        const result = callback(parser, context);
+        if (!result || isLookahead) {
+            parser.index = index;
+            parser.token = token;
+            parser.tokenValue = tokenValue;
+            parser.tokenValue = tokenValue;
+            parser.flags = flags;
+            parser.line = line;
+            parser.column = column;
+            parser.tokenRaw = tokenRaw;
+            parser.startIndex = startIndex;
+            parser.tokenRegExp = tokenRegExp;
+            parser.tokenRegExp = tokenRegExp;
+        }
+        return result;
+    }
+    /**
+     * Validates if the next token in the stream is a function keyword on the same line.
+     *
+     * @param parser Parser object
+     * @param context  Context masks
+     */
+    function nextTokenIsFuncKeywordOnSameLine(parser, context) {
+        nextToken(parser, context);
+        return !(parser.flags & 1 /* NewLine */) && parser.token === 8276 /* FunctionKeyword */;
     }
     /**
     * Validates if the next token in the stream is left parenthesis.
@@ -1606,6 +1623,102 @@
         }
         return type & 14 /* Variable */ ?
             parseVariableDeclaration(left, null) : left;
+    }
+
+    /**
+     * Returns true if start of an iteration statement
+     *
+     * @param parser Parser object
+     */
+    function isIterationStatement(parser) {
+        return parser.token === 8286 /* WhileKeyword */ || parser.token === 8270 /* DoKeyword */ || parser.token === 8275 /* ForKeyword */;
+    }
+    /**
+     * Add label to the stack
+     *
+     * @param parser Parser object
+     * @param label Label to be added
+     */
+    function addLabel(parser, label) {
+        if (!parser.labelSet)
+            parser.labelSet = {};
+        parser.labelSet[label] = true;
+        parser.labelSetStack[parser.labelDepth] = parser.labelSet;
+        parser.iterationStack[parser.labelDepth] = isIterationStatement(parser);
+        parser.labelSet = undefined;
+        parser.labelDepth++;
+    }
+    /**
+     * Add label
+     *
+     * @param parser Parser object
+     * @param label Label to be added
+     */
+    function addCrossingBoundary(parser) {
+        parser.labelSetStack[parser.labelDepth] = parser.functionBoundarySentinel;
+        parser.iterationStack[parser.labelDepth] = 0 /* Empty */;
+        parser.labelDepth++;
+    }
+    /**
+     * Validates continue statement
+     *
+     * @param parser Parser object
+     * @param label Label
+     */
+    function validateContinueLabel(parser, label) {
+        const state = getLabel(parser, label, true);
+        if ((state & 1 /* Iteration */) !== 1 /* Iteration */) {
+            if (state & 2 /* CrossingBoundary */) {
+                recordErrors(parser, 23 /* InvalidNestedStatement */);
+            }
+            else {
+                recordErrors(parser, 21 /* UnknownLabel */, label);
+            }
+        }
+    }
+    /**
+     * Validates break statement
+     *
+     * @param parser Parser object
+     * @param label Label
+     */
+    function validateBreakStatement(parser, label) {
+        const state = getLabel(parser, label);
+        if ((state & 1 /* Iteration */) !== 1 /* Iteration */)
+            recordErrors(parser, 21 /* UnknownLabel */, label);
+    }
+    /**
+     * Add label
+     *
+     * @param parser Parser object
+     * @param label Label to be added
+     */
+    function getLabel(parser, label, iterationStatement = false, stopAtFunctionBoundary = false) {
+        if (!iterationStatement && parser.labelSet && parser.labelSet[label] === true) {
+            return 1 /* Iteration */;
+        }
+        if (!parser.labelSetStack)
+            return 0 /* Empty */;
+        let breakBoundaries = false;
+        for (let i = parser.labelDepth - 1; i >= 0; i--) {
+            let labelSet = parser.labelSetStack[i];
+            if (labelSet === parser.functionBoundarySentinel) {
+                if (stopAtFunctionBoundary) {
+                    break;
+                }
+                else {
+                    breakBoundaries = true;
+                    continue;
+                }
+            }
+            if (iterationStatement && parser.iterationStack[i] === false) {
+                continue;
+            }
+            if (labelSet[label] === true) {
+                return breakBoundaries ? 2 /* CrossingBoundary */ : 1 /* Iteration */;
+            }
+        }
+        return 0 /* Empty */;
     }
 
     /**
@@ -2120,9 +2233,21 @@
     function parseFunctionBody(parser, context) {
         const body = [];
         expect(parser, context, 33554441 /* LeftBrace */);
+        const previousSwitchStatement = parser.switchStatement;
+        const previousIterationStatement = parser.iterationStatement;
+        if ((parser.switchStatement & 1 /* Iteration */) === 1 /* Iteration */) {
+            parser.switchStatement = 2 /* CrossingBoundary */;
+        }
+        if ((parser.iterationStatement & 1 /* Iteration */) === 1 /* Iteration */) {
+            parser.iterationStatement = 2 /* CrossingBoundary */;
+        }
+        addCrossingBoundary(parser);
         while (parser.token !== 33685516 /* RightBrace */) {
             body.push(parseStatementListItem(parser, context));
         }
+        parser.labelDepth--;
+        parser.switchStatement = previousSwitchStatement;
+        parser.iterationStatement = previousIterationStatement;
         expect(parser, context, 33685516 /* RightBrace */);
         return {
             type: 'BlockStatement',
@@ -2170,12 +2295,16 @@
      */
     function parseStatementListItem(parser, context) {
         switch (parser.token) {
+            case 8276 /* FunctionKeyword */:
+                return parseFunctionDeclaration(parser, context);
             case 8262 /* ConstKeyword */:
                 return parseVariableStatement(parser, context, 8 /* Const */);
             case 16453 /* LetKeyword */:
                 return parseLetOrExpressionStatement(parser, context);
             case 8282 /* SwitchKeyword */:
                 return parseSwitchStatement(parser, context);
+            case 4205 /* AsyncKeyword */:
+                return parseAsyncFunctionDeclarationOrStatement(parser, context);
             default:
                 return parseStatement(parser, context, 0 /* Allow */);
         }
@@ -2220,6 +2349,13 @@
                 return parseWithStatement(parser, context);
             case 8284 /* ThrowKeyword */:
                 return parseThrowStatement(parser, context);
+            case 4205 /* AsyncKeyword */:
+                if (lookahead(parser, context, nextTokenIsFuncKeywordOnSameLine, /* isLookaHead */ false)) {
+                    if (context & 32 /* OptionsEditorMode */)
+                        return parseFunctionDeclaration(parser, context, 4 /* Async */);
+                    recordErrors(parser, 20 /* AsyncFunctionInSingleStatementContext */);
+                }
+                return parseExpressionOrLabelledStatement(parser, context, label);
             case 8276 /* FunctionKeyword */:
                 // A function declaration has to be parsed out for 'editor mode'
                 if (context & 32 /* OptionsEditorMode */)
@@ -2247,14 +2383,14 @@
         };
     }
     /**
-    * Parses block statement
-    *
-    * @see [Link](https://tc39.github.io/ecma262/#prod-BlockStatement)
-    * @see [Link](https://tc39.github.io/ecma262/#prod-Block)
-    *
-    * @param parser  Parser object
-    * @param context Context masks
-    */
+     * Parses block statement
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-BlockStatement)
+     * @see [Link](https://tc39.github.io/ecma262/#prod-Block)
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
     function parseBlockStatement(parser, context) {
         const body = [];
         expect(parser, context, 33554441 /* LeftBrace */);
@@ -2277,9 +2413,9 @@
      */
     function parseReturnStatement(parser, context) {
         expect(parser, context, 8280 /* ReturnKeyword */);
-        const argument = (parser.token & 131072 /* ASI */) !== 131072 /* ASI */ && !(parser.flags & 1 /* NewLine */)
-            ? parseExpression(parser, context | 8192 /* In */)
-            : null;
+        const argument = (parser.token & 131072 /* ASI */) !== 131072 /* ASI */ && !(parser.flags & 1 /* NewLine */) ?
+            parseExpression(parser, context | 8192 /* In */) :
+            null;
         consumeSemicolon(parser, context);
         return {
             type: 'ReturnStatement',
@@ -2352,13 +2488,13 @@
         };
     }
     /**
-    * Parses throw statement
-    *
-    * @see [Link](https://tc39.github.io/ecma262/#prod-ThrowStatement)
-    *
-    * @param parser  Parser object
-    * @param context Context masks
-    */
+     * Parses throw statement
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-ThrowStatement)
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
     function parseThrowStatement(parser, context) {
         expect(parser, context, 8284 /* ThrowKeyword */);
         const argument = parseExpression(parser, context | 8192 /* In */);
@@ -2382,6 +2518,10 @@
         const expr = parseExpression(parser, context);
         if (token & (8388608 /* Identifier */ | 8417280 /* IsKeyword */) && parser.token === 33554450 /* Colon */) {
             expect(parser, context, 33554450 /* Colon */);
+            if (getLabel(parser, expr.name, false, true)) {
+                recordErrors(parser, 22 /* LabelRedeclaration */, expr.name);
+            }
+            addLabel(parser, expr.name);
             let body = null;
             if (parser.token === 8276 /* FunctionKeyword */ && !(context & 64 /* Strict */) &&
                 label === 0 /* Allow */) {
@@ -2389,6 +2529,7 @@
             }
             else
                 body = parseStatement(parser, context, 0 /* Allow */);
+            parser.labelDepth--;
             return {
                 type: 'LabeledStatement',
                 label: expr,
@@ -2411,9 +2552,9 @@
      * @param context Context masks
      */
     function parseLetOrExpressionStatement(parser, context) {
-        return lookahead(parser, context, isLexical)
-            ? parseVariableStatement(parser, context, 4 /* Let */)
-            : parseExpressionOrLabelledStatement(parser, context, 1 /* Disallow */);
+        return lookahead(parser, context, isLexical) ?
+            parseVariableStatement(parser, context, 4 /* Let */) :
+            parseExpressionOrLabelledStatement(parser, context, 1 /* Disallow */);
     }
     /**
      * Parses variable statement
@@ -2505,7 +2646,10 @@
                 update = parseExpression(parser, context | 8192 /* In */);
         }
         expect(parser, context, 33554445 /* RightParen */);
-        const body = parseStatement(parser, context);
+        const previousIterationStatement = parser.iterationStatement;
+        parser.iterationStatement = 1 /* Iteration */;
+        const body = parseStatement(parser, context, 1 /* Disallow */);
+        parser.iterationStatement = previousIterationStatement;
         return type === 'ForOfStatement' ? {
             type,
             body,
@@ -2543,6 +2687,8 @@
         expect(parser, context, 33554441 /* LeftBrace */);
         const cases = [];
         let seenDefault = false;
+        const previousSwitchStatement = parser.switchStatement;
+        parser.switchStatement = 1 /* Iteration */;
         while (parser.token !== 33685516 /* RightBrace */) {
             let test = null;
             if (consume(parser, context, 8264 /* CaseKeyword */)) {
@@ -2556,6 +2702,7 @@
             }
             cases.push(parseCaseOrDefaultClauses(parser, context, test));
         }
+        parser.switchStatement = previousSwitchStatement;
         expect(parser, context, 33685516 /* RightBrace */);
         return {
             type: 'SwitchStatement',
@@ -2612,19 +2759,22 @@
      * @param context Context masks
      */
     function parseConsequentOrAlternate(parser, context) {
-        return context & 64 /* Strict */ || parser.token !== 8276 /* FunctionKeyword */
-            ? parseStatement(parser, context)
-            : parseFunctionDeclaration(parser, context);
+        return context & 64 /* Strict */ || parser.token !== 8276 /* FunctionKeyword */ ?
+            parseStatement(parser, context) :
+            parseFunctionDeclaration(parser, context);
     }
     /**
-    * Parses do while statement
-    *
-    * @param parser  Parser object
-    * @param context Context masks
-    */
+     * Parses do while statement
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
     function parseDoWhileStatement(parser, context) {
         expect(parser, context, 8270 /* DoKeyword */);
+        const previousIterationStatement = parser.iterationStatement;
+        parser.iterationStatement = 1 /* Iteration */;
         const body = parseStatement(parser, context, 1 /* Disallow */);
+        parser.iterationStatement = previousIterationStatement;
         expect(parser, context, 8286 /* WhileKeyword */);
         expect(parser, context, 33554440 /* LeftParen */);
         const test = parseExpression(parser, context | 8192 /* In */);
@@ -2649,7 +2799,10 @@
         expect(parser, context, 33554440 /* LeftParen */);
         const test = parseExpression(parser, context | 8192 /* In */);
         expect(parser, context, 33554445 /* RightParen */);
+        const previousIterationStatement = parser.iterationStatement;
+        parser.iterationStatement = 1 /* Iteration */;
         const body = parseStatement(parser, context, 1 /* Disallow */);
+        parser.iterationStatement = previousIterationStatement;
         return {
             type: 'WhileStatement',
             test,
@@ -2657,23 +2810,24 @@
         };
     }
     /**
-    * Parses the continue statement production
-    *
-    * @see [Link](https://tc39.github.io/ecma262/#prod-ContinueStatement)
-    *
-    * @param parser  Parser object
-    * @param context Context masks
-    */
+     * Parses the continue statement production
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-ContinueStatement)
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
     function parseContinueStatement(parser, context) {
         expect(parser, context, 8267 /* ContinueKeyword */);
         let label = null;
-        if (!(parser.flags & 1 /* NewLine */) &&
-            parser.token !== 33685518 /* Semicolon */ &&
-            parser.token !== 33685516 /* RightBrace */ &&
-            parser.token !== 131072 /* EndOfSource */) {
+        if (!(parser.flags & 1 /* NewLine */) && parser.token & (8388608 /* Identifier */ | 8417280 /* IsKeyword */)) {
             label = parseIdentifier(parser, context);
+            validateContinueLabel(parser, label.name);
         }
         consumeSemicolon(parser, context);
+        if (label === null && (parser.iterationStatement & 0 /* Empty */) !== 0 /* Empty */) {
+            recordErrors(parser, 24 /* IllegalContinue */);
+        }
         return {
             type: 'ContinueStatement',
             label
@@ -2690,11 +2844,13 @@
     function parseBreakStatement(parser, context) {
         expect(parser, context, 8263 /* BreakKeyword */);
         let label = null;
-        if (!(parser.flags & 1 /* NewLine */) &&
-            parser.token !== 33685518 /* Semicolon */ &&
-            parser.token !== 33685516 /* RightBrace */ &&
-            parser.token !== 131072 /* EndOfSource */) {
+        if (!(parser.flags & 1 /* NewLine */) && parser.token & (8388608 /* Identifier */ | 8417280 /* IsKeyword */)) {
             label = parseIdentifier(parser, context);
+            validateBreakStatement(parser, label.name);
+        }
+        else if ((parser.iterationStatement & 0 /* Empty */) !== 0 /* Empty */ &&
+            (parser.switchStatement & 0 /* Empty */) !== 0 /* Empty */) {
+            recordErrors(parser, 25 /* IllegalBreak */);
         }
         consumeSemicolon(parser, context);
         return {
@@ -2724,6 +2880,20 @@
             body
         };
     }
+    /**
+     * Parses either async function declaration or statement
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-AsyncFunctionDeclaration)
+     * @see [Link](https://tc39.github.io/ecma262/#prod-Statement)
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
+    function parseAsyncFunctionDeclarationOrStatement(parser, context) {
+        return lookahead(parser, context, nextTokenIsFuncKeywordOnSameLine, /* isLookaHead */ false) ?
+            parseFunctionDeclaration(parser, context, 4 /* Async */) :
+            parseStatement(parser, context);
+    }
 
     function createParserObject(source, errCallback) {
         return {
@@ -2742,6 +2912,13 @@
             tokenRaw: '',
             tokenRegExp: undefined,
             onError: errCallback,
+            functionBoundarySentinel: undefined,
+            labelSet: undefined,
+            labelSetStack: [],
+            iterationStack: [],
+            labelDepth: 0,
+            switchStatement: 0 /* Empty */,
+            iterationStatement: 0 /* Empty */
         };
     }
     /**

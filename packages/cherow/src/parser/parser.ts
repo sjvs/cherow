@@ -1,5 +1,6 @@
 import { Token } from '../token';
 import { Context, Flags } from '../common';
+import { LabelState } from './label';
 import { Parser } from '../types';
 import * as ESTree from '../estree';
 import { parseStatementList } from './statements';
@@ -21,6 +22,13 @@ export function createParserObject(source: string, errCallback?: any): Parser {
         tokenRaw: '',
         tokenRegExp: undefined,
         onError: errCallback,
+        functionBoundarySentinel: undefined,
+        labelSet: undefined,
+        labelSetStack: [],
+        iterationStack: [],
+        labelDepth: 0,
+        switchStatement: LabelState.Empty,
+        iterationStatement: LabelState.Empty
     };
 }
 
