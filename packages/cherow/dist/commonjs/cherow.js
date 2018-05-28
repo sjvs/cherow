@@ -257,9 +257,6 @@ const fromCodePoint = (code) => {
 function isValidIdentifierPart(code) {
     return (convert[(code >>> 5) + 0] >>> code & 31 & 1) !== 0;
 }
-function isValidIdentifierStart(code) {
-    return (convert[(code >>> 5) + 34816] >>> code & 31 & 1) !== 0;
-}
 const convert = ((compressed, lookup) => {
     const result = new Uint32Array(104448);
     let index = 0;
@@ -733,7 +730,7 @@ function scanBinaryDigits(parser) {
  * @param context Context masks
  */
 function scanImplicitOctalDigits(parser, context) {
-    if (context & 64 /* Strict */)
+    if (context & 16 /* Strict */)
         recordErrors(parser, 0 /* Unexpected */);
     let next = parser.source.charCodeAt(parser.index);
     let value = 0;
@@ -781,32 +778,36 @@ table$1[8232 /* LineSeparator */] =
                 return 524288 /* WhiteSpace */;
             };
 /** Punctuators */
+function mapToToken(token) {
+    return () => {
+        //    parser.index++;parser.column++;
+        return token;
+    };
+}
 // `,`
-table$1[44 /* Comma */] = () => 33554447 /* Comma */;
+table$1[44 /* Comma */] = mapToToken(33554447 /* Comma */);
 // `~`
-table$1[126 /* Tilde */] = () => 570425387 /* Complement */;
+table$1[126 /* Tilde */] = mapToToken(570425387 /* Complement */);
 // `?`
-table$1[63 /* QuestionMark */] = () => 33554451 /* QuestionMark */;
+table$1[63 /* QuestionMark */] = mapToToken(33554451 /* QuestionMark */);
 // `[`
-table$1[91 /* LeftBracket */] = () => 33554448 /* LeftBracket */;
+table$1[91 /* LeftBracket */] = mapToToken(33554448 /* LeftBracket */);
 // `]`
-table$1[93 /* RightBracket */] = () => 33554449 /* RightBracket */;
+table$1[93 /* RightBracket */] = mapToToken(33554449 /* RightBracket */);
 // `{`
-table$1[123 /* LeftBrace */] = () => 33554441 /* LeftBrace */;
+table$1[123 /* LeftBrace */] = mapToToken(33554441 /* LeftBrace */);
 // `}`
-table$1[125 /* RightBrace */] = () => 33685516 /* RightBrace */;
+table$1[125 /* RightBrace */] = mapToToken(33685516 /* RightBrace */);
 // `:`
-table$1[58 /* Colon */] = () => 33554450 /* Colon */;
+table$1[58 /* Colon */] = mapToToken(33554450 /* Colon */);
 // `;`
-table$1[59 /* Semicolon */] = () => 33685518 /* Semicolon */;
+table$1[59 /* Semicolon */] = mapToToken(33685518 /* Semicolon */);
 // `(`
-table$1[40 /* LeftParen */] = () => 33554440 /* LeftParen */;
+table$1[40 /* LeftParen */] = mapToToken(33554440 /* LeftParen */);
 // `)`
-table$1[41 /* RightParen */] = () => 33554445 /* RightParen */;
+table$1[41 /* RightParen */] = mapToToken(33554445 /* RightParen */);
 // `"`, `'`
-table$1[39 /* SingleQuote */] = table$1[34 /* DoubleQuote */] = (parser, context, first) => {
-    return scanStringLiteral(parser, context, first);
-};
+table$1[39 /* SingleQuote */] = table$1[34 /* DoubleQuote */] = scanStringLiteral;
 // `0`
 table$1[48 /* Zero */] = parseLeadingZero;
 // `/`, `/=`, `/>`
@@ -1057,11 +1058,7 @@ table$1[62 /* GreaterThan */] = (parser) => {
     return 301991741 /* GreaterThan */;
 };
 // `A`...`Z`
-for (let i = 65 /* UpperA */; i < 90 /* UpperZ */; i++) {
-    table$1[i] = scanIdentifier;
-}
-// `a`...`z`
-for (let i = 97 /* LowerA */; i < 122 /* LowerZ */; i++) {
+for (let i = 65 /* UpperA */; i <= 90 /* UpperZ */; i++) {
     table$1[i] = scanIdentifier;
 }
 // `\\u{N}var`
@@ -1101,7 +1098,7 @@ function scan(parser, context) {
     while (parser.index < parser.length) {
         parser.startIndex = parser.index;
         const first = parser.source.charCodeAt(parser.index);
-        if (isValidIdentifierStart(first)) {
+        if (first === 36 /* Dollar */ || (first >= 97 /* LowerA */ && first <= 122 /* LowerZ */)) {
             return scanIdentifier(parser);
         }
         else {
@@ -2520,7 +2517,7 @@ function parseStatement(parser, context, label = 1 /* Disallow */) {
         case 4205 /* AsyncKeyword */:
             if (lookahead(parser, context, nextTokenIsFuncKeywordOnSameLine, /* isLookaHead */ false)) {
                 if (context & 32 /* OptionsEditorMode */)
-                    return parseFunctionDeclaration(parser, context, 4 /* Async */);
+                    return parseFunctionDeclaration(parser, context, 8 /* Async */);
                 recordErrors(parser, 20 /* AsyncFunctionInSingleStatementContext */);
             }
             return parseExpressionOrLabelledStatement(parser, context, label);
@@ -3066,7 +3063,7 @@ function parseWithStatement(parser, context) {
  */
 function parseAsyncFunctionDeclarationOrStatement(parser, context) {
     return lookahead(parser, context, nextTokenIsFuncKeywordOnSameLine, /* isLookaHead */ false) ?
-        parseFunctionDeclaration(parser, context, 4 /* Async */) :
+        parseFunctionDeclaration(parser, context, 8 /* Async */) :
         parseStatement(parser, context);
 }
 /**
@@ -3125,7 +3122,7 @@ function parseSource(source, options, /*@internal*/ context, errCallback) {
     if (!!options) {
         // The flag to enable module syntax support
         if (options.module)
-            context |= 128 /* Module */;
+            context |= 256 /* Module */;
         // The flag to enable stage 3 support (ESNext)
         if (options.next)
             context |= 8 /* OptionsNext */;
@@ -3149,7 +3146,7 @@ function parseSource(source, options, /*@internal*/ context, errCallback) {
     const body = parseStatementList(parser, context);
     return {
         type: 'Program',
-        sourceType: context & 128 /* Module */ ? 'module' : 'script',
+        sourceType: context & 256 /* Module */ ? 'module' : 'script',
         body: body,
     };
 }
@@ -3187,7 +3184,7 @@ function parseScript(source, options, errCallback) {
  * @param options parser options
  */
 function parseModule(source, options, errCallback) {
-    return parseSource(source, options, 64 /* Strict */ | 128 /* Module */, errCallback);
+    return parseSource(source, options, 128 /* Strict */ | 256 /* Module */, errCallback);
 }
 
 const version = '1.6.5';

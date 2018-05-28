@@ -30,43 +30,47 @@ table[Chars.LineSeparator] =
     };
 
 /** Punctuators */
+function mapToToken(token: Token) {
+    return () => {
+    //    parser.index++;parser.column++;
+        return token;
+    };
+}
 
 // `,`
-table[Chars.Comma] = () => Token.Comma;
+table[Chars.Comma] = mapToToken(Token.Comma);
 
 // `~`
-table[Chars.Tilde] = () => Token.Complement;
+table[Chars.Tilde] = mapToToken(Token.Complement);
 // `?`
-table[Chars.QuestionMark] = () => Token.QuestionMark;
+table[Chars.QuestionMark] = mapToToken(Token.QuestionMark);
 
 // `[`
-table[Chars.LeftBracket] = () => Token.LeftBracket;
+table[Chars.LeftBracket] = mapToToken(Token.LeftBracket);
 
 // `]`
-table[Chars.RightBracket] = () => Token.RightBracket;
+table[Chars.RightBracket] =  mapToToken(Token.RightBracket);
 
 // `{`
-table[Chars.LeftBrace] = () => Token.LeftBrace;
+table[Chars.LeftBrace] =  mapToToken(Token.LeftBrace);
 
 // `}`
-table[Chars.RightBrace] = () => Token.RightBrace;
+table[Chars.RightBrace] =  mapToToken(Token.RightBrace);
 
 // `:`
-table[Chars.Colon] = () => Token.Colon;
+table[Chars.Colon] =  mapToToken(Token.Colon);
 
 // `;`
-table[Chars.Semicolon] = () => Token.Semicolon;
+table[Chars.Semicolon] =  mapToToken(Token.Semicolon);
 
 // `(`
-table[Chars.LeftParen] = () => Token.LeftParen;
+table[Chars.LeftParen] =  mapToToken(Token.LeftParen);
 
 // `)`
-table[Chars.RightParen] = () => Token.RightParen;
+table[Chars.RightParen] =  mapToToken(Token.RightParen);
 
 // `"`, `'`
-table[Chars.SingleQuote] = table[Chars.DoubleQuote] = (parser: Parser, context: Context, first: number) => {
-    return scanStringLiteral(parser, context, first);
-}
+table[Chars.SingleQuote] = table[Chars.DoubleQuote] = scanStringLiteral;
 
 // `0`
 table[Chars.Zero] = parseLeadingZero;
@@ -328,14 +332,8 @@ table[Chars.GreaterThan] = (parser: Parser) => {
 };
 
 // `A`...`Z`
-for (let i = Chars.UpperA; i < Chars.UpperZ; i++) {
-    table[i] = scanIdentifier;
-}
+for (let i = Chars.UpperA; i <= Chars.UpperZ; i++) { table[i] = scanIdentifier; }
 
-// `a`...`z`
-for (let i = Chars.LowerA; i < Chars.LowerZ; i++) {
-    table[i] = scanIdentifier;
-}
 // `\\u{N}var`
 table[Chars.Backslash] = scanIdentifier;
 
@@ -377,7 +375,7 @@ export function scan(parser: Parser, context: Context): Token {
     while (parser.index < parser.length) {
         parser.startIndex = parser.index;
         const first = parser.source.charCodeAt(parser.index);
-        if (isValidIdentifierStart(first)) {
+        if (first === Chars.Dollar || (first >= Chars.LowerA && first <= Chars.LowerZ)) {
             return scanIdentifier(parser);
         } else {
             parser.index++; parser.column++;
