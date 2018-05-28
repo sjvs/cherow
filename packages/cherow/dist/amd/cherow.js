@@ -1931,7 +1931,7 @@ define('cherow', ['exports'], function (exports) { 'use strict';
     function parseLeftHandSideExpression(parser, context) {
         // LeftHandSideExpression ::
         //   (NewExpression | MemberExpression) ...
-        let expr = parseMemberWithNewPrefixesExpression(parser, context);
+        let expr = parseNewOrMemberExpression(parser, context);
         while (true) {
             switch (parser.token) {
                 case 33554448 /* LeftBracket */:
@@ -1959,19 +1959,20 @@ define('cherow', ['exports'], function (exports) { 'use strict';
                         };
                         break;
                     }
-                case 33554440 /* LeftParen */: {
-                    const args = parseArgumentList(parser, context);
-                    if (parser.token === 33554439 /* Arrow */) {
-                        parser.flags |= 16 /* SimpleParameterList */;
-                        return args;
+                case 33554440 /* LeftParen */:
+                    {
+                        const args = parseArgumentList(parser, context);
+                        if (parser.token === 33554439 /* Arrow */) {
+                            parser.flags |= 16 /* SimpleParameterList */;
+                            return args;
+                        }
+                        expr = {
+                            type: 'CallExpression',
+                            callee: expr,
+                            arguments: args,
+                        };
+                        break;
                     }
-                    expr = {
-                        type: 'CallExpression',
-                        callee: expr,
-                        arguments: args,
-                    };
-                    break;
-                }
                 case 67108869 /* TemplateSpan */:
                     break;
                 case 67108870 /* TemplateTail */:
@@ -1982,15 +1983,16 @@ define('cherow', ['exports'], function (exports) { 'use strict';
         }
     }
     /**
-     * Parse left hand side expression
+     * Parse new or member expression
      *
-     * @see [Link](https://tc39.github.io/ecma262/#prod-LeftHandSideExpression)
+     * @see [Link](https://tc39.github.io/ecma262/#prod-NewExpression)
+     * @see [Link](https://tc39.github.io/ecma262/#prod-NewExpression)
+     * @see [Link](https://tc39.github.io/ecma262/#prod-MemberExpression)
      *
-     * @param Parser Parer instance
-     * @param Context Contextmasks
-     * @param pos Location info
+     * @param parser Parser object
+     * @param context Context masks
      */
-    function parseMemberWithNewPrefixesExpression(parser, context) {
+    function parseNewOrMemberExpression(parser, context) {
         if (parser.token === 8279 /* NewKeyword */) {
             let result;
             const id = parseIdentifier(parser, context);
@@ -2003,7 +2005,7 @@ define('cherow', ['exports'], function (exports) { 'use strict';
                 return parseMemberExpressionContinuation(parser, context, result);
             }
             else {
-                result = parseMemberWithNewPrefixesExpression(parser, context);
+                result = parseNewOrMemberExpression(parser, context);
             }
             return {
                 type: 'NewExpression',
@@ -2177,8 +2179,6 @@ define('cherow', ['exports'], function (exports) { 'use strict';
             case 4194304 /* StringLiteral */:
             case 2097152 /* NumericLiteral */:
                 return parseLiteral(parser, context);
-            //case Token.NewKeyword:
-            //    return parseNewExpression(parser, context);
             default:
                 nextToken(parser, context);
         }

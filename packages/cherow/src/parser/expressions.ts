@@ -261,7 +261,7 @@ function parseUpdateExpression(parser: Parser, context: Context): any {
 export function parseLeftHandSideExpression(parser: Parser, context: Context): any {
     // LeftHandSideExpression ::
     //   (NewExpression | MemberExpression) ...
-    let expr = parseMemberWithNewPrefixesExpression(parser, context);
+    let expr = parseNewOrMemberExpression(parser, context);
 
     while (true) {
         switch (parser.token) {
@@ -316,18 +316,17 @@ export function parseLeftHandSideExpression(parser: Parser, context: Context): a
     }
 }
 
-
 /**
- * Parse left hand side expression
+ * Parse new or member expression
  *
- * @see [Link](https://tc39.github.io/ecma262/#prod-LeftHandSideExpression)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-NewExpression)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-NewExpression)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-MemberExpression)
  *
- * @param Parser Parer instance
- * @param Context Contextmasks
- * @param pos Location info
+ * @param parser Parser object
+ * @param context Context masks
  */
-
-export function parseMemberWithNewPrefixesExpression(parser: Parser, context: Context): any {
+export function parseNewOrMemberExpression(parser: Parser, context: Context): any {
     if (parser.token === Token.NewKeyword) {
         let result: any;
         const id = parseIdentifier(parser, context);
@@ -339,7 +338,7 @@ export function parseMemberWithNewPrefixesExpression(parser: Parser, context: Co
             result = parseNewTargetExpression(parser, context, id);
             return parseMemberExpressionContinuation(parser, context, result);
         } else {
-            result = parseMemberWithNewPrefixesExpression(parser, context);
+            result = parseNewOrMemberExpression(parser, context);
         }
         return {
             type: 'NewExpression',
@@ -350,9 +349,9 @@ export function parseMemberWithNewPrefixesExpression(parser: Parser, context: Co
     return parseMemberExpression(parser, context);
 }
 
-export function parseNewTargetExpression(parser: Parser, context: Context, id: any): any {
+export function parseNewTargetExpression(parser: Parser, context: Context, id: ESTree.Identifier): any {
     if ((context & Context.NewTarget) === Context.NewTarget && parser.tokenValue === 'target') {
-        return parseMetaProperty(parser, context, id as ESTree.Identifier);
+        return parseMetaProperty(parser, context, id);
     }
     recordErrors(parser, Errors.UnexpectedNewTarget);
 }
@@ -527,8 +526,6 @@ export function parsePrimaryExpression(parser: Parser, context: Context): any {
         case Token.StringLiteral:
         case Token.NumericLiteral:
             return parseLiteral(parser, context);
-            //case Token.NewKeyword:
-            //    return parseNewExpression(parser, context);
         default:
             nextToken(parser, context);
     }
