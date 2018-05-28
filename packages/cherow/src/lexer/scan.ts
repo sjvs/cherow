@@ -216,7 +216,7 @@ table[Chars.Period] = (parser: Parser) => {
 
 
 // `1`...`9`
-for (let i = Chars.One; i < Chars.Nine; i++) {
+for (let i = Chars.One; i <= Chars.Nine; i++) {
     table[i] = scanNumeric;
 }
 

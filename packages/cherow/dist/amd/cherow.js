@@ -950,7 +950,7 @@ define('cherow', ['exports'], function (exports) { 'use strict';
         return 33554442 /* Period */;
     };
     // `1`...`9`
-    for (let i = 49 /* One */; i < 57 /* Nine */; i++) {
+    for (let i = 49 /* One */; i <= 57 /* Nine */; i++) {
         table$1[i] = scanNumeric;
     }
     // `<`, `<=`, `<<`, `<<=`, `</`,  <!--
