@@ -31,4 +31,29 @@ describe('Statements - For Of', () => {
             }
         });
     });
+
+    pass('for await (a of b);', Context.Async, {
+        source: 'for await (a of b);',
+        expected: {
+            "type": "Program",
+            "sourceType": "script",
+            "body": [
+                {
+                    "type": "ForOfStatement",
+                    "body": {
+                        "type": "EmptyStatement"
+                    },
+                    "left": {
+                        "type": "Identifier",
+                        "name": "a"
+                    },
+                    "right": {
+                        "type": "Identifier",
+                        "name": "b"
+                    },
+                    "await": true
+                }
+            ]
+        }
+    });
 });

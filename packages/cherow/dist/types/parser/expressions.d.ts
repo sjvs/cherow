@@ -34,6 +34,17 @@ export declare function parseAssignmentExpression(parser: Parser, context: Conte
  * @param pos Location info
  */
 export declare function parseLeftHandSideExpression(parser: Parser, context: Context): any;
+/**
+ * Parse left hand side expression
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-LeftHandSideExpression)
+ *
+ * @param Parser Parer instance
+ * @param Context Contextmasks
+ * @param pos Location info
+ */
+export declare function parseMemberWithNewPrefixesExpression(parser: Parser, context: Context): any;
+export declare function parseNewTargetExpression(parser: Parser, context: Context, id: any): any;
 export declare function parsePrimaryExpression(parser: Parser, context: Context): any;
 export declare function parseIdentifier(parser: Parser, context: Context): ESTree.Identifier;
 export declare function parseLiteral(parser: Parser, context: Context): ESTree.Literal;

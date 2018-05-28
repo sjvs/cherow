@@ -7,6 +7,7 @@ import { scanIdentifier } from './identifier';
 import { skipSingleHTMLComment, skipSingleLineComment, skipMultilineComment } from './comments';
 import { scanStringLiteral } from './string';
 import { scanNumeric, parseFractionalNumber, parseLeadingZero } from './numeric';
+import { isValidIdentifierStart } from '../unicode';
 
 const table = new Array(128).fill(() => Token.EndOfSource) as any;
 
@@ -376,7 +377,7 @@ export function scan(parser: Parser, context: Context): Token {
     while (parser.index < parser.length) {
         parser.startIndex = parser.index;
         const first = parser.source.charCodeAt(parser.index);
-        if (first === Chars.Dollar || (first >= Chars.LowerA && first <= Chars.LowerZ)) {
+        if (isValidIdentifierStart(first)) {
             return scanIdentifier(parser);
         } else {
             parser.index++; parser.column++;

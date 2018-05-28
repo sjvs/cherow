@@ -258,29 +258,114 @@ function parseUpdateExpression(parser: Parser, context: Context): any {
  * @param Context Contextmasks
  * @param pos Location info
  */
-
 export function parseLeftHandSideExpression(parser: Parser, context: Context): any {
     // LeftHandSideExpression ::
     //   (NewExpression | MemberExpression) ...
+    let expr = parseMemberWithNewPrefixesExpression(parser, context);
 
-    if (parser.token === Token.ImportKeyword) {
-        return parseCallImportOrMetaProperty(parser, context);
+    while (true) {
+        switch (parser.token) {
+            case Token.LeftBracket:
+                {
+                    expect(parser, context, Token.LeftBracket);
+                    const property = parseExpression(parser, context);
+                    expect(parser, context, Token.RightBracket)
+                    expr = {
+                        type: 'MemberExpression',
+                        object: expr,
+                        computed: true,
+                        property,
+                    };
+                    break;
+                }
+
+            case Token.Period:
+                {
+                    expect(parser, context, Token.Period);
+                    const property = parseIdentifier(parser, context);
+
+                    expr = {
+                        type: 'MemberExpression',
+                        object: expr,
+                        computed: false,
+                        property,
+                    };
+                    break;
+                }
+            case Token.LeftParen:
+                {
+                    const args = parseArgumentList(parser, context);
+                    if (parser.token === Token.Arrow) {
+                        parser.flags |= Flags.SimpleParameterList;
+                        return args;
+                    }
+                    expr = {
+                        type: 'CallExpression',
+                        callee: expr,
+                        arguments: args,
+                    };
+                    break;
+                }
+            case Token.TemplateSpan:
+                break;
+            case Token.TemplateTail:
+                break;
+            default:
+                return expr;
+        }
     }
-    const expr = parseMemberExpression(parser, context | Context.In);
+}
 
-    return parseCallExpression(parser, context | Context.In, expr);
+
+/**
+ * Parse left hand side expression
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-LeftHandSideExpression)
+ *
+ * @param Parser Parer instance
+ * @param Context Contextmasks
+ * @param pos Location info
+ */
+
+export function parseMemberWithNewPrefixesExpression(parser: Parser, context: Context): any {
+    if (parser.token === Token.NewKeyword) {
+        let result: any;
+        const id = parseIdentifier(parser, context);
+        if (parser.token === Token.SuperKeyword) {
+            // TODO
+        } else if (parser.token === Token.ImportKeyword && lookahead(parser, context, nextTokenIsLeftParen)) {
+            recordErrors(parser, Errors.Unexpected)
+        } else if (consume(parser, context, Token.Period)) {
+            result = parseNewTargetExpression(parser, context, id);
+            return parseMemberExpressionContinuation(parser, context, result);
+        } else {
+            result = parseMemberWithNewPrefixesExpression(parser, context);
+        }
+        return {
+            type: 'NewExpression',
+            callee: result,
+            arguments: parser.token === Token.LeftParen ? parseArgumentList(parser, context) : [],
+        };
+    }
+    return parseMemberExpression(parser, context);
+}
+
+export function parseNewTargetExpression(parser: Parser, context: Context, id: any): any {
+    if ((context & Context.NewTarget) === Context.NewTarget && parser.tokenValue === 'target') {
+        return parseMetaProperty(parser, context, id as ESTree.Identifier);
+    }
+    recordErrors(parser, Errors.UnexpectedNewTarget);
 }
 
 /**
- * Parse either call expression or import expressions
+ * Parse Import() expressions. (Stage 3 proposal)
  *
  * @param parser Parser object
  * @param context Context masks
+ * @param pos Location
  */
-
-function parseCallImportOrMetaProperty(parser: Parser, context: Context): ESTree.Expression {
+function parseImportExpressions(parser: Parser, context: Context): ESTree.Expression {
     const id = parseIdentifier(parser, context);
-
     // Import.meta - Stage 3 proposal
     if (consume(parser, context, Token.Period)) {
         if (!(context & Context.Module) || parser.tokenValue !== 'meta') {
@@ -289,7 +374,7 @@ function parseCallImportOrMetaProperty(parser: Parser, context: Context): ESTree
         return parseMetaProperty(parser, context, id);
     }
 
-    let expr: any = parseImportExpression();
+    let expr: any = parseImportCall();
     expect(parser, context, Token.LeftParen);
     const args = parseAssignmentExpression(parser, context | Context.In);
     expect(parser, context, Token.RightParen);
@@ -305,7 +390,7 @@ function parseCallImportOrMetaProperty(parser: Parser, context: Context): ESTree
  * Parse Import() expression. (Stage 3 proposal)
  *
  */
-function parseImportExpression(): ESTree.ImportExpression {
+function parseImportCall(): ESTree.ImportExpression {
     return {
         type: 'Import',
     };
@@ -324,14 +409,26 @@ function parseImportExpression(): ESTree.ImportExpression {
 function parseMemberExpression(
     parser: Parser,
     context: Context,
-    expr: ESTree.CallExpression | ESTree.Expression = parsePrimaryExpression(parser, context),
 ): ESTree.Expression {
+    let result: any;
+    if (parser.token === Token.ImportKeyword) {
+        result = parseImportExpressions(parser, context);
+    } else {
+        result = parsePrimaryExpression(parser, context);
+    }
+
+    result = parseMemberExpressionContinuation(parser, context, result);
+    return result;
+}
+
+function parseMemberExpressionContinuation(parser: Parser, context: Context, expr: any) {
     while (true) {
         switch (parser.token) {
             case Token.LeftBracket:
                 {
                     expect(parser, context, Token.LeftBracket);
                     const property = parseExpression(parser, context);
+                    expect(parser, context, Token.RightBracket)
                     expr = {
                         type: 'MemberExpression',
                         object: expr,
@@ -345,6 +442,7 @@ function parseMemberExpression(
                 {
                     expect(parser, context, Token.Period);
                     const property = parseIdentifier(parser, context);
+
                     expr = {
                         type: 'MemberExpression',
                         object: expr,
@@ -357,41 +455,12 @@ function parseMemberExpression(
                 break;
             case Token.TemplateTail:
                 break;
+            case Token.Invalid:
             default:
                 return expr;
         }
     }
 }
-
-/**
- * Parse call expression
- *
- * @param parser Parer instance
- * @param context Context masks
- * @param expr Expression
- */
-function parseCallExpression(
-    parser: Parser,
-    context: Context,
-    expr: ESTree.Expression
-): ESTree.Expression | ESTree.CallExpression | (ESTree.Expression | ESTree.SpreadElement)[] {
-
-    while (true) {
-        expr = parseMemberExpression(parser, context, expr);
-        if (parser.token !== Token.LeftParen) return expr;
-        const args = parseArgumentList(parser, context);
-        if (parser.token === Token.Arrow) {
-            parser.flags |= Flags.SimpleParameterList;
-            return args;
-        }
-        expr = {
-            type: 'CallExpression',
-            callee: expr,
-            arguments: args,
-        };
-    }
-}
-
 /**
  * Parse meta property
  *
@@ -411,46 +480,6 @@ function parseMetaProperty(parser: Parser, context: Context, meta: ESTree.Identi
     };
 }
 
-/**
- * Parse new expression
- *
- * @see [Link](https://tc39.github.io/ecma262/#prod-NewExpression)
- *
- * @param parser Parser object
- * @param context Context masks
- */
-function parseNewExpression(parser: Parser, context: Context): ESTree.NewExpression | ESTree.MetaProperty {
-    const id = parseIdentifier(parser, context);
-    if (consume(parser, context, Token.Period)) {
-        if ((context & Context.NewTarget) === Context.NewTarget && parser.tokenValue === 'target') {
-            return parseMetaProperty(parser, context, id as ESTree.Identifier);
-        }
-        recordErrors(parser, Errors.UnexpectedNewTarget);
-    }
-
-    let callee: any = parseImportOrMemberExpression(parser, context);
-
-    while (true) {
-        callee = parseMemberExpression(parser, context, callee);
-        break;
-    }
-    return {
-        type: 'NewExpression',
-        callee,
-        arguments: parser.token === Token.LeftParen ? parseArgumentList(parser, context) : [],
-    };
-}
-
-function parseImportOrMemberExpression(parser: Parser, context: Context): ESTree.Expression {
-    const { token } = parser;
-    if (context & Context.OptionsNext && token === Token.ImportKeyword) {
-        // Invalid: '"new import(x)"'
-        if (lookahead(parser, context, nextTokenIsLeftParen)) recordErrors(parser, Errors.UnexpectedToken, tokenDesc(token));
-        // Fixes cases like ''new import.meta','
-        return parseCallImportOrMetaProperty(parser, context);
-    }
-    return parsePrimaryExpression(parser, context);
-}
 /**
  * Parse argument list
  *
@@ -498,8 +527,8 @@ export function parsePrimaryExpression(parser: Parser, context: Context): any {
         case Token.StringLiteral:
         case Token.NumericLiteral:
             return parseLiteral(parser, context);
-        case Token.NewKeyword:
-            return parseNewExpression(parser, context);
+            //case Token.NewKeyword:
+            //    return parseNewExpression(parser, context);
         default:
             nextToken(parser, context);
     }

@@ -11,19 +11,19 @@ describe('Miscellaneous - New target', () => {
             source: `() => {new.target }`,
             expected: {
                   "body": [
-                    {
+                   {
                       "expression": {
                         "async": false,
                         "body": {
                           "body": [
                             {
+                              "expression": undefined,
+                              "type": "ExpressionStatement",
+                            },
+                            {
                               "expression": {
-                                "arguments": [],
-                                "callee": {
-                                  "name": "target",
-                                  "type": "Identifier",
-                                },
-                                "type": "NewExpression",
+                               "name": "target",
+                                "type": "Identifier",
                               },
                               "type": "ExpressionStatement",
                             },
@@ -39,12 +39,9 @@ describe('Miscellaneous - New target', () => {
                       "type": "ExpressionStatement",
                     },
                   ],
-                  "sourceType": "script",
+                 "sourceType": "script",
                   "type": "Program"
                 }
-           
-        },  (msg: string) => {
-            t.equal(msg, 'new.target expression is not allowed here');
         });
     });
 
