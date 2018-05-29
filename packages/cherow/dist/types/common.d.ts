@@ -23,6 +23,7 @@ export declare const enum Context {
     Asi = 131072,
     RequireIdentifier = 262144,
     AllowSuperProperty = 524288,
+    Method = 1048576,
 }
 export declare const enum Flags {
     Empty = 0,

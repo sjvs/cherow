@@ -2040,7 +2040,9 @@ System.register([], function (exports, module) {
                 if (parser.token === 8279 /* NewKeyword */) {
                     let result;
                     const id = parseIdentifier(parser, context);
-                    if (parser.token === 8281 /* SuperKeyword */) ;
+                    if (parser.token === 8281 /* SuperKeyword */) {
+                        result = parseSuperProperty(parser, context);
+                    }
                     else if (parser.token === 8278 /* ImportKeyword */ && lookahead(parser, context, nextTokenIsLeftParen)) {
                         recordErrors(parser, 0 /* Unexpected */);
                     }
@@ -2113,15 +2115,25 @@ System.register([], function (exports, module) {
              */
             function parseMemberExpression(parser, context) {
                 let result;
-                if (parser.token === 8278 /* ImportKeyword */) {
+                if (parser.token === 8281 /* SuperKeyword */) {
+                    result = parseSuperProperty(parser, context);
+                }
+                else if (parser.token === 8278 /* ImportKeyword */) {
                     result = parseImportExpressions(parser, context);
                 }
                 else {
                     result = parsePrimaryExpression(parser, context);
                 }
-                result = parseMemberExpressionContinuation(parser, context, result);
-                return result;
+                return parseMemberExpressionContinuation(parser, context, result);
             }
+            /**
+             * Parse member expression continuation
+             *
+             * @param parser Parser object
+             * @param context Context masks
+             * @param pos Location info
+             * @param expr Expression
+             */
             function parseMemberExpressionContinuation(parser, context, expr) {
                 while (true) {
                     switch (parser.token) {
@@ -2159,6 +2171,37 @@ System.register([], function (exports, module) {
                             return expr;
                     }
                 }
+            }
+            /**
+             * Parse super property
+             *
+             * @see [Link](https://tc39.github.io/ecma262/#prod-SuperProperty)
+             *
+             * @param parser Parser object
+             * @param context Context masks
+             */
+            function parseSuperProperty(parser, context) {
+                // SuperProperty[Yield, Await]:
+                //  super[Expression[+In, ?Yield, ?Await]]
+                //  super.IdentifierName
+                expect(parser, context, 8281 /* SuperKeyword */);
+                switch (parser.token) {
+                    case 33554440 /* LeftParen */:
+                        // The super property has to be within a class constructor
+                        if (!(context & 524288 /* AllowSuperProperty */))
+                            recordErrors(parser, 0 /* Unexpected */);
+                        break;
+                    case 33554448 /* LeftBracket */:
+                    case 33554442 /* Period */:
+                        if (!(context & 1048576 /* Method */))
+                            recordErrors(parser, 0 /* Unexpected */);
+                        break;
+                    default:
+                        recordErrors(parser, 0 /* Unexpected */);
+                }
+                return {
+                    type: 'Super',
+                };
             }
             /**
              * Parse meta property
@@ -2210,24 +2253,54 @@ System.register([], function (exports, module) {
             }
             function parsePrimaryExpression(parser, context) {
                 switch (parser.token) {
-                    case 8276 /* FunctionKeyword */:
-                        return parseFunctionExpression(parser, context & ~1024 /* Async */);
-                    case 8276 /* FunctionKeyword */:
-                        return parseClassExpression(parser, context & ~1024 /* Async */);
-                    case 33554440 /* LeftParen */:
-                        return parseParenthesizedExpression(parser, context);
-                    case 33554448 /* LeftBracket */:
-                        return parseArrayLiteral(parser, context);
                     case 4205 /* AsyncKeyword */:
                     case 16453 /* LetKeyword */:
                     case 8388608 /* Identifier */:
                         return parseIdentifier(parser, context);
                     case 4194304 /* StringLiteral */:
+                        return parseLiteral(parser, context);
+                    case 2097275 /* BigInt */:
+                        return parseBigIntLiteral(parser, context);
                     case 2097152 /* NumericLiteral */:
                         return parseLiteral(parser, context);
+                    case 8193 /* FalseKeyword */:
+                    case 8194 /* TrueKeyword */:
+                    case 8396803 /* NullKeyword */:
+                        return parseNullOrTrueOrFalseLiteral(parser, context);
+                    case 8283 /* ThisKeyword */:
+                        return parseThisExpression(parser, context);
+                    case 8276 /* FunctionKeyword */:
+                        return parseFunctionExpression(parser, context & ~1024 /* Async */);
+                    case 33554441 /* LeftBrace */:
+                        return parseObjectLiteral(parser, context);
+                    case 8266 /* ClassKeyword */:
+                        return parseClassExpression(parser, context);
+                    case 33554440 /* LeftParen */:
+                        return parseParenthesizedExpression(parser, context);
+                    case 33554448 /* LeftBracket */:
+                        return parseArrayLiteral(parser, context);
                     default:
                         nextToken(parser, context);
                 }
+            }
+            /**
+             * Parses either null or boolean literal
+             *
+             * @see [Link](https://tc39.github.io/ecma262/#prod-BooleanLiteral)
+             *
+             * @param parser  Parser object
+             * @param context Context masks
+             */
+            function parseNullOrTrueOrFalseLiteral(parser, context) {
+                const { token } = parser;
+                const raw = tokenDesc(token);
+                parser.flags &= ~4 /* Assignable */;
+                nextToken(parser, context);
+                return {
+                    type: 'Literal',
+                    value: token === 8396803 /* NullKeyword */ ? null : raw === 'true',
+                };
+                // if (context & Context.OptionsRaw) node.raw = raw;
             }
             function parseIdentifier(parser, context) {
                 const { tokenValue } = parser;
@@ -2237,12 +2310,53 @@ System.register([], function (exports, module) {
                     name: tokenValue
                 };
             }
+            /**
+             * Parses string and number literal
+             *
+             * @see [Link](https://tc39.github.io/ecma262/#prod-NumericLiteral)
+             * @see [Link](https://tc39.github.io/ecma262/#prod-StringLiteral)
+             *
+             * @param parser  Parser object
+             * @param context Context masks
+             */
             function parseLiteral(parser, context) {
                 const { tokenValue } = parser;
+                parser.flags &= ~4 /* Assignable */;
                 nextToken(parser, context);
                 return {
                     type: 'Literal',
                     value: tokenValue
+                };
+            }
+            /**
+             * Parses BigInt literal (stage 3 proposal)
+             *
+             * @see [Link](https://tc39.github.io/proposal-bigint/)
+             *
+             * @param parser  Parser object
+             * @param context Context masks
+             */
+            function parseBigIntLiteral(parser, context) {
+                const { tokenValue, tokenRaw } = parser;
+                parser.flags &= ~4 /* Assignable */;
+                nextToken(parser, context);
+                return {
+                    type: 'Literal',
+                    value: tokenValue,
+                    bigint: tokenRaw,
+                };
+            }
+            /**
+             * Parse this expression
+             *
+             * @param parser Parser object
+             * @param context Context masks
+             */
+            function parseThisExpression(parser, context) {
+                nextToken(parser, context);
+                parser.flags &= ~4 /* Assignable */;
+                return {
+                    type: 'ThisExpression',
                 };
             }
             /**
@@ -2632,6 +2746,101 @@ System.register([], function (exports, module) {
                     generator: !!(state & 1 /* Generator */),
                     expression: false,
                     id: null,
+                };
+            }
+            /**
+             * Parses object literal
+             *
+             * @see [Link](https://tc39.github.io/ecma262/#prod-ObjectLiteral)
+             *
+             * @param parser Parser object
+             * @param context Context masks
+             */
+            function parseObjectLiteral(parser, context) {
+                expect(parser, context, 33554441 /* LeftBrace */);
+                const properties = [];
+                while (parser.token !== 33685516 /* RightBrace */) {
+                    properties.push(parser.token === 33554443 /* Ellipsis */ ?
+                        parseSpreadProperties(parser, context) :
+                        parsePropertyDefinition(parser, context));
+                    if (parser.token !== 33685516 /* RightBrace */)
+                        expect(parser, context, 33554447 /* Comma */);
+                }
+                expect(parser, context, 33685516 /* RightBrace */);
+                return {
+                    type: 'ObjectExpression',
+                    properties,
+                };
+            }
+            /**
+             * Parse object spread properties
+             *
+             * @see [Link](https://tc39.github.io/proposal-object-rest-spread/#Spread)
+             *
+             * @param parser Parser object
+             * @param context Context masks
+             */
+            function parseSpreadProperties(parser, context) {
+                expect(parser, context, 33554443 /* Ellipsis */);
+                const argument = parseAssignmentExpression(parser, context | 32768 /* In */);
+                return {
+                    type: 'SpreadElement',
+                    argument,
+                };
+            }
+            function parsePropertyDefinition(parser, context) {
+                let value;
+                let state = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ : 0 /* None */;
+                let token = parser.token;
+                let key = parsePropertyName(parser, context);
+                let kind = 'init';
+                let method = true;
+                let shorthand = false;
+                if (parser.token !== 33554440 /* LeftParen */) {
+                    if (token === 4205 /* AsyncKeyword */ && !(parser.flags & 1 /* NewLine */)) {
+                        token = parser.token;
+                        state = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ | 8 /* Async */ : 8 /* Async */;
+                        token = parser.token;
+                        key = parsePropertyName(parser, context);
+                        if (parser.token === 33554440 /* LeftParen */) {
+                            value = parseMethod(parser, context, state);
+                        }
+                    }
+                    else if (token === 4208 /* GetKeyword */ || token === 4209 /* SetKeyword */) {
+                        kind = token === 4208 /* GetKeyword */ ? 'get' : 'set';
+                        state = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ : 0 /* None */;
+                        token = parser.token;
+                        key = parsePropertyName(parser, context);
+                    }
+                }
+                if (parser.token === 33554440 /* LeftParen */) {
+                    value = parseMethod(parser, context, state);
+                }
+                else {
+                    method = false;
+                    if (parser.token === 33554450 /* Colon */) {
+                        expect(parser, context, 33554450 /* Colon */);
+                        value = parseAssignmentExpression(parser, context);
+                    }
+                    else {
+                        shorthand = true;
+                        if (parser.token === 167772186 /* Assign */) {
+                            expect(parser, context, 167772186 /* Assign */);
+                            value = parseAssignmentPattern(parser, context, key);
+                        }
+                        else {
+                            value = key;
+                        }
+                    }
+                }
+                return {
+                    type: 'Property',
+                    key,
+                    value,
+                    kind,
+                    computed: token === 33554448 /* LeftBracket */,
+                    method,
+                    shorthand,
                 };
             }
 

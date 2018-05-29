@@ -48,7 +48,25 @@ export declare function parseNewOrMemberExpression(parser: Parser, context: Cont
 export declare function parseNewTargetExpression(parser: Parser, context: Context, id: ESTree.Identifier): any;
 export declare function parsePrimaryExpression(parser: Parser, context: Context): any;
 export declare function parseIdentifier(parser: Parser, context: Context): ESTree.Identifier;
+/**
+ * Parses string and number literal
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-NumericLiteral)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-StringLiteral)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
 export declare function parseLiteral(parser: Parser, context: Context): ESTree.Literal;
+/**
+ * Parses BigInt literal (stage 3 proposal)
+ *
+ * @see [Link](https://tc39.github.io/proposal-bigint/)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export declare function parseBigIntLiteral(parser: Parser, context: Context): ESTree.BigIntLiteral;
 /**
  * Parses function expression
  *
@@ -119,3 +137,12 @@ export declare function parseClassBodyAndElementList(parser: Parser, context: Co
  * @param context Context masks
  */
 export declare function parseClassElement(parser: Parser, context: Context): any;
+/**
+ * Parses object literal
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ObjectLiteral)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+export declare function parseObjectLiteral(parser: Parser, context: Context): ESTree.ObjectExpression;

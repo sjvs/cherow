@@ -2,7 +2,7 @@ import { AssignmentProperty } from './../estree';
 import { Parser } from '../types';
 import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
-import { parseDelimitedBindingList, parseBindingIdentifier } from './pattern';
+import { parseAssignmentPattern, parseDelimitedBindingList, parseBindingIdentifier } from './pattern';
 import { parseStatementListItem } from './statements';
 import { Errors, recordErrors, } from '../errors';
 import {
@@ -573,8 +573,10 @@ export function parsePrimaryExpression(parser: Parser, context: Context): any {
             return parseThisExpression(parser, context);
         case Token.FunctionKeyword:
             return parseFunctionExpression(parser, context & ~Context.Async);
-        case Token.FunctionKeyword:
-            return parseClassExpression(parser, context & ~Context.Async);
+        case Token.LeftBrace:
+            return parseObjectLiteral(parser, context);
+        case Token.ClassKeyword:
+            return parseClassExpression(parser, context);
         case Token.LeftParen:
             return parseParenthesizedExpression(parser, context);
         case Token.LeftBracket:
@@ -1004,7 +1006,6 @@ export function parseClassElement(parser: Parser, context: Context): any {
 
     let kind = 'method';
     let isStatic = false;
-    let isAsync = false;
     let value: any;
     let state = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
     let token = parser.token;
@@ -1086,5 +1087,105 @@ function parseMethod(
         generator: !!(state & ModifierState.Generator),
         expression: false,
         id: null,
+    };
+}
+
+/**
+ * Parses object literal
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ObjectLiteral)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+
+export function parseObjectLiteral(parser: Parser, context: Context): ESTree.ObjectExpression {
+    expect(parser, context, Token.LeftBrace);
+    const properties: (ESTree.Property | ESTree.SpreadElement)[] = [];
+
+    while (parser.token !== Token.RightBrace) {
+        properties.push(parser.token === Token.Ellipsis ?
+            parseSpreadProperties(parser, context) :
+            parsePropertyDefinition(parser, context));
+        if (parser.token !== Token.RightBrace) expect(parser, context, Token.Comma);
+    }
+
+    expect(parser, context, Token.RightBrace);
+
+    return {
+        type: 'ObjectExpression',
+        properties,
+    };
+}
+/**
+ * Parse object spread properties
+ *
+ * @see [Link](https://tc39.github.io/proposal-object-rest-spread/#Spread)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+
+function parseSpreadProperties(parser: Parser, context: Context): ESTree.SpreadElement {
+    expect(parser, context, Token.Ellipsis);
+    const argument = parseAssignmentExpression(parser, context | Context.In);
+    return {
+        type: 'SpreadElement',
+        argument,
+    };
+}
+
+function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Property {
+    let value;
+    let state = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
+    let token = parser.token;
+    let key = parsePropertyName(parser, context);
+    let kind: any = 'init';
+    let method = true;
+    let shorthand = false;
+    if (parser.token !== Token.LeftParen) {
+
+        if (token === Token.AsyncKeyword && !(parser.flags & Flags.NewLine)) {
+            token = parser.token;
+            state = consume(parser, context, Token.Multiply) ? ModifierState.Generator | ModifierState.Async : ModifierState.Async;
+            token = parser.token;
+            key = parsePropertyName(parser, context);
+            if (parser.token === Token.LeftParen) {
+                value = parseMethod(parser, context, state);
+            }
+        } else if (token === Token.GetKeyword || token === Token.SetKeyword) {
+            kind = token === Token.GetKeyword ? 'get' : 'set';
+            state = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
+            token = parser.token;
+            key = parsePropertyName(parser, context);
+        }
+    }
+
+    if (parser.token === Token.LeftParen) {
+        value = parseMethod(parser, context, state);
+    } else {
+        method = false;
+        if (parser.token === Token.Colon) {
+            expect(parser, context, Token.Colon);
+            value = parseAssignmentExpression(parser, context);
+        } else {
+            shorthand = true;
+            if (parser.token === Token.Assign) {
+                expect(parser, context, Token.Assign);
+                value = parseAssignmentPattern(parser, context, key as ESTree.PatternTop);
+            } else {
+                value = key;
+            }
+        }
+    }
+
+    return {
+        type: 'Property',
+        key,
+        value,
+        kind,
+        computed: token === Token.LeftBracket,
+        method,
+        shorthand,
     };
 }

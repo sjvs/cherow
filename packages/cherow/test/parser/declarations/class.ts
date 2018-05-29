@@ -5,7 +5,49 @@ import { Context } from '../../../src/common';
 describe('Miscellaneous - Class', () => {
 
     describe('Pass', () => {
-/*
+
+        
+        pass('a = { a: b }', Context.OptionsNext, {
+            source: `a = { a: b }`,
+            expected: {
+                "type": "Program",
+                "sourceType": "script",
+                "body": [
+                    {
+                        "type": "ExpressionStatement",
+                        "expression": {
+                            "type": "AssignmentExpression",
+                            "left": {
+                                "type": "Identifier",
+                                "name": "a"
+                            },
+                            "operator": "=",
+                            "right": {
+                                "type": "ObjectExpression",
+                                "properties": [
+                                    {
+                                        "type": "Property",
+                                        "key": {
+                                            "type": "Identifier",
+                                            "name": "a"
+                                        },
+                                        "value": {
+                                            "type": "Identifier",
+                                            "name": "b"
+                                        },
+                                        "kind": "init",
+                                        "computed": false,
+                                        "method": false,
+                                        "shorthand": false
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+        });
+
         pass('class A {; ;; ;}', Context.OptionsNext | Context.Module, {
             source: `class A {; ;; ;}`,
             expected: {
@@ -80,8 +122,8 @@ describe('Miscellaneous - Class', () => {
                     }
                 ]
             }
-        });*/
-/*
+        });
+
         pass('class A {a(){}}', Context.OptionsNext | Context.Module, {
             source: `class A {a(){}}`,
             expected: {
@@ -171,7 +213,7 @@ describe('Miscellaneous - Class', () => {
                 ]
             }
         });
-
+/*
         pass('class A {constructor(){}}', Context.OptionsNext | Context.Module, {
             source: `class A {constructor(){}}`,
             expected: {
@@ -190,7 +232,7 @@ describe('Miscellaneous - Class', () => {
                             "body": [
                                 {
                                     "type": "MethodDefinition",
-                                    "kind": "constructor",
+                                    "kind": "method",
                                     "static": false,
                                     "computed": false,
                                     "key": {
