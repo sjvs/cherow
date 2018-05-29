@@ -22,6 +22,7 @@ export declare const enum Context {
     Statement = 65536,
     Asi = 131072,
     RequireIdentifier = 262144,
+    AllowSuperProperty = 524288,
 }
 export declare const enum Flags {
     Empty = 0,
@@ -30,6 +31,7 @@ export declare const enum Flags {
     Assignable = 4,
     Bindable = 8,
     SimpleParameterList = 16,
+    HasConstructor = 32,
 }
 export declare const enum BindingOrigin {
     Empty = 0,
@@ -65,6 +67,8 @@ export declare const enum ModifierState {
     Await = 2,
     Arrow = 4,
     Async = 8,
+    Heritage = 16,
+    Constructor = 32,
 }
 export declare function setGrammar(flags: Flags, mask: Flags): Context;
 export declare function setContext(context: Context, mask: Context): Context;

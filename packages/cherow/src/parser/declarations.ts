@@ -2,34 +2,77 @@ import { FunctionDeclaration } from './../estree';
 import { Parser } from '../types';
 import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
-import { parseAssignmentExpression, parseFormalListAndBody } from './expressions';
-import { Context, BindingType, BindingOrigin, ModifierState, expect,consume, swapContext } from '../common';
+import { parseClassBodyAndElementList, parsePropertyName, parseIdentifier, parseLeftHandSideExpression, parseAssignmentExpression, parseFormalListAndBody } from './expressions';
+import { Context, Flags, BindingType, BindingOrigin, ModifierState, expect,consume, swapContext, setContext } from '../common';
 import { parseDelimitedBindingList, parseBindingIdentifier } from './pattern';
 import { recordErrors, Errors } from '../errors';
 
-export function parseFunctionDeclaration(
-        parser: Parser,
-        context: Context,
-        state: ModifierState = ModifierState.None
-    ): ESTree.FunctionDeclaration {
-        expect(parser, context, Token.FunctionKeyword);
-        const isGenerator = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
-        let id: ESTree.Identifier | null = null;
-        if (parser.token !== Token.LeftParen) {
-            id = parseBindingIdentifier(parser, context);
-        } else if (!(context & Context.RequireIdentifier)) recordErrors(parser, Errors.UnNamedFunctionDecl);
-        context = swapContext(context, state | isGenerator);
-        const { params, body } = parseFormalListAndBody(parser, context);
-        return {
-            type: 'FunctionDeclaration',
-            body,
-            params,
-            async: !!(state & ModifierState.Async),
-            generator: !!(isGenerator & ModifierState.Generator),
-            expression: false,
-            id
-        };
+// Declarations
+
+/**
+ * Parses class declaration
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ClassDeclaration)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseClassDeclaration(parser: Parser, context: Context): any {
+    context = context | Context.Strict;
+    expect(parser, context, Token.ClassKeyword);
+    let id: ESTree.Identifier | null = null;
+    if ((parser.token & Token.Identifier) === Token.Identifier || parser.token & Token.IsKeyword && parser.token !== Token.ExtendsKeyword) {
+        id = parseBindingIdentifier(parser, context);
+    } else if (!(context & Context.RequireIdentifier)) recordErrors(parser, Errors.UnNamedFunctionDecl);
+    let superClass: ESTree.Expression | null = null;
+    if (consume(parser, context, Token.ExtendsKeyword)) {
+        superClass = parseLeftHandSideExpression(parser, context | Context.Strict);
     }
+
+    const body = parseClassBodyAndElementList(parser, context);
+
+    return {
+        type: 'ClassDeclaration',
+        id,
+        superClass,
+        body
+    };
+}
+
+/**
+ * Parses function declaration
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-FunctionDeclaration)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseFunctionDeclaration(
+    parser: Parser,
+    context: Context,
+    state: ModifierState = ModifierState.None
+): ESTree.FunctionDeclaration {
+    expect(parser, context, Token.FunctionKeyword);
+    const isGenerator = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
+    let id: ESTree.Identifier | null = null;
+    if (parser.token !== Token.LeftParen) {
+        id = parseBindingIdentifier(parser, context);
+    } else if (!(context & Context.RequireIdentifier)) recordErrors(parser, Errors.UnNamedFunctionDecl);
+    context = swapContext(context, state | isGenerator);
+    const {
+        params,
+        body
+    } = parseFormalListAndBody(parser, context);
+    return {
+        type: 'FunctionDeclaration',
+        body,
+        params,
+        async: !!(state & ModifierState.Async),
+        generator: !!(isGenerator & ModifierState.Generator),
+        expression: false,
+        id
+    };
+}
 
 /**
  * VariableDeclaration :
@@ -47,7 +90,7 @@ export function parseFunctionDeclaration(
  * @param context Context masks
  */
 export function parseVariableDeclaration(
-    id: any, 
+    id: any,
     init: any
 ): ESTree.VariableDeclarator {
     return {
@@ -58,7 +101,7 @@ export function parseVariableDeclaration(
 }
 
 export function parseVariableDeclarationList(
-    parser: Parser, 
+    parser: Parser,
     context: Context,
     type: BindingType,
     origin: BindingOrigin

@@ -31,7 +31,9 @@ export const enum Errors {
     IllegalBreak,
     NewlineAfterThrow,
     IllegalReturn,
-    UnexpectedNewTarget
+    UnexpectedNewTarget,
+    InvalidConstructor,
+    StaticPrototype
 }
 /*@internal*/
 export const errorMessages: {
@@ -66,6 +68,8 @@ export const errorMessages: {
     [Errors.NewlineAfterThrow]: 'Illegal newline after throw',
     [Errors.IllegalReturn]: 'Illegal return statement',
     [Errors.UnexpectedNewTarget]: 'new.target expression is not allowed here',
+    [Errors.InvalidConstructor]: 'Class constructor may not be a \'%0\'',
+    [Errors.StaticPrototype]: 'Classes may not have a static property named \'prototype\'',
 };
 
 export function constructError(index: number, line: number, column: number, description: string): void {

@@ -4,7 +4,7 @@ import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
 import { parseIdentifier, parseSequenceExpression, parseExpression, parseAssignmentExpression } from './expressions';
 import { Errors, recordErrors, } from '../errors';
-import { parseFunctionDeclaration, parseVariableDeclarationList } from './declarations';
+import { parseFunctionDeclaration, parseVariableDeclarationList, parseClassDeclaration } from './declarations';
 import { parseDelimitedBindingList, parseBindingIdentifierOrPattern } from './pattern';
 import {
     Context,
@@ -72,6 +72,8 @@ export function parseStatementListItem(parser: Parser, context: Context): ESTree
     switch (parser.token) {
         case Token.FunctionKeyword:
             return parseFunctionDeclaration(parser, context);
+        case Token.ClassKeyword:
+            return parseClassDeclaration(parser, context);
         case Token.ConstKeyword:
             return parseVariableStatement(parser, context, BindingType.Const);
         case Token.LetKeyword:

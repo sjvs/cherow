@@ -515,6 +515,8 @@ export function parsePrimaryExpression(parser: Parser, context: Context): any {
     switch (parser.token) {
         case Token.FunctionKeyword:
             return parseFunctionExpression(parser, context & ~Context.Async);
+        case Token.FunctionKeyword:
+            return parseClassExpression(parser, context & ~Context.Async);
         case Token.LeftParen:
             return parseParenthesizedExpression(parser, context);
         case Token.LeftBracket:
@@ -813,4 +815,160 @@ export function parseComputedPropertyName(parser: Parser, context: Context): EST
     const key: ESTree.Expression = parseAssignmentExpression(parser, context | Context.In);
     expect(parser, context, Token.RightBracket);
     return key;
+}
+
+/**
+ * Parses class declaration
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ClassDeclaration)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseClassExpression(parser: Parser, context: Context): any {
+    context = context | Context.Strict;
+    expect(parser, context, Token.ClassKeyword);
+    let id: ESTree.Identifier | null = null;
+    if ((parser.token & Token.Identifier) === Token.Identifier || parser.token & Token.IsKeyword && parser.token !== Token.ExtendsKeyword) {
+        id = parseBindingIdentifier(parser, context);
+    }
+    let superClass: ESTree.Expression | null = null;
+    if (consume(parser, context, Token.ExtendsKeyword)) {
+        superClass = parseLeftHandSideExpression(parser, context | Context.Strict);
+    }
+
+    const body = parseClassBodyAndElementList(parser, context);
+
+    return {
+        type: 'ClassExpression',
+        id,
+        superClass,
+        body
+    };
+}
+
+/**
+ * Parse class body and element list
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ClassBody)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ClassElementList)
+ *
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+
+export function parseClassBodyAndElementList(parser: Parser, context: Context): ESTree.ClassBody {
+    context = setContext(context, Context.Template);
+    expect(parser, context, Token.LeftBrace);
+    const body: (ESTree.MethodDefinition | ESTree.FieldDefinition)[] = [];
+    while (parser.token !== Token.RightBrace) {
+        if (consume(parser, context, Token.Semicolon)) continue;
+        body.push(parseClassElement(parser, context));
+    }
+    expect(parser, context, Token.RightBrace);
+
+    return {
+        type: 'ClassBody',
+        body,
+    };
+}
+
+/**
+ * Parse class element and class public instance fields & private instance fields
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ClassElement)
+ * @see [Link](https://tc39.github.io/proposal-class-public-fields/)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+
+export function parseClassElement(parser: Parser, context: Context): any {
+
+    let kind = 'method';
+    let isStatic = false;
+    let isAsync = false;
+    let value: any;
+    let state = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
+    let token = parser.token;
+    let key = parsePropertyName(parser, context);
+    if (parser.tokenValue === 'constructor') {
+        if (state & ModifierState.Generator) {
+            recordErrors(parser, Errors.InvalidConstructor);
+        } else if (state & ModifierState.Heritage) context |= Context.AllowSuperProperty;
+        state |= ModifierState.Constructor;
+    }
+
+    if (parser.token !== Token.LeftParen) {
+
+        if (token === Token.StaticKeyword) {
+            isStatic = true;
+            token = parser.token;
+            if (parser.tokenValue === 'prototype') recordErrors(parser, Errors.StaticPrototype);
+            key = parsePropertyName(parser, context);
+        }
+
+        if (token === Token.AsyncKeyword && !(parser.flags & Flags.NewLine)) {
+            token = parser.token;
+            state = consume(parser, context, Token.Multiply) ? ModifierState.Generator | ModifierState.Async : ModifierState.Async;
+            token = parser.token;
+            key = parsePropertyName(parser, context);
+            if (parser.token === Token.LeftParen) {
+                value = parseMethod(parser, context, state);
+            }
+        } else if (token === Token.GetKeyword || token === Token.SetKeyword) {
+            kind = token === Token.GetKeyword ? 'get' : 'set';
+            state = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
+            token = parser.token;
+            key = parsePropertyName(parser, context);
+        }
+    }
+
+    if (parser.token === Token.LeftParen) {
+        if (token !== Token.LeftBracket && state & ModifierState.Constructor) {
+            if (parser.flags & Flags.HasConstructor) {
+                recordErrors(parser, Errors.Unexpected);
+            } else parser.flags |= Flags.HasConstructor;
+        }
+        value = parseMethod(parser, context, state);
+    }
+
+    return {
+        type: 'MethodDefinition',
+        kind,
+        static: isStatic,
+        computed: token === Token.LeftBracket,
+        key,
+        value,
+    };
+}
+
+/**
+ * Parse method
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-GeneratorMethod)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-AsyncMethod)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-AsyncGeneratorMethod)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-PropertyName)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+function parseMethod(
+    parser: Parser,
+    context: Context,
+    state: ModifierState,
+): ESTree.FunctionExpression {
+    context = swapContext(context, state);
+    const { params, body } = parseFormalListAndBody(parser, context);
+    return {
+        type: 'FunctionExpression',
+        params,
+        body,
+        async: !!(state & ModifierState.Async),
+        generator: !!(state & ModifierState.Generator),
+        expression: false,
+        id: null,
+    };
 }

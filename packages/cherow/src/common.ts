@@ -26,6 +26,7 @@ export const enum Context {
     Statement            = 1 << 16,
     Asi                  = 1 << 17,
     RequireIdentifier =   1 << 18,
+    AllowSuperProperty =   1 << 19,
 }
 
 /* Mutual parser flags */
@@ -36,6 +37,7 @@ export const enum Flags {
     Assignable           = 1 << 2,
     Bindable             = 1 << 3,
     SimpleParameterList  = 1 << 4,
+    HasConstructor= 1 << 5,
 }
 
 export const enum BindingOrigin {
@@ -79,6 +81,8 @@ export const enum ModifierState {
     Await     = 1 << 1,
     Arrow     = 1 << 2,
     Async     = 1 << 3,
+    Heritage     = 1 << 4,
+    Constructor     = 1 << 5,
 }
 
 /*@internal*/

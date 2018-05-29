@@ -89,3 +89,33 @@ export declare function parsePropertyName(parser: Parser, context: Context): any
  * @param context Context masks
  */
 export declare function parseComputedPropertyName(parser: Parser, context: Context): ESTree.Expression;
+/**
+ * Parses class declaration
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ClassDeclaration)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export declare function parseClassExpression(parser: Parser, context: Context): any;
+/**
+ * Parse class body and element list
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ClassBody)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ClassElementList)
+ *
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+export declare function parseClassBodyAndElementList(parser: Parser, context: Context): ESTree.ClassBody;
+/**
+ * Parse class element and class public instance fields & private instance fields
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-ClassElement)
+ * @see [Link](https://tc39.github.io/proposal-class-public-fields/)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+export declare function parseClassElement(parser: Parser, context: Context): any;

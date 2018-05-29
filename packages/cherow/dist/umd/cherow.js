@@ -156,6 +156,8 @@
         [26 /* NewlineAfterThrow */]: 'Illegal newline after throw',
         [27 /* IllegalReturn */]: 'Illegal return statement',
         [28 /* UnexpectedNewTarget */]: 'new.target expression is not allowed here',
+        [29 /* InvalidConstructor */]: 'Class constructor may not be a \'%0\'',
+        [30 /* StaticPrototype */]: 'Classes may not have a static property named \'prototype\'',
     };
     function constructError(index, line, column, description) {
         const error = new SyntaxError(`Line ${line}, column ${column}: ${description}`);
@@ -1361,6 +1363,44 @@
         return 0 /* Empty */;
     }
 
+    // Declarations
+    /**
+     * Parses class declaration
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-ClassDeclaration)
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
+    function parseClassDeclaration(parser, context) {
+        context = context | 128 /* Strict */;
+        expect(parser, context, 8266 /* ClassKeyword */);
+        let id = null;
+        if ((parser.token & 8388608 /* Identifier */) === 8388608 /* Identifier */ || parser.token & 8417280 /* IsKeyword */ && parser.token !== 8273 /* ExtendsKeyword */) {
+            id = parseBindingIdentifier(parser, context);
+        }
+        else if (!(context & 262144 /* RequireIdentifier */))
+            recordErrors(parser, 18 /* UnNamedFunctionDecl */);
+        let superClass = null;
+        if (consume(parser, context, 8273 /* ExtendsKeyword */)) {
+            superClass = parseLeftHandSideExpression(parser, context | 128 /* Strict */);
+        }
+        const body = parseClassBodyAndElementList(parser, context);
+        return {
+            type: 'ClassDeclaration',
+            id,
+            superClass,
+            body
+        };
+    }
+    /**
+     * Parses function declaration
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-FunctionDeclaration)
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
     function parseFunctionDeclaration(parser, context, state = 0 /* None */) {
         expect(parser, context, 8276 /* FunctionKeyword */);
         const isGenerator = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ : 0 /* None */;
@@ -1368,7 +1408,7 @@
         if (parser.token !== 33554440 /* LeftParen */) {
             id = parseBindingIdentifier(parser, context);
         }
-        else if (!(context & 65536 /* RequireIdentifier */))
+        else if (!(context & 262144 /* RequireIdentifier */))
             recordErrors(parser, 18 /* UnNamedFunctionDecl */);
         context = swapContext(context, state | isGenerator);
         const { params, body } = parseFormalListAndBody(parser, context);
@@ -1376,7 +1416,7 @@
             type: 'FunctionDeclaration',
             body,
             params,
-            async: !!(state & 4 /* Async */),
+            async: !!(state & 8 /* Async */),
             generator: !!(isGenerator & 1 /* Generator */),
             expression: false,
             id
@@ -2169,6 +2209,8 @@
         switch (parser.token) {
             case 8276 /* FunctionKeyword */:
                 return parseFunctionExpression(parser, context & ~1024 /* Async */);
+            case 8276 /* FunctionKeyword */:
+                return parseClassExpression(parser, context & ~1024 /* Async */);
             case 33554440 /* LeftParen */:
                 return parseParenthesizedExpression(parser, context);
             case 33554448 /* LeftBracket */:
@@ -2414,6 +2456,25 @@
         };
     }
     /**
+     * Parse property name
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-PropertyName)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function parsePropertyName(parser, context) {
+        switch (parser.token) {
+            case 2097152 /* NumericLiteral */:
+            case 4194304 /* StringLiteral */:
+            //  return parseLiteral(parser, context);
+            case 33554448 /* LeftBracket */:
+                return parseComputedPropertyName(parser, context);
+            default:
+                return parseIdentifier(parser, context);
+        }
+    }
+    /**
      * Parse computed property names
      *
      * @see [Link](https://tc39.github.io/ecma262/#prod-ComputedPropertyName)
@@ -2426,6 +2487,149 @@
         const key = parseAssignmentExpression(parser, context | 32768 /* In */);
         expect(parser, context, 33554449 /* RightBracket */);
         return key;
+    }
+    /**
+     * Parses class declaration
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-ClassDeclaration)
+     *
+     * @param parser  Parser object
+     * @param context Context masks
+     */
+    function parseClassExpression(parser, context) {
+        context = context | 128 /* Strict */;
+        expect(parser, context, 8266 /* ClassKeyword */);
+        let id = null;
+        if ((parser.token & 8388608 /* Identifier */) === 8388608 /* Identifier */ || parser.token & 8417280 /* IsKeyword */ && parser.token !== 8273 /* ExtendsKeyword */) {
+            id = parseBindingIdentifier(parser, context);
+        }
+        let superClass = null;
+        if (consume(parser, context, 8273 /* ExtendsKeyword */)) {
+            superClass = parseLeftHandSideExpression(parser, context | 128 /* Strict */);
+        }
+        const body = parseClassBodyAndElementList(parser, context);
+        return {
+            type: 'ClassExpression',
+            id,
+            superClass,
+            body
+        };
+    }
+    /**
+     * Parse class body and element list
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-ClassBody)
+     * @see [Link](https://tc39.github.io/ecma262/#prod-ClassElementList)
+     *
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function parseClassBodyAndElementList(parser, context) {
+        context = setContext(context, 16384 /* Template */);
+        expect(parser, context, 33554441 /* LeftBrace */);
+        const body = [];
+        while (parser.token !== 33685516 /* RightBrace */) {
+            if (consume(parser, context, 33685518 /* Semicolon */))
+                continue;
+            body.push(parseClassElement(parser, context));
+        }
+        expect(parser, context, 33685516 /* RightBrace */);
+        return {
+            type: 'ClassBody',
+            body,
+        };
+    }
+    /**
+     * Parse class element and class public instance fields & private instance fields
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-ClassElement)
+     * @see [Link](https://tc39.github.io/proposal-class-public-fields/)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function parseClassElement(parser, context) {
+        let kind = 'method';
+        let isStatic = false;
+        let value;
+        let state = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ : 0 /* None */;
+        let token = parser.token;
+        let key = parsePropertyName(parser, context);
+        if (parser.tokenValue === 'constructor') {
+            if (state & 1 /* Generator */) {
+                recordErrors(parser, 29 /* InvalidConstructor */);
+            }
+            else if (state & 16 /* Heritage */)
+                context |= 524288 /* AllowSuperProperty */;
+            state |= 32 /* Constructor */;
+        }
+        if (parser.token !== 33554440 /* LeftParen */) {
+            if (token === 16490 /* StaticKeyword */) {
+                isStatic = true;
+                token = parser.token;
+                if (parser.tokenValue === 'prototype')
+                    recordErrors(parser, 30 /* StaticPrototype */);
+                key = parsePropertyName(parser, context);
+            }
+            if (token === 4205 /* AsyncKeyword */ && !(parser.flags & 1 /* NewLine */)) {
+                token = parser.token;
+                state = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ | 8 /* Async */ : 8 /* Async */;
+                token = parser.token;
+                key = parsePropertyName(parser, context);
+                if (parser.token === 33554440 /* LeftParen */) {
+                    value = parseMethod(parser, context, state);
+                }
+            }
+            else if (token === 4208 /* GetKeyword */ || token === 4209 /* SetKeyword */) {
+                kind = token === 4208 /* GetKeyword */ ? 'get' : 'set';
+                state = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ : 0 /* None */;
+                token = parser.token;
+                key = parsePropertyName(parser, context);
+            }
+        }
+        if (parser.token === 33554440 /* LeftParen */) {
+            if (token !== 33554448 /* LeftBracket */ && state & 32 /* Constructor */) {
+                if (parser.flags & 32 /* HasConstructor */) {
+                    recordErrors(parser, 0 /* Unexpected */);
+                }
+                else
+                    parser.flags |= 32 /* HasConstructor */;
+            }
+            value = parseMethod(parser, context, state);
+        }
+        return {
+            type: 'MethodDefinition',
+            kind,
+            static: isStatic,
+            computed: token === 33554448 /* LeftBracket */,
+            key,
+            value,
+        };
+    }
+    /**
+     * Parse method
+     *
+     * @see [Link](https://tc39.github.io/ecma262/#prod-GeneratorMethod)
+     * @see [Link](https://tc39.github.io/ecma262/#prod-AsyncMethod)
+     * @see [Link](https://tc39.github.io/ecma262/#prod-AsyncGeneratorMethod)
+     * @see [Link](https://tc39.github.io/ecma262/#prod-PropertyName)
+     *
+     * @param parser Parser object
+     * @param context Context masks
+     */
+    function parseMethod(parser, context, state) {
+        context = swapContext(context, state);
+        const { params, body } = parseFormalListAndBody(parser, context);
+        return {
+            type: 'FunctionExpression',
+            params,
+            body,
+            async: !!(state & 8 /* Async */),
+            generator: !!(state & 1 /* Generator */),
+            expression: false,
+            id: null,
+        };
     }
 
     /**
@@ -2464,6 +2668,8 @@
         switch (parser.token) {
             case 8276 /* FunctionKeyword */:
                 return parseFunctionDeclaration(parser, context);
+            case 8266 /* ClassKeyword */:
+                return parseClassDeclaration(parser, context);
             case 8262 /* ConstKeyword */:
                 return parseVariableStatement(parser, context, 8 /* Const */);
             case 16453 /* LetKeyword */:
