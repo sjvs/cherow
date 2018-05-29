@@ -86,6 +86,8 @@ export const enum ModifierState {
     Constructor  = 1 << 5,
     Method       = 1 << 6,
     Shorthand    = 1 << 7,
+    Getter       = 1 << 8,
+    Setter       = 1 << 9,
 }
 
 /*@internal*/

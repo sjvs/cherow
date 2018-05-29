@@ -1137,14 +1137,24 @@ function parseSpreadProperties(parser: Parser, context: Context): ESTree.SpreadE
     };
 }
 
+/**
+ * Parse property definition
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-PropertyDefinition)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+
 function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Property {
 
     let value;
     let state = ModifierState.Method;
+
     if (consume(parser, context, Token.Multiply)) state = state | ModifierState.Generator;
+
     let token = parser.token;
     let key = parsePropertyName(parser, context);
-    let kind: any = 'init';
 
     if (token === Token.AsyncKeyword && !(parser.flags & Flags.NewLine)) {
         if (parser.token & (Token.StringLiteral | Token.Contextual | Token.NumericLiteral) ||
@@ -1160,11 +1170,11 @@ function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Prope
 
     if (token === Token.GetKeyword || token === Token.SetKeyword) {
         if (parser.token & (Token.StringLiteral | Token.Contextual | Token.NumericLiteral) ||
-        parser.token === Token.Multiply) {
+            parser.token === Token.Multiply) {
             if (state & ModifierState.Generator) recordErrors(parser, Errors.Unexpected);
             if (consume(parser, context, Token.Multiply)) state = state | ModifierState.Generator;
             token = parser.token;
-            kind = token === Token.GetKeyword ? 'get' : 'set';
+            state = state | Token.GetKeyword ? ModifierState.Getter : ModifierState.Setter;
             key = parsePropertyName(parser, context);
         }
     }
@@ -1203,9 +1213,13 @@ function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Prope
         type: 'Property',
         key,
         value,
-        kind,
         computed: token === Token.LeftBracket,
-        method: !!(state & ModifierState.Method),
-        shorthand: !!(state & ModifierState.Shorthand),
+        method: (state & ModifierState.Method) === ModifierState.Method,
+        shorthand: (state & ModifierState.Shorthand) === ModifierState.Shorthand,
+        kind: !(state & ModifierState.Getter | state & ModifierState.Setter) ?
+            'init' :
+            (state & ModifierState.Setter) ?
+            'set' :
+            'get',
     };
 }
