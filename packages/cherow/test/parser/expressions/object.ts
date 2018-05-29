@@ -6,6 +6,297 @@ describe('Expressions - Object literal', () => {
 
     describe('Pass', () => {
 
+        pass('({*[a](){}})', Context.Empty, {
+            source: `({*[a](){}})`,
+            expected: {
+                "type": "Program",
+                "sourceType": "script",
+                "body": [
+                    {
+                        "type": "ExpressionStatement",
+                        "expression": {
+                            "type": "ObjectExpression",
+                            "properties": [
+                                {
+                                    "type": "Property",
+                                    "key": {
+                                        "type": "Identifier",
+                                        "name": "a"
+                                    },
+                                    "value": {
+                                        "type": "FunctionExpression",
+                                        "params": [],
+                                        "body": {
+                                            "type": "BlockStatement",
+                                            "body": []
+                                        },
+                                        "async": false,
+                                        "generator": true,
+                                        "expression": false,
+                                        "id": null
+                                    },
+                                    "kind": "init",
+                                    "computed": true,
+                                    "method": true,
+                                    "shorthand": false
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        });
+
+        pass('foo = {[a]:b=x}', Context.Empty, {
+            source: `foo = {[a]:b=x}`,
+            expected: {
+                "type": "Program",
+                "sourceType": "script",
+                "body": [
+                    {
+                        "type": "ExpressionStatement",
+                        "expression": {
+                            "type": "AssignmentExpression",
+                            "left": {
+                                "type": "Identifier",
+                                "name": "foo"
+                            },
+                            "operator": "=",
+                            "right": {
+                                "type": "ObjectExpression",
+                                "properties": [
+                                    {
+                                        "type": "Property",
+                                        "key": {
+                                            "type": "Identifier",
+                                            "name": "a"
+                                        },
+                                        "value": {
+                                            "type": "AssignmentExpression",
+                                            "left": {
+                                                "type": "Identifier",
+                                                "name": "b"
+                                            },
+                                            "operator": "=",
+                                            "right": {
+                                                "type": "Identifier",
+                                                "name": "x"
+                                            }
+                                        },
+                                        "kind": "init",
+                                        "computed": true,
+                                        "method": false,
+                                        "shorthand": false
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+        });
+
+        pass('foo = {set [a](x){}}', Context.Empty, {
+            source: `foo = {set [a](x){}}`,
+            expected: {
+                "type": "Program",
+                "sourceType": "script",
+                "body": [
+                    {
+                        "type": "ExpressionStatement",
+                        "expression": {
+                            "type": "AssignmentExpression",
+                            "left": {
+                                "type": "Identifier",
+                                "name": "foo"
+                            },
+                            "operator": "=",
+                            "right": {
+                                "type": "ObjectExpression",
+                                "properties": [
+                                    {
+                                        "type": "Property",
+                                        "key": {
+                                            "type": "Identifier",
+                                            "name": "a"
+                                        },
+                                        "value": {
+                                            "type": "FunctionExpression",
+                                            "params": [
+                                                {
+                                                    "type": "Identifier",
+                                                    "name": "x"
+                                                }
+                                            ],
+                                            "body": {
+                                                "type": "BlockStatement",
+                                                "body": []
+                                            },
+                                            "async": false,
+                                            "generator": false,
+                                            "expression": false,
+                                            "id": null
+                                        },
+                                        "kind": "set",
+                                        "computed": true,
+                                        "method": false,
+                                        "shorthand": false
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+        });
+
+        pass('foo = {async a(){}}', Context.Empty, {
+            source: `foo = {async a(){}}`,
+            expected: {
+                "type": "Program",
+                "sourceType": "script",
+                "body": [
+                    {
+                        "type": "ExpressionStatement",
+                        "expression": {
+                            "type": "AssignmentExpression",
+                            "left": {
+                                "type": "Identifier",
+                                "name": "foo"
+                            },
+                            "operator": "=",
+                            "right": {
+                                "type": "ObjectExpression",
+                                "properties": [
+                                    {
+                                        "type": "Property",
+                                        "key": {
+                                            "type": "Identifier",
+                                            "name": "a"
+                                        },
+                                        "value": {
+                                            "type": "FunctionExpression",
+                                            "params": [],
+                                            "body": {
+                                                "type": "BlockStatement",
+                                                "body": []
+                                            },
+                                            "async": true,
+                                            "generator": false,
+                                            "expression": false,
+                                            "id": null
+                                        },
+                                        "kind": "init",
+                                        "computed": false,
+                                        "method": true,
+                                        "shorthand": false
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+        });
+
+        pass('foo = {async [a](){}}', Context.Empty, {
+            source: `foo = {async [a](){}}`,
+            expected: {
+                "type": "Program",
+                "sourceType": "script",
+                "body": [
+                    {
+                        "type": "ExpressionStatement",
+                        "expression": {
+                            "type": "AssignmentExpression",
+                            "left": {
+                                "type": "Identifier",
+                                "name": "foo"
+                            },
+                            "operator": "=",
+                            "right": {
+                                "type": "ObjectExpression",
+                                "properties": [
+                                    {
+                                        "type": "Property",
+                                        "key": {
+                                            "type": "Identifier",
+                                            "name": "a"
+                                        },
+                                        "value": {
+                                            "type": "FunctionExpression",
+                                            "params": [],
+                                            "body": {
+                                                "type": "BlockStatement",
+                                                "body": []
+                                            },
+                                            "async": true,
+                                            "generator": false,
+                                            "expression": false,
+                                            "id": null
+                                        },
+                                        "kind": "init",
+                                        "computed": true,
+                                        "method": true,
+                                        "shorthand": false
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+        });
+
+        pass('foo = {*a(){}}', Context.Empty, {
+            source: `foo = {*a(){}}`,
+            expected: {
+                "type": "Program",
+                "sourceType": "script",
+                "body": [
+                    {
+                        "type": "ExpressionStatement",
+                        "expression": {
+                            "type": "AssignmentExpression",
+                            "left": {
+                                "type": "Identifier",
+                                "name": "foo"
+                            },
+                            "operator": "=",
+                            "right": {
+                                "type": "ObjectExpression",
+                                "properties": [
+                                    {
+                                        "type": "Property",
+                                        "key": {
+                                            "type": "Identifier",
+                                            "name": "a"
+                                        },
+                                        "value": {
+                                            "type": "FunctionExpression",
+                                            "params": [],
+                                            "body": {
+                                                "type": "BlockStatement",
+                                                "body": []
+                                            },
+                                            "async": false,
+                                            "generator": true,
+                                            "expression": false,
+                                            "id": null
+                                        },
+                                        "kind": "init",
+                                        "computed": false,
+                                        "method": true,
+                                        "shorthand": false
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+        });
+
         pass('foo = { async }', Context.Empty, {
             source: `foo = { async }`,
             expected: {

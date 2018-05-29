@@ -1157,11 +1157,10 @@ function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Prope
     let key = parsePropertyName(parser, context);
 
     if (token === Token.AsyncKeyword && !(parser.flags & Flags.NewLine)) {
-        if (parser.token & (Token.StringLiteral | Token.Contextual | Token.NumericLiteral) ||
-            parser.token === Token.Multiply) {
+        if (parser.token & (Token.Identifier | Token.StringLiteral | Token.Contextual | Token.NumericLiteral) ||
+            parser.token === Token.Multiply || parser.token === Token.LeftBracket) {
             if (state & ModifierState.Generator) recordErrors(parser, Errors.Unexpected);
             state = state | ModifierState.Async;
-            token = parser.token;
             if (consume(parser, context, Token.Multiply)) state = state | ModifierState.Generator;
             token = parser.token;
             key = parsePropertyName(parser, context);
@@ -1169,16 +1168,16 @@ function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Prope
     }
 
     if (token === Token.GetKeyword || token === Token.SetKeyword) {
-        if (parser.token & (Token.StringLiteral | Token.Contextual | Token.NumericLiteral) ||
-            parser.token === Token.Multiply) {
+        if (parser.token & (Token.Identifier | Token.StringLiteral | Token.Contextual | Token.NumericLiteral) ||
+            parser.token === Token.Multiply || parser.token === Token.LeftBracket) {
             if (state & ModifierState.Generator) recordErrors(parser, Errors.Unexpected);
             if (consume(parser, context, Token.Multiply)) state = state | ModifierState.Generator;
             token = parser.token;
-            state = state | Token.GetKeyword ? ModifierState.Getter : ModifierState.Setter;
+            state = state & ~ModifierState.Method | (token === Token.GetKeyword ? ModifierState.Getter : ModifierState.Setter);
             key = parsePropertyName(parser, context);
         }
     }
-
+    
     if (parser.token === Token.LeftParen) {
         value = parseMethod(parser, context, state);
     } else {
