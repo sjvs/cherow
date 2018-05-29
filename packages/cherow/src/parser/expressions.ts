@@ -331,7 +331,7 @@ export function parseNewOrMemberExpression(parser: Parser, context: Context): an
         let result: any;
         const id = parseIdentifier(parser, context);
         if (parser.token === Token.SuperKeyword) {
-            // TODO
+            result = parseSuperProperty(parser, context);
         } else if (parser.token === Token.ImportKeyword && lookahead(parser, context, nextTokenIsLeftParen)) {
             recordErrors(parser, Errors.Unexpected)
         } else if (consume(parser, context, Token.Period)) {
@@ -394,6 +394,7 @@ function parseImportCall(): ESTree.ImportExpression {
         type: 'Import',
     };
 }
+
 /**
  * Parse member expression
  *
@@ -410,16 +411,25 @@ function parseMemberExpression(
     context: Context,
 ): ESTree.Expression {
     let result: any;
-    if (parser.token === Token.ImportKeyword) {
+    if (parser.token === Token.SuperKeyword) {
+        result = parseSuperProperty(parser, context);
+    } else if (parser.token === Token.ImportKeyword) {
         result = parseImportExpressions(parser, context);
     } else {
         result = parsePrimaryExpression(parser, context);
     }
 
-    result = parseMemberExpressionContinuation(parser, context, result);
-    return result;
+    return parseMemberExpressionContinuation(parser, context, result);
 }
 
+/**
+ * Parse member expression continuation
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ * @param pos Location info
+ * @param expr Expression
+ */
 function parseMemberExpressionContinuation(parser: Parser, context: Context, expr: any) {
     while (true) {
         switch (parser.token) {
@@ -459,6 +469,38 @@ function parseMemberExpressionContinuation(parser: Parser, context: Context, exp
                 return expr;
         }
     }
+}
+
+/**
+ * Parse super property
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-SuperProperty)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+
+function parseSuperProperty(parser: Parser, context: Context): ESTree.Super {
+    // SuperProperty[Yield, Await]:
+    //  super[Expression[+In, ?Yield, ?Await]]
+    //  super.IdentifierName
+    expect(parser, context, Token.SuperKeyword);
+    switch (parser.token) {
+        case Token.LeftParen:
+            // The super property has to be within a class constructor
+            if (!(context & Context.AllowSuperProperty)) recordErrors(parser, Errors.Unexpected);
+            break;
+        case Token.LeftBracket:
+        case Token.Period:
+            if (!(context & Context.Method)) recordErrors(parser, Errors.Unexpected);
+            break;
+        default:
+        recordErrors(parser, Errors.Unexpected);
+    }
+
+    return {
+        type: 'Super',
+    };
 }
 /**
  * Parse meta property
@@ -513,6 +555,22 @@ function parseArgumentList(parser: Parser, context: Context): (ESTree.Expression
 
 export function parsePrimaryExpression(parser: Parser, context: Context): any {
     switch (parser.token) {
+        case Token.AsyncKeyword:
+        case Token.LetKeyword:
+        case Token.Identifier:
+            return parseIdentifier(parser, context);
+        case Token.StringLiteral:
+            return parseLiteral(parser, context);
+        case Token.BigInt:
+            return parseBigIntLiteral(parser, context);
+        case Token.NumericLiteral:
+            return parseLiteral(parser, context);
+        case Token.FalseKeyword:
+        case Token.TrueKeyword:
+        case Token.NullKeyword:
+            return parseNullOrTrueOrFalseLiteral(parser, context);
+        case Token.ThisKeyword:
+            return parseThisExpression(parser, context);
         case Token.FunctionKeyword:
             return parseFunctionExpression(parser, context & ~Context.Async);
         case Token.FunctionKeyword:
@@ -521,16 +579,30 @@ export function parsePrimaryExpression(parser: Parser, context: Context): any {
             return parseParenthesizedExpression(parser, context);
         case Token.LeftBracket:
             return parseArrayLiteral(parser, context);
-        case Token.AsyncKeyword:
-        case Token.LetKeyword:
-        case Token.Identifier:
-            return parseIdentifier(parser, context);
-        case Token.StringLiteral:
-        case Token.NumericLiteral:
-            return parseLiteral(parser, context);
         default:
             nextToken(parser, context);
     }
+}
+
+/**
+ * Parses either null or boolean literal
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-BooleanLiteral)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+function parseNullOrTrueOrFalseLiteral(parser: Parser, context: Context): ESTree.Literal {
+    const { token } = parser;
+    const raw = tokenDesc(token);
+    parser.flags &= ~Flags.Assignable;
+    nextToken(parser, context);
+    return {
+        type: 'Literal',
+        value: token === Token.NullKeyword ? null : raw === 'true',
+    };
+
+   // if (context & Context.OptionsRaw) node.raw = raw;
 }
 
 export function parseIdentifier(parser: Parser, context: Context): ESTree.Identifier {
@@ -542,8 +614,18 @@ export function parseIdentifier(parser: Parser, context: Context): ESTree.Identi
     };
 }
 
+/**
+ * Parses string and number literal
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-NumericLiteral)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-StringLiteral)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
 export function parseLiteral(parser: Parser, context: Context): ESTree.Literal {
     const { tokenValue } = parser;
+    parser.flags &= ~Flags.Assignable;
     nextToken(parser, context);
     return {
         type: 'Literal',
@@ -551,6 +633,40 @@ export function parseLiteral(parser: Parser, context: Context): ESTree.Literal {
     };
 }
 
+/**
+ * Parses BigInt literal (stage 3 proposal)
+ *
+ * @see [Link](https://tc39.github.io/proposal-bigint/)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+export function parseBigIntLiteral(parser: Parser, context: Context): ESTree.BigIntLiteral {
+    const { tokenValue, tokenRaw } = parser;
+    parser.flags &= ~Flags.Assignable;
+    nextToken(parser, context);
+    return {
+        type: 'Literal',
+        value: tokenValue,
+        bigint: tokenRaw,
+    };
+}
+
+/**
+ * Parse this expression
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+
+function parseThisExpression(parser: Parser, context: Context): ESTree.ThisExpression {
+    nextToken(parser, context);
+    parser.flags &= ~Flags.Assignable;
+    return {
+         type: 'ThisExpression',
+     };
+ }
+ 
 /**
  * Parse arrow function
  *
