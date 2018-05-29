@@ -1146,9 +1146,10 @@ function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Prope
     let key = parsePropertyName(parser, context);
     let kind: any = 'init';
 
-    if (token === Token.AsyncKeyword) {
+    if (token === Token.AsyncKeyword && !(parser.flags & Flags.NewLine)) {
         if (parser.token & (Token.StringLiteral | Token.Contextual | Token.NumericLiteral) ||
             parser.token === Token.Multiply) {
+            if (state & ModifierState.Generator) recordErrors(parser, Errors.Unexpected);
             state = state | ModifierState.Async;
             token = parser.token;
             if (consume(parser, context, Token.Multiply)) state = state | ModifierState.Generator;
@@ -1160,6 +1161,7 @@ function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Prope
     if (token === Token.GetKeyword || token === Token.SetKeyword) {
         if (parser.token & (Token.StringLiteral | Token.Contextual | Token.NumericLiteral) ||
         parser.token === Token.Multiply) {
+            if (state & ModifierState.Generator) recordErrors(parser, Errors.Unexpected);
             if (consume(parser, context, Token.Multiply)) state = state | ModifierState.Generator;
             token = parser.token;
             kind = token === Token.GetKeyword ? 'get' : 'set';
@@ -1171,9 +1173,16 @@ function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Prope
         value = parseMethod(parser, context, state);
     } else {
 
+        if (state & (ModifierState.Generator | ModifierState.Async)) {
+            recordErrors(parser, Errors.Unexpected);
+        }
+
         state = state & ~ModifierState.Method;
 
         if (parser.token === Token.Colon) {
+            if (token !== Token.LeftBracket && parser.tokenValue === '__proto__') {
+                // TODO!
+            }
             nextToken(parser, context);
             value = parseAssignmentExpression(parser, context);
         } else {
@@ -1181,6 +1190,7 @@ function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Prope
             state |= ModifierState.Shorthand;
 
             if (parser.token === Token.Assign) {
+                // TODO: 'CoverInitializedName'
                 nextToken(parser, context);
                 value = parseAssignmentPattern(parser, context, key as ESTree.PatternTop);
             } else {
