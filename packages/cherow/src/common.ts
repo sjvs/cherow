@@ -77,13 +77,15 @@ export const enum Tokenize {
 }
 
 export const enum ModifierState {
-    None = 0,
-    Generator = 1 << 0,
-    Await     = 1 << 1,
-    Arrow     = 1 << 2,
-    Async     = 1 << 3,
+    None         = 0,
+    Generator    = 1 << 0,
+    Await        = 1 << 1,
+    Arrow        = 1 << 2,
+    Async        = 1 << 3,
     Heritage     = 1 << 4,
-    Constructor     = 1 << 5,
+    Constructor  = 1 << 5,
+    Method       = 1 << 6,
+    Shorthand    = 1 << 7,
 }
 
 /*@internal*/

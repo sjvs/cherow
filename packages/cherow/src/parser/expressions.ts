@@ -1140,13 +1140,11 @@ function parseSpreadProperties(parser: Parser, context: Context): ESTree.SpreadE
 function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Property {
 
     let value;
-    let state = ModifierState.None;
+    let state = ModifierState.Method;
     if (consume(parser, context, Token.Multiply)) state = state | ModifierState.Generator;
     let token = parser.token;
     let key = parsePropertyName(parser, context);
     let kind: any = 'init';
-    let method = true;
-    let shorthand = false;
 
     if (token === Token.AsyncKeyword) {
         if (parser.token & (Token.StringLiteral | Token.Contextual | Token.NumericLiteral) ||
@@ -1172,14 +1170,18 @@ function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Prope
     if (parser.token === Token.LeftParen) {
         value = parseMethod(parser, context, state);
     } else {
-        method = false;
+
+        state = state & ~ModifierState.Method;
+
         if (parser.token === Token.Colon) {
-            expect(parser, context, Token.Colon);
+            nextToken(parser, context);
             value = parseAssignmentExpression(parser, context);
         } else {
-            shorthand = true;
+
+            state |= ModifierState.Shorthand;
+
             if (parser.token === Token.Assign) {
-                expect(parser, context, Token.Assign);
+                nextToken(parser, context);
                 value = parseAssignmentPattern(parser, context, key as ESTree.PatternTop);
             } else {
                 value = key;
@@ -1193,7 +1195,7 @@ function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Prope
         value,
         kind,
         computed: token === Token.LeftBracket,
-        method,
-        shorthand,
+        method: !!(state & ModifierState.Method),
+        shorthand: !!(state & ModifierState.Shorthand),
     };
 }
