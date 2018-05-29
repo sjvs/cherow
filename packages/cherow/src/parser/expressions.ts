@@ -1007,7 +1007,8 @@ export function parseClassElement(parser: Parser, context: Context): any {
     let kind = 'method';
     let isStatic = false;
     let value: any;
-    let state = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
+    let state = ModifierState.None;
+    if (consume(parser, context, Token.Multiply)) state = state | ModifierState.Generator;
     let token = parser.token;
     let key = parsePropertyName(parser, context);
     if (parser.tokenValue === 'constructor') {
@@ -1028,7 +1029,8 @@ export function parseClassElement(parser: Parser, context: Context): any {
 
         if (token === Token.AsyncKeyword && !(parser.flags & Flags.NewLine)) {
             token = parser.token;
-            state = consume(parser, context, Token.Multiply) ? ModifierState.Generator | ModifierState.Async : ModifierState.Async;
+            state = state | ModifierState.Async;
+            if (consume(parser, context, Token.Multiply)) state = state | ModifierState.Generator;
             token = parser.token;
             key = parsePropertyName(parser, context);
             if (parser.token === Token.LeftParen) {
@@ -1036,7 +1038,7 @@ export function parseClassElement(parser: Parser, context: Context): any {
             }
         } else if (token === Token.GetKeyword || token === Token.SetKeyword) {
             kind = token === Token.GetKeyword ? 'get' : 'set';
-            state = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
+            if (consume(parser, context, Token.Multiply)) state = state | ModifierState.Generator;
             token = parser.token;
             key = parsePropertyName(parser, context);
         }
@@ -1138,27 +1140,31 @@ function parseSpreadProperties(parser: Parser, context: Context): ESTree.SpreadE
 function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Property {
 
     let value;
-    let state = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
+    let state = ModifierState.None;
+    if (consume(parser, context, Token.Multiply)) state = state | ModifierState.Generator;
     let token = parser.token;
     let key = parsePropertyName(parser, context);
     let kind: any = 'init';
     let method = true;
     let shorthand = false;
 
-    if ((parser.token & Token.Contextual) === Token.Contextual && !(state & ModifierState.Generator)) {
-
-        if (token === Token.AsyncKeyword && !(parser.flags & Flags.NewLine)) {
+    if (token === Token.AsyncKeyword) {
+        if (parser.token & (Token.StringLiteral | Token.Contextual | Token.NumericLiteral) ||
+            parser.token === Token.Multiply) {
+            state = state | ModifierState.Async;
             token = parser.token;
-            state = consume(parser, context, Token.Multiply) ? ModifierState.Generator | ModifierState.Async : ModifierState.Async;
+            if (consume(parser, context, Token.Multiply)) state = state | ModifierState.Generator;
             token = parser.token;
             key = parsePropertyName(parser, context);
-            if (parser.token === Token.LeftParen) {
-                value = parseMethod(parser, context, state);
-            }
-        } else if (token === Token.GetKeyword || token === Token.SetKeyword) {
-            kind = token === Token.GetKeyword ? 'get' : 'set';
-            state = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
+        }
+    }
+
+    if (token === Token.GetKeyword || token === Token.SetKeyword) {
+        if (parser.token & (Token.StringLiteral | Token.Contextual | Token.NumericLiteral) ||
+        parser.token === Token.Multiply) {
+            if (consume(parser, context, Token.Multiply)) state = state | ModifierState.Generator;
             token = parser.token;
+            kind = token === Token.GetKeyword ? 'get' : 'set';
             key = parsePropertyName(parser, context);
         }
     }

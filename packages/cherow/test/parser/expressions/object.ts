@@ -6,6 +6,88 @@ describe('Expressions - Object literal', () => {
 
     describe('Pass', () => {
 
+        pass('foo = { async }', Context.Empty, {
+            source: `foo = { async }`,
+            expected: {
+                "type": "Program",
+                "sourceType": "script",
+                "body": [
+                    {
+                        "type": "ExpressionStatement",
+                        "expression": {
+                            "type": "AssignmentExpression",
+                            "left": {
+                                "type": "Identifier",
+                                "name": "foo"
+                            },
+                            "operator": "=",
+                            "right": {
+                                "type": "ObjectExpression",
+                                "properties": [
+                                    {
+                                        "type": "Property",
+                                        "key": {
+                                            "type": "Identifier",
+                                            "name": "async"
+                                        },
+                                        "value": {
+                                            "type": "Identifier",
+                                            "name": "async"
+                                        },
+                                        "kind": "init",
+                                        "computed": false,
+                                        "method": false,
+                                        "shorthand": true
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+        });
+
+        pass('foo = { aync: await }', Context.Empty, {
+            source: `foo = { async: bar }`,
+            expected: {
+                "type": "Program",
+                "sourceType": "script",
+                "body": [
+                    {
+                        "type": "ExpressionStatement",
+                        "expression": {
+                            "type": "AssignmentExpression",
+                            "left": {
+                                "type": "Identifier",
+                                "name": "foo"
+                            },
+                            "operator": "=",
+                            "right": {
+                                "type": "ObjectExpression",
+                                "properties": [
+                                    {
+                                        "type": "Property",
+                                        "key": {
+                                            "type": "Identifier",
+                                            "name": "async"
+                                        },
+                                        "value": {
+                                            "type": "Identifier",
+                                            "name": "bar"
+                                        },
+                                        "kind": "init",
+                                        "computed": false,
+                                        "method": false,
+                                        "shorthand": false
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+        });
+
         pass('foo = { aync, get, set }', Context.Empty, {
             source: `foo = { aync, get, set }`,
             expected: {

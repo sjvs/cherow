@@ -2665,7 +2665,9 @@ function parseClassElement(parser, context) {
     let kind = 'method';
     let isStatic = false;
     let value;
-    let state = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ : 0 /* None */;
+    let state = 0 /* None */;
+    if (consume(parser, context, 301992496 /* Multiply */))
+        state = state | 1 /* Generator */;
     let token = parser.token;
     let key = parsePropertyName(parser, context);
     if (parser.tokenValue === 'constructor') {
@@ -2686,7 +2688,9 @@ function parseClassElement(parser, context) {
         }
         if (token === 4205 /* AsyncKeyword */ && !(parser.flags & 1 /* NewLine */)) {
             token = parser.token;
-            state = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ | 8 /* Async */ : 8 /* Async */;
+            state = state | 8 /* Async */;
+            if (consume(parser, context, 301992496 /* Multiply */))
+                state = state | 1 /* Generator */;
             token = parser.token;
             key = parsePropertyName(parser, context);
             if (parser.token === 33554440 /* LeftParen */) {
@@ -2695,7 +2699,8 @@ function parseClassElement(parser, context) {
         }
         else if (token === 4208 /* GetKeyword */ || token === 4209 /* SetKeyword */) {
             kind = token === 4208 /* GetKeyword */ ? 'get' : 'set';
-            state = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ : 0 /* None */;
+            if (consume(parser, context, 301992496 /* Multiply */))
+                state = state | 1 /* Generator */;
             token = parser.token;
             key = parsePropertyName(parser, context);
         }
@@ -2785,26 +2790,32 @@ function parseSpreadProperties(parser, context) {
 }
 function parsePropertyDefinition(parser, context) {
     let value;
-    let state = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ : 0 /* None */;
+    let state = 0 /* None */;
+    if (consume(parser, context, 301992496 /* Multiply */))
+        state = state | 1 /* Generator */;
     let token = parser.token;
     let key = parsePropertyName(parser, context);
     let kind = 'init';
     let method = true;
     let shorthand = false;
-    if ((parser.token & 4096 /* Contextual */) === 4096 /* Contextual */ && !(state & 1 /* Generator */)) {
-        if (token === 4205 /* AsyncKeyword */ && !(parser.flags & 1 /* NewLine */)) {
+    if (token === 4205 /* AsyncKeyword */) {
+        if (parser.token & (4194304 /* StringLiteral */ | 4096 /* Contextual */ | 2097152 /* NumericLiteral */) ||
+            parser.token === 301992496 /* Multiply */) {
+            state = state | 8 /* Async */;
             token = parser.token;
-            state = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ | 8 /* Async */ : 8 /* Async */;
+            if (consume(parser, context, 301992496 /* Multiply */))
+                state = state | 1 /* Generator */;
             token = parser.token;
             key = parsePropertyName(parser, context);
-            if (parser.token === 33554440 /* LeftParen */) {
-                value = parseMethod(parser, context, state);
-            }
         }
-        else if (token === 4208 /* GetKeyword */ || token === 4209 /* SetKeyword */) {
-            kind = token === 4208 /* GetKeyword */ ? 'get' : 'set';
-            state = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ : 0 /* None */;
+    }
+    if (token === 4208 /* GetKeyword */ || token === 4209 /* SetKeyword */) {
+        if (parser.token & (4194304 /* StringLiteral */ | 4096 /* Contextual */ | 2097152 /* NumericLiteral */) ||
+            parser.token === 301992496 /* Multiply */) {
+            if (consume(parser, context, 301992496 /* Multiply */))
+                state = state | 1 /* Generator */;
             token = parser.token;
+            kind = token === 4208 /* GetKeyword */ ? 'get' : 'set';
             key = parsePropertyName(parser, context);
         }
     }
