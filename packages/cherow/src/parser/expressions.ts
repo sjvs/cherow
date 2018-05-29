@@ -1154,6 +1154,7 @@ function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Prope
     if (consume(parser, context, Token.Multiply)) state = state | ModifierState.Generator;
 
     let token = parser.token;
+
     let key = parsePropertyName(parser, context);
 
     if (token === Token.AsyncKeyword && !(parser.flags & Flags.NewLine)) {
@@ -1172,12 +1173,12 @@ function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Prope
             parser.token === Token.Multiply || parser.token === Token.LeftBracket) {
             if (state & ModifierState.Generator) recordErrors(parser, Errors.Unexpected);
             if (consume(parser, context, Token.Multiply)) state = state | ModifierState.Generator;
-            token = parser.token;
             state = state & ~ModifierState.Method | (token === Token.GetKeyword ? ModifierState.Getter : ModifierState.Setter);
+            token = parser.token;
             key = parsePropertyName(parser, context);
         }
     }
-    
+
     if (parser.token === Token.LeftParen) {
         value = parseMethod(parser, context, state);
     } else {
