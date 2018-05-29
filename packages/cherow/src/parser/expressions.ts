@@ -1136,6 +1136,7 @@ function parseSpreadProperties(parser: Parser, context: Context): ESTree.SpreadE
 }
 
 function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Property {
+
     let value;
     let state = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
     let token = parser.token;
@@ -1143,7 +1144,8 @@ function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Prope
     let kind: any = 'init';
     let method = true;
     let shorthand = false;
-    if (parser.token !== Token.LeftParen) {
+
+    if ((parser.token & Token.Contextual) === Token.Contextual && !(state & ModifierState.Generator)) {
 
         if (token === Token.AsyncKeyword && !(parser.flags & Flags.NewLine)) {
             token = parser.token;

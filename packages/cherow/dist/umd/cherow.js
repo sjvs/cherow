@@ -2793,7 +2793,7 @@
         let kind = 'init';
         let method = true;
         let shorthand = false;
-        if (parser.token !== 33554440 /* LeftParen */) {
+        if ((parser.token & 4096 /* Contextual */) === 4096 /* Contextual */ && !(state & 1 /* Generator */)) {
             if (token === 4205 /* AsyncKeyword */ && !(parser.flags & 1 /* NewLine */)) {
                 token = parser.token;
                 state = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ | 8 /* Async */ : 8 /* Async */;
