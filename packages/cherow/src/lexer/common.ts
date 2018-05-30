@@ -101,13 +101,14 @@ export const fromCodePoint = (code: Chars) => {
           ((code - Chars.NonBMPMin) & (1024 - 1)) + Chars.TrailSurrogateMin);
 };
 
-export function convertToken(token: Token): any {
+export function convertToken(parser: Parser, token: Token): any {
     let type;
     let value;
     if ((token & Token.Punctuators) === Token.Punctuators) {
         type = 'Punctuator';
         value = tokenDesc(token);
     } else {
+        value = parser.source.slice(parser.startIndex, parser.index);
         if ((token & Token.NumericLiteral) === Token.NumericLiteral) type = 'Numberic';
         if ((token & Token.Template) === Token.NumericLiteral) type = 'Template';
         if ((token & Token.StringLiteral) === Token.StringLiteral) type = 'String';

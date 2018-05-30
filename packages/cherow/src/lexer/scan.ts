@@ -385,7 +385,7 @@ export function scan(parser: Parser, context: Context): Token {
         } else {
             const token = table[first](parser, context, first);
             if ((token & Token.WhiteSpace) === Token.WhiteSpace) continue;
-            if (context & Context.OptionsTokenize) parser.tokens.push(convertToken(token));
+            if (context & Context.OptionsTokenize) parser.tokens.push(convertToken(parser, token));
             return token;
         }
     }

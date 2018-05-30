@@ -253,7 +253,7 @@ const fromCodePoint = (code) => {
         String.fromCharCode(code) :
         String.fromCharCode(((code - 65536 /* NonBMPMin */) >> 10) + 55296 /* LeadSurrogateMin */, ((code - 65536 /* NonBMPMin */) & (1024 - 1)) + 56320 /* TrailSurrogateMin */);
 };
-function convertToken(token) {
+function convertToken(parser, token) {
     let type;
     let value;
     if ((token & 33554432 /* Punctuators */) === 33554432 /* Punctuators */) {
@@ -261,6 +261,7 @@ function convertToken(token) {
         value = tokenDesc(token);
     }
     else {
+        value = parser.source.slice(parser.startIndex, parser.index);
         if ((token & 2097152 /* NumericLiteral */) === 2097152 /* NumericLiteral */)
             type = 'Numberic';
         if ((token & 67108864 /* Template */) === 2097152 /* NumericLiteral */)
@@ -1174,7 +1175,7 @@ function scan(parser, context) {
             if ((token & 524288 /* WhiteSpace */) === 524288 /* WhiteSpace */)
                 continue;
             if (context & 1 /* OptionsTokenize */)
-                parser.tokens.push(convertToken(token));
+                parser.tokens.push(convertToken(parser, token));
             return token;
         }
     }
