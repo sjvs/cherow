@@ -23,6 +23,7 @@ const enum Recovery {
  * @param quote codepoint
  */
 export function scanStringLiteral(parser: Parser, context: Context, quote: number): Token {
+    parser.index++; parser.column++;
     let { index, column } = parser;
     let ret: string | void = '';
     let ch = parser.source.charCodeAt(parser.index);

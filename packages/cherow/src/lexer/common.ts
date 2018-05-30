@@ -31,6 +31,7 @@ export function consumeLineFeed(parser: Parser, lastIsCR: boolean): void {
 * @param parser Parser object
 */
 export function advanceNewline(parser: Parser, ch: number) {
+  parser.index++;
   parser.column = 0;
   parser.line++;
   if (parser.index < parser.length && ch === Chars.CarriageReturn &&
@@ -47,7 +48,6 @@ export function skipToNewline(parser: Parser): boolean {
           case Chars.LineFeed:
           case Chars.LineSeparator:
           case Chars.ParagraphSeparator:
-              parser.index++;
               advanceNewline(parser, ch);
               return true;
           default:

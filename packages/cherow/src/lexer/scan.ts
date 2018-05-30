@@ -15,7 +15,8 @@ table[Chars.Space] =
     table[Chars.Tab] =
     table[Chars.FormFeed] =
     table[Chars.VerticalTab] =
-    table[Chars.FormFeed] = () => {
+    table[Chars.FormFeed] = (parser: Parser) => {
+        parser.index++; parser.column++;
         return Token.WhiteSpace;
     };
 
@@ -31,8 +32,8 @@ table[Chars.LineSeparator] =
 
 /** Punctuators */
 function mapToToken(token: Token) {
-    return () => {
-    //    parser.index++;parser.column++;
+    return (parser: Parser) => {
+        parser.index++; parser.column++;
         return token;
     };
 }
@@ -77,6 +78,7 @@ table[Chars.Zero] = parseLeadingZero;
 
 // `/`, `/=`, `/>`
 table[Chars.Slash] = (parser: Parser) => {
+    parser.index++; parser.column++;
     if (parser.index >= parser.length) return Token.Divide;
     const next = parser.source.charCodeAt(parser.index);
     if (next === Chars.Slash) {
@@ -97,6 +99,7 @@ table[Chars.Slash] = (parser: Parser) => {
 
 // `!`, `!=`, `!==`
 table[Chars.Exclamation] = (parser: Parser) => {
+    parser.index++; parser.column++;
     if (consumeOpt(parser, Chars.EqualSign)) {
         if (consumeOpt(parser, Chars.EqualSign)) {
             return Token.StrictNotEqual;
@@ -110,6 +113,7 @@ table[Chars.Exclamation] = (parser: Parser) => {
 
 // `%`, `%=`
 table[Chars.Percent] = (parser: Parser) => {
+    parser.index++; parser.column++;
     if (consumeOpt(parser, Chars.EqualSign)) {
         return Token.ModuloAssign;
     } else {
@@ -119,6 +123,7 @@ table[Chars.Percent] = (parser: Parser) => {
 
 // `&`, `&&`, `&=`
 table[Chars.Ampersand] = (parser: Parser) => {
+    parser.index++; parser.column++;
     if (parser.index < parser.length) {
         const next = parser.source.charCodeAt(parser.index);
         if (next === Chars.Ampersand) {
@@ -136,6 +141,7 @@ table[Chars.Ampersand] = (parser: Parser) => {
 
 // `*`, `**`, `*=`, `**=`
 table[Chars.Asterisk] = (parser: Parser) => {
+    parser.index++; parser.column++;
     if (parser.index < parser.length) {
         const next = parser.source.charCodeAt(parser.index);
         if (next === Chars.Asterisk) {
@@ -158,6 +164,7 @@ table[Chars.Asterisk] = (parser: Parser) => {
 
 // `+`, `++`, `+=`
 table[Chars.Plus] = (parser: Parser) => {
+    parser.index++; parser.column++;
     if (parser.index < parser.length) {
         const next = parser.source.charCodeAt(parser.index);
         if (next === Chars.Plus) {
@@ -176,6 +183,7 @@ table[Chars.Plus] = (parser: Parser) => {
 
 // `-`, `--`, `-=`
 table[Chars.Hyphen] = (parser: Parser) => {
+    parser.index++; parser.column++;
     const next = parser.source.charCodeAt(parser.index);
     if (next === Chars.Hyphen &&
         parser.source.charCodeAt(parser.index + 1) === Chars.GreaterThan) {
@@ -198,19 +206,23 @@ table[Chars.Hyphen] = (parser: Parser) => {
 
 // `.`, `...`, `.123` (numeric literal)
 table[Chars.Period] = (parser: Parser) => {
+    let index = parser.index + 1;
+    if (index < parser.source.length) {
+        const next = parser.source.charCodeAt(index);
 
-    if (parser.index < parser.source.length) {
-        const next = parser.source.charCodeAt(parser.index);
-        if (next >= Chars.Zero && next <= Chars.Nine) {
-            return parseFractionalNumber(parser);
-        } else if (next === Chars.Period) {
-            if (parser.index + 1 < parser.source.length && parser.source.charCodeAt(parser.index) === Chars.Period) {
-                parser.index += 2;
-                parser.column += 2;
+        if (next === Chars.Period) {
+            index++;
+            if (index < parser.source.length &&
+                    parser.source.charCodeAt(index) === Chars.Period) {
+                parser.index = index + 1;
+                parser.column += 3;
                 return Token.Ellipsis;
             }
+        } else if (next >= Chars.Zero && next <= Chars.Nine) {
+            return parseFractionalNumber(parser);
         }
     }
+    parser.index++; parser.column++;
     return Token.Period;
 };
 
@@ -222,7 +234,7 @@ for (let i = Chars.One; i <= Chars.Nine; i++) {
 
 // `<`, `<=`, `<<`, `<<=`, `</`,  <!--
 table[Chars.LessThan] = (parser: Parser, context: Context) => {
-
+    parser.index++; parser.column++;
     if (parser.index < parser.source.length) {
 
         switch (parser.source.charCodeAt(parser.index)) {
@@ -273,6 +285,7 @@ table[Chars.LessThan] = (parser: Parser, context: Context) => {
 
 // `=`, `==`, `===`, `=>`
 table[Chars.EqualSign] = (parser: Parser) => {
+    parser.index++; parser.column++;
     if (parser.index < parser.source.length) {
         const next = parser.source.charCodeAt(parser.index);
         if (next === Chars.EqualSign) {
@@ -295,6 +308,7 @@ table[Chars.EqualSign] = (parser: Parser) => {
 
 // `>`, `>=`, `>>`, `>>>`, `>>=`, `>>>=`
 table[Chars.GreaterThan] = (parser: Parser) => {
+    parser.index++; parser.column++;
     if (parser.index < parser.source.length) {
         const next = parser.source.charCodeAt(parser.index);
 
@@ -333,12 +347,15 @@ table[Chars.GreaterThan] = (parser: Parser) => {
 
 // `A`...`Z`
 for (let i = Chars.UpperA; i <= Chars.UpperZ; i++) { table[i] = scanIdentifier; }
+// `a`...z`
+for (let i = Chars.LowerA; i <= Chars.LowerZ; i++) { table[i] = scanIdentifier; }
 
 // `\\u{N}var`
 table[Chars.Backslash] = scanIdentifier;
 
 // `^`, `^=`
 table[Chars.Caret] = (parser: Parser) => {
+    parser.index++; parser.column++;
     if (consumeOpt(parser, Chars.EqualSign)) {
         return Token.BitwiseXorAssign;
     } else {
@@ -354,19 +371,17 @@ table[Chars.Underscore] = scanIdentifier;
 
 // `|`, `||`, `|=`
 table[Chars.VerticalBar] = (parser: Parser) => {
-    if (parser.index < parser.length) {
+    parser.index++; parser.column++;
+    if (parser.index >= parser.length) return Token.BitwiseOr;
         const next = parser.source.charCodeAt(parser.index);
         if (next === Chars.VerticalBar) {
-            parser.index++;
-            parser.column++;
+            parser.index++; parser.column++;
             return Token.LogicalOr;
         } else if (next === Chars.EqualSign) {
             parser.index++;
             parser.column++;
             return Token.BitwiseOrAssign;
         }
-    }
-
     return Token.BitwiseOr;
 };
 
@@ -378,7 +393,6 @@ export function scan(parser: Parser, context: Context): Token {
         if (first === Chars.Dollar || (first >= Chars.LowerA && first <= Chars.LowerZ)) {
             return scanIdentifier(parser);
         } else {
-            parser.index++; parser.column++;
             const token = table[first](parser, context, first);
             if ((token & Token.WhiteSpace) === Token.WhiteSpace) continue;
             if (context & Context.OptionsTokenize) parser.tokens.push(token); // TODO: Replace array with callback

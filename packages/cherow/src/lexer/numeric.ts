@@ -5,8 +5,6 @@ import { Context, Flags } from '../common';
 import { consumeOpt, toHex } from './common';
 import { Errors, recordErrors } from '../errors';
 
-// Note: Diffeent corde paths for decimal and floating numbers to speed things up.
-
 /**
  *  Scans numeric literal
  * 
@@ -24,7 +22,7 @@ export function scanNumeric(parser: Parser): Token {
         parser.index++; parser.column++;
         scanSignedInteger(parser);
     }
-    parser.tokenValue = parseFloat(parser.source.slice(index - 1, parser.index));
+    parser.tokenValue = parseFloat(parser.source.slice(index, parser.index));
     return Token.NumericLiteral;
 }
 
@@ -36,15 +34,16 @@ export function scanNumeric(parser: Parser): Token {
  */
 export function parseFractionalNumber(parser: Parser): Token {
     const { index } = parser;
+    parser.index++;
+
     const ch = skipDigits(parser);
     // scan exponent
     if (ch === Chars.LowerE || ch === Chars.UpperE) {
-        parser.index++;
-        parser.column++;
+        parser.index++; parser.column++;
         scanSignedInteger(parser);
     }
 
-    parser.tokenValue = parseFloat(parser.source.slice(index - 1, parser.index));
+    parser.tokenValue = parseFloat(parser.source.slice(index, parser.index));
     return Token.NumericLiteral;
 }
 
@@ -56,9 +55,8 @@ export function parseFractionalNumber(parser: Parser): Token {
 function skipDigits(parser: Parser): number {
     let ch = parser.source.charCodeAt(parser.index);
     while (ch >= Chars.Zero && ch <= Chars.Nine) {
+        parser.index++; parser.column++;
         ch = parser.source.charCodeAt(parser.index);
-        parser.column++;
-        parser.index++;
     }
     return ch;
 }
@@ -71,37 +69,36 @@ function skipDigits(parser: Parser): number {
 function scanSignedInteger(parser: Parser): void {
     let ch = parser.source.charCodeAt(parser.index);
     if (ch === Chars.Plus || ch === Chars.Hyphen) {
-        parser.index++;
-        parser.column++;
+        parser.index++; parser.column++;
         ch = parser.source.charCodeAt(parser.index);
     }
     skipDigits(parser);
 }
 
 export function parseLeadingZero(parser: Parser, context: Context): Token {
- 
-    switch (parser.source.charCodeAt(parser.index)) {
-        case Chars.LowerX:
-        case Chars.UpperX:
-            return scanHexDigits(parser);
-        case Chars.LowerB:
-        case Chars.UpperB:
-            return scanBinaryDigits(parser);
-        case Chars.LowerO:
-        case Chars.UpperO:
-            return scanOctalDigits(parser);
-        case Chars.Zero:
-        case Chars.One:
-        case Chars.Two:
-        case Chars.Three:
-        case Chars.Four:
-        case Chars.Five:
-        case Chars.Six:
-        case Chars.Seven:
+    let index = parser.index + 1;
+    if (index < parser.source.length) {
+        const next = parser.source.charCodeAt(index);
+        if (next >= Chars.Zero && next <= Chars.Seven) {
             return scanImplicitOctalDigits(parser, context);
-        default:
-            return scanNumeric(parser);
+        }
+        switch (next) {
+            case Chars.LowerX:
+            case Chars.UpperX:
+                parser.index++;
+                return scanHexDigits(parser);
+            case Chars.LowerB:
+            case Chars.UpperB:
+                parser.index++;
+                return scanBinaryDigits(parser);
+            case Chars.LowerO:
+            case Chars.UpperO:
+                parser.index++;
+                return scanOctalDigits(parser);
+            default:
+        }
     }
+    return scanNumeric(parser);
 }
 
 export function scanOctalDigits(parser: Parser): Token {
@@ -141,8 +138,7 @@ export function scanHexDigits(parser: Parser): Token {
             break;
         }
         value = value * 16 + digit;
-        parser.index++;
-        parser.column++;
+        parser.index++; parser.column++;
     }
     parser.tokenValue = value;
     if (consumeOpt(parser, Chars.LowerN)) return Token.BigInt;
@@ -162,8 +158,7 @@ export function scanBinaryDigits(parser: Parser): Token {
     while (parser.index < parser.length) {
         const code = parser.source.charCodeAt(parser.index);
         value = value * 2 + code - Chars.Zero;
-        parser.index++;
-        parser.column++;
+        parser.index++; parser.column++;
         digits++;
     }
 

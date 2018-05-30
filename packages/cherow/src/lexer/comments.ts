@@ -25,7 +25,6 @@ export function skipMultilineComment(parser: Parser): any {
                 break;
             case Chars.CarriageReturn: case Chars.LineFeed: case Chars.LineSeparator:
             case Chars.ParagraphSeparator:
-                parser.index++;
                 advanceNewline(parser, ch);
                 break;
 
