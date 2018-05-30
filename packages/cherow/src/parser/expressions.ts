@@ -867,12 +867,12 @@ export function parseFunctionExpression(
     state: ModifierState = ModifierState.None
 ): ESTree.FunctionExpression {
     expect(parser, context, Token.FunctionKeyword);
-    const isGenerator = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
+    if (consume(parser, context, Token.Multiply)) state |= ModifierState.Generator;
     let id: ESTree.Identifier | null = null;
     if (parser.token & Token.Keyword) {
         id = parseBindingIdentifier(parser, context);
     }
-    context = swapContext(context, state | isGenerator);
+    context = swapContext(context, state);
     const {
         params,
         body
@@ -882,7 +882,7 @@ export function parseFunctionExpression(
         body,
         params,
         async: !!(state & ModifierState.Async),
-        generator: !!(isGenerator & ModifierState.Generator),
+        generator: !!(state & ModifierState.Generator),
         expression: false,
         id
     };

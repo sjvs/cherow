@@ -15,7 +15,8 @@ import {
     consume,
     expect,
     nextToken,
-    isInOrOf
+    isInOrOf,
+    BindingKind
 } from '../common';
 import { reporters } from 'mocha';
 
@@ -30,23 +31,22 @@ import { reporters } from 'mocha';
 export function parseBindingIdentifier(
     parser: Parser, 
     context: Context, 
-    kind: 'let' | 'const' | 'var' = 'var'
+    kind: BindingKind = BindingKind.Var
 ): ESTree.Identifier {
     const { token: t } = parser;
 
     if (context & Context.Strict) {
-        if ((t & Token.FutureReserved) === Token.FutureReserved) recordErrors(parser, Errors.Unexpected);
-        if (t === Token.Eval || t === Token.Arguments) recordErrors(parser, Errors.Unexpected);
-        if (t === Token.YieldKeyword) recordErrors(parser, Errors.Unexpected);
-    }
 
-    // Reserved 
-    if ((t & Token.Reserved) === Token.Reserved) recordErrors(parser, Errors.Unexpected);
-    if (t === Token.AwaitKeyword && context & (Context.Strict | Context.Async)) {
-        recordErrors(parser, Errors.Unexpected);
+    } else if ((t & Token.Contextual) && t === Token.AsyncKeyword) {
+        if (kind === BindingKind.Var) {}
+    } else if (t === Token.Eval || t === Token.Arguments) {
+        if ((context & Context.Strict) === Context.Strict) recordErrors(parser, Errors.Unexpected);
+    } else if ((t & Token.FutureReserved) === Token.FutureReserved) {
+        if ((context & Context.Strict) === Context.Strict) recordErrors(parser, Errors.Unexpected);
+    } else if ((t & Token.Reserved) === Token.Reserved) {
+        if ((context & Context.Strict) === Context.Strict) recordErrors(parser, Errors.Unexpected);
     }
-    if (t === Token.Eval || t === Token.Arguments && kind === 'let' || kind === 'const') recordErrors(parser, Errors.Unexpected);
-
+   
     const name = parser.tokenValue;
     nextToken(parser, context);
     return {

@@ -34,7 +34,6 @@ export const enum Context {
     Statement            = 1 << 24,
     Asi                  = 1 << 25,
     AllowSuperProperty   = 1 << 26,
-
 }
 
 /* Mutual parser flags */
@@ -48,6 +47,7 @@ export const enum Flags {
     HasConstructor       = 1 << 5,
 }
 
+/* Binding origin */
 export const enum BindingOrigin {
     Empty           = 0,
     ForStatement    = 1 << 0,
@@ -59,7 +59,7 @@ export const enum BindingOrigin {
 
 }
 
-/** Binding state */
+/* Binding state */
 export const enum BindingType {
     Empty       = 0,
     Args        = 1 << 0,
@@ -68,6 +68,14 @@ export const enum BindingType {
     Const       = 1 << 3,
     Class       = 1 << 4,
     Variable    = Var | Let | Const
+}
+
+/* Binding kind */
+export const enum BindingKind {
+    Class,
+    Var,
+    Let,
+    Const
 }
 
 /* Recovery state */

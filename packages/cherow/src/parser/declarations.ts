@@ -53,12 +53,12 @@ export function parseFunctionDeclaration(
     state: ModifierState = ModifierState.None
 ): ESTree.FunctionDeclaration {
     expect(parser, context, Token.FunctionKeyword);
-    const isGenerator = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
+    if (consume(parser, context, Token.Multiply)) state |= ModifierState.Generator;
     let id: ESTree.Identifier | null = null;
     if (parser.token !== Token.LeftParen) {
         id = parseBindingIdentifier(parser, context);
     } else if (!(context & Context.RequireIdentifier)) recordErrors(parser, Errors.UnNamedFunctionDecl);
-    context = swapContext(context, state | isGenerator);
+    context = swapContext(context, state);
     const {
         params,
         body
@@ -68,7 +68,7 @@ export function parseFunctionDeclaration(
         body,
         params,
         async: !!(state & ModifierState.Async),
-        generator: !!(isGenerator & ModifierState.Generator),
+        generator: !!(state & ModifierState.Generator),
         expression: false,
         id
     };
