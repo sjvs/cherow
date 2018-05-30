@@ -23,7 +23,7 @@ export const enum Token {
     StringLiteral      = 1 << 22,
     Identifier         = 1 << 23,
     RegularExpression  = 1 << 24,
-    Punctuators        = 1 << 25,
+    Punctuator        = 1 << 25,
     Template           = 1 << 26,
 
     /** Misc */
@@ -33,7 +33,7 @@ export const enum Token {
     IsUpdateOp         = 1 << 30,
 
     /** Constants */
-    IsKeyword = Token.Identifier | Token.Reserved | Token.FutureReserved | Token.Contextual,
+    Keyword = Token.Identifier | Token.Reserved | Token.FutureReserved | Token.Contextual,
 
     /* Node types */
     EndOfSource = 0 | ASI, // Pseudo
@@ -51,73 +51,73 @@ export const enum Token {
     TemplateTail  = 6 | Template,
 
     /* Punctuators */
-    Arrow        = 7  | Punctuators, // =>
-    LeftParen    = 8  | Punctuators, // (
-    LeftBrace    = 9  | Punctuators, // {
-    Period       = 10 | Punctuators, // .
-    Ellipsis     = 11 | Punctuators, // ...
-    RightBrace   = 12 | Punctuators | ASI, // }
-    RightParen   = 13 | Punctuators, // )
-    Semicolon    = 14 | Punctuators | ASI, // ;
-    Comma        = 15 | Punctuators, // ,
-    LeftBracket  = 16 | Punctuators, // [
-    RightBracket = 17 | Punctuators, // ]
-    Colon        = 18 | Punctuators, // :
-    QuestionMark = 19 | Punctuators, // ?
-    SingleQuote  = 20 | Punctuators, // '
-    DoubleQuote  = 21 | Punctuators, // "
-    JSXClose     = 22 | Punctuators, // </
-    JSXAutoClose = 23 | Punctuators, // />
+    Arrow        = 7  | Punctuator, // =>
+    LeftParen    = 8  | Punctuator, // (
+    LeftBrace    = 9  | Punctuator, // {
+    Period       = 10 | Punctuator, // .
+    Ellipsis     = 11 | Punctuator, // ...
+    RightBrace   = 12 | Punctuator | ASI, // }
+    RightParen   = 13 | Punctuator, // )
+    Semicolon    = 14 | Punctuator | ASI, // ;
+    Comma        = 15 | Punctuator, // ,
+    LeftBracket  = 16 | Punctuator, // [
+    RightBracket = 17 | Punctuator, // ]
+    Colon        = 18 | Punctuator, // :
+    QuestionMark = 19 | Punctuator, // ?
+    SingleQuote  = 20 | Punctuator, // '
+    DoubleQuote  = 21 | Punctuator, // "
+    JSXClose     = 22 | Punctuator, // </
+    JSXAutoClose = 23 | Punctuator, // />
 
     /* Update operators */
-    Increment = 24 | Punctuators | IsUpdateOp, // ++
-    Decrement = 25 | Punctuators | IsUpdateOp, // --
+    Increment = 24 | Punctuator | IsUpdateOp, // ++
+    Decrement = 25 | Punctuator | IsUpdateOp, // --
 
     /* Assign operators */
-    Assign                  = 26  | Punctuators | IsAssignOp, // =
-    ShiftLeftAssign         = 27  | Punctuators | IsAssignOp, // <<=
-    ShiftRightAssign        = 28  | Punctuators | IsAssignOp, // >>=
-    LogicalShiftRightAssign = 29  | Punctuators | IsAssignOp, // >>>=
-    ExponentiateAssign      = 30  | Punctuators | IsAssignOp, // **=
-    AddAssign               = 31  | Punctuators | IsAssignOp, // +=
-    SubtractAssign          = 32  | Punctuators | IsAssignOp, // -=
-    MultiplyAssign          = 33  | Punctuators | IsAssignOp, // *=
-    DivideAssign            = 34  | Punctuators | IsAssignOp, // /=
-    ModuloAssign            = 35  | Punctuators | IsAssignOp, // %=
-    BitwiseXorAssign        = 36  | Punctuators | IsAssignOp, // ^=
-    BitwiseOrAssign         = 37  | Punctuators | IsAssignOp, // |=
-    BitwiseAndAssign        = 38  | Punctuators | IsAssignOp, // &=
+    Assign                  = 26  | Punctuator | IsAssignOp, // =
+    ShiftLeftAssign         = 27  | Punctuator | IsAssignOp, // <<=
+    ShiftRightAssign        = 28  | Punctuator | IsAssignOp, // >>=
+    LogicalShiftRightAssign = 29  | Punctuator | IsAssignOp, // >>>=
+    ExponentiateAssign      = 30  | Punctuator | IsAssignOp, // **=
+    AddAssign               = 31  | Punctuator | IsAssignOp, // +=
+    SubtractAssign          = 32  | Punctuator | IsAssignOp, // -=
+    MultiplyAssign          = 33  | Punctuator | IsAssignOp, // *=
+    DivideAssign            = 34  | Punctuator | IsAssignOp, // /=
+    ModuloAssign            = 35  | Punctuator | IsAssignOp, // %=
+    BitwiseXorAssign        = 36  | Punctuator | IsAssignOp, // ^=
+    BitwiseOrAssign         = 37  | Punctuator | IsAssignOp, // |=
+    BitwiseAndAssign        = 38  | Punctuator | IsAssignOp, // &=
 
     /* Unary/binary operators */
-    TypeofKeyword      = 39  | IsUnaryOp | Punctuators | Reserved,
-    DeleteKeyword      = 40  | IsUnaryOp | Punctuators | Reserved,
-    VoidKeyword        = 41  | IsUnaryOp | Punctuators | Reserved,
-    Negate             = 42  | IsUnaryOp | Punctuators, // !
-    Complement         = 43  | IsUnaryOp | Punctuators, // ~
-    Add                = 44  | IsUnaryOp | IsBinaryOp | Punctuators | 9 << PrecStart, // +
-    Subtract           = 45  | IsUnaryOp | IsBinaryOp | Punctuators | 9 << PrecStart, // -
-    InKeyword          = 46  | IsBinaryOp | Punctuators | 7 << PrecStart | Reserved,
-    InstanceofKeyword  = 47  | IsBinaryOp | Punctuators | 7 << PrecStart | Reserved,
-    Multiply           = 48  | IsBinaryOp | Punctuators | 10 << PrecStart, // *
-    Modulo             = 49  | IsBinaryOp | Punctuators | 10 << PrecStart, // %
-    Divide             = 50  | IsBinaryOp | Punctuators | 10 << PrecStart, // /
-    Exponentiate       = 51  | IsBinaryOp | Punctuators | 11 << PrecStart, // **
-    LogicalAnd         = 52  | IsBinaryOp | Punctuators | 2 << PrecStart, // &&
-    LogicalOr          = 53  | IsBinaryOp | Punctuators | 1 << PrecStart, // ||
-    StrictEqual        = 54  | IsBinaryOp | Punctuators | 6 << PrecStart, // ===
-    StrictNotEqual     = 55  | IsBinaryOp | Punctuators | 6 << PrecStart, // !==
-    LooseEqual         = 56  | IsBinaryOp | Punctuators | 6 << PrecStart, // ==
-    LooseNotEqual      = 57  | IsBinaryOp | Punctuators | 6 << PrecStart, // !=
-    LessThanOrEqual    = 58  | IsBinaryOp | Punctuators | 7 << PrecStart, // <=
-    GreaterThanOrEqual = 59  | IsBinaryOp | Punctuators | 7 << PrecStart, // >=
-    LessThan           = 60  | IsBinaryOp | Punctuators | 7 << PrecStart, // <
-    GreaterThan        = 61  | IsBinaryOp | Punctuators | 7 << PrecStart, // >
-    ShiftLeft          = 62  | IsBinaryOp | Punctuators | 8 << PrecStart, // <<
-    ShiftRight         = 63  | IsBinaryOp | Punctuators | 8 << PrecStart, // >>
-    LogicalShiftRight  = 64  | IsBinaryOp | Punctuators | 8 << PrecStart, // >>>
-    BitwiseAnd         = 65  | IsBinaryOp | Punctuators | 5 << PrecStart, // &
-    BitwiseOr          = 66  | IsBinaryOp | Punctuators | 3 << PrecStart, // |
-    BitwiseXor         = 67  | IsBinaryOp | Punctuators | 4 << PrecStart, // ^
+    TypeofKeyword      = 39  | IsUnaryOp | Punctuator | Reserved,
+    DeleteKeyword      = 40  | IsUnaryOp | Punctuator | Reserved,
+    VoidKeyword        = 41  | IsUnaryOp | Punctuator | Reserved,
+    Negate             = 42  | IsUnaryOp | Punctuator, // !
+    Complement         = 43  | IsUnaryOp | Punctuator, // ~
+    Add                = 44  | IsUnaryOp | IsBinaryOp | Punctuator | 9 << PrecStart, // +
+    Subtract           = 45  | IsUnaryOp | IsBinaryOp | Punctuator | 9 << PrecStart, // -
+    InKeyword          = 46  | IsBinaryOp | Punctuator | 7 << PrecStart | Reserved,
+    InstanceofKeyword  = 47  | IsBinaryOp | Punctuator | 7 << PrecStart | Reserved,
+    Multiply           = 48  | IsBinaryOp | Punctuator | 10 << PrecStart, // *
+    Modulo             = 49  | IsBinaryOp | Punctuator | 10 << PrecStart, // %
+    Divide             = 50  | IsBinaryOp | Punctuator | 10 << PrecStart, // /
+    Exponentiate       = 51  | IsBinaryOp | Punctuator | 11 << PrecStart, // **
+    LogicalAnd         = 52  | IsBinaryOp | Punctuator | 2 << PrecStart, // &&
+    LogicalOr          = 53  | IsBinaryOp | Punctuator | 1 << PrecStart, // ||
+    StrictEqual        = 54  | IsBinaryOp | Punctuator | 6 << PrecStart, // ===
+    StrictNotEqual     = 55  | IsBinaryOp | Punctuator | 6 << PrecStart, // !==
+    LooseEqual         = 56  | IsBinaryOp | Punctuator | 6 << PrecStart, // ==
+    LooseNotEqual      = 57  | IsBinaryOp | Punctuator | 6 << PrecStart, // !=
+    LessThanOrEqual    = 58  | IsBinaryOp | Punctuator | 7 << PrecStart, // <=
+    GreaterThanOrEqual = 59  | IsBinaryOp | Punctuator | 7 << PrecStart, // >=
+    LessThan           = 60  | IsBinaryOp | Punctuator | 7 << PrecStart, // <
+    GreaterThan        = 61  | IsBinaryOp | Punctuator | 7 << PrecStart, // >
+    ShiftLeft          = 62  | IsBinaryOp | Punctuator | 8 << PrecStart, // <<
+    ShiftRight         = 63  | IsBinaryOp | Punctuator | 8 << PrecStart, // >>
+    LogicalShiftRight  = 64  | IsBinaryOp | Punctuator | 8 << PrecStart, // >>>
+    BitwiseAnd         = 65  | IsBinaryOp | Punctuator | 5 << PrecStart, // &
+    BitwiseOr          = 66  | IsBinaryOp | Punctuator | 3 << PrecStart, // |
+    BitwiseXor         = 67  | IsBinaryOp | Punctuator | 4 << PrecStart, // ^
 
     /* Variable declaration kinds */
     VarKeyword   = 68 | Reserved,
@@ -214,7 +214,7 @@ const KeywordDescTable = [
     /* Template nodes */
     'template head', 'template body', 'template tail',
 
-    /* Punctuators */
+    /* Punctuator */
     '=>', '(', '{', '.', '...', '}', ')', ';', ',', '[', ']', ':', '?', '\'', '"', '</', '/>',
 
     /* Update operators */

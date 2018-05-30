@@ -201,7 +201,7 @@ export function parseReturnStatement(parser: Parser, context: Context): ESTree.R
       }
     expect(parser, context, Token.ReturnKeyword);
     const argument = (parser.token & Token.ASI) !== Token.ASI && !(parser.flags & Flags.NewLine) ?
-        parseExpression(parser, context  & ~Context.InFunctionBody | Context.In) :
+        parseExpression(parser, context  & ~Context.InFunctionBody) :
         null;
     consumeSemicolon(parser, context);
     return {
@@ -287,7 +287,7 @@ export function parseCatchBlock(parser: Parser, context: Context): any {
 export function parseThrowStatement(parser: Parser, context: Context): ESTree.ThrowStatement {
     expect(parser, context, Token.ThrowKeyword);
     if (parser.flags & Flags.NewLine) recordErrors(parser, Errors.NewlineAfterThrow);
-    const argument: ESTree.Expression = parseExpression(parser, context | Context.In);
+    const argument: ESTree.Expression = parseExpression(parser, context);
     consumeSemicolon(parser, context);
     return {
         type: 'ThrowStatement',
@@ -311,7 +311,7 @@ export function parseExpressionOrLabelledStatement(
 ): ESTree.ExpressionStatement | ESTree.LabeledStatement {
     const { tokenValue, token  } = parser;
     const expr: ESTree.Expression = parseExpression(parser, context);
-    if (token & (Token.Identifier | Token.IsKeyword) && parser.token === Token.Colon) {
+    if (token & (Token.Identifier | Token.Keyword) && parser.token === Token.Colon) {
         expect(parser, context, Token.Colon);
         if (getLabel(parser, tokenValue, false, true)) {
             recordErrors(parser, Errors.LabelRedeclaration, tokenValue);
@@ -408,11 +408,11 @@ export function parseForStatement(parser: Parser, context: Context): any {
             bindingType = BindingType.Const;
         } else if (token === Token.LetKeyword && lookahead(parser, context, isLexical)) {
             bindingType = BindingType.Let;
-        } else init = parseAssignmentExpression(parser, context & ~Context.In);
+        } else init = parseAssignmentExpression(parser, context | Context.DisallowIn);
 
         if (bindingType & BindingType.Variable) {
             nextToken(parser, context);
-            declarations = parseVariableDeclarationList(parser, context & ~Context.In, bindingType, BindingOrigin.ForStatement)
+            declarations = parseVariableDeclarationList(parser, context | Context.DisallowIn, bindingType, BindingOrigin.ForStatement)
             init = {
                 type: 'VariableDeclaration',
                 kind: tokenDesc(token) as 'var' | 'let' | 'const',
@@ -425,12 +425,12 @@ export function parseForStatement(parser: Parser, context: Context): any {
         type = 'ForOfStatement';
         if (init) reinterpret(parser, init);
         else init = declarations;
-        right = parseExpression(parser, context | Context.In);
+        right = parseExpression(parser, context);
     } else if (consume(parser, context, Token.InKeyword)) {
         type = 'ForInStatement';
         if (init) reinterpret(parser, init);
         else init = declarations;
-        right = parseAssignmentExpression(parser, context | Context.In);
+        right = parseAssignmentExpression(parser, context);
     } else {
         if (parser.token === Token.Comma) init = parseSequenceExpression(parser, context, init);
         expect(parser, context, Token.Semicolon, Errors.InvalidLhsInFor);
@@ -438,7 +438,7 @@ export function parseForStatement(parser: Parser, context: Context): any {
             test = parseExpression(parser, context);
         }
         expect(parser, context, Token.Semicolon);
-        if (parser.token !== Token.RightParen) update = parseExpression(parser, context | Context.In);
+        if (parser.token !== Token.RightParen) update = parseExpression(parser, context);
     }
 
     expect(parser, context, Token.RightParen);
@@ -479,8 +479,8 @@ export function parseForStatement(parser: Parser, context: Context): any {
 function parseSwitchStatement(parser: Parser, context: Context): ESTree.SwitchStatement {
     expect(parser, context, Token.SwitchKeyword);
     expect(parser, context, Token.LeftParen);
-    const discriminant = parseExpression(parser, context | Context.In);
-    context = setContext(context, Context.Template);
+    const discriminant = parseExpression(parser, context);
+    context = setContext(context, Context.TaggedTemplate);
     expect(parser, context, Token.RightParen);
     expect(parser, context, Token.LeftBrace);
     const cases: ESTree.SwitchCase[] = [];
@@ -525,7 +525,7 @@ export function parseCaseOrDefaultClauses(
     expect(parser, context, Token.Colon);
     const consequent: ESTree.Statement[] = [];
     while (parser.token !== Token.CaseKeyword && parser.token !== Token.RightBrace && parser.tokenValue !== 'default') {
-        consequent.push(parseStatementListItem(parser, context | Context.In));
+        consequent.push(parseStatementListItem(parser, context));
     }
     return {
         type: 'SwitchCase',
@@ -545,7 +545,7 @@ export function parseCaseOrDefaultClauses(
 export function parseIfStatement(parser: Parser, context: Context): ESTree.IfStatement {
     expect(parser, context, Token.IfKeyword);
     expect(parser, context, Token.LeftParen);
-    const test = parseExpression(parser, context | Context.In);
+    const test = parseExpression(parser, context);
     expect(parser, context, Token.RightParen);
     const consequent = parseConsequentOrAlternate(parser, context);
     const alternate = consume(parser, context, Token.ElseKeyword) ? parseConsequentOrAlternate(parser, context) : null;
@@ -582,7 +582,7 @@ export function parseDoWhileStatement(parser: Parser, context: Context): ESTree.
     parser.iterationStatement = previousIterationStatement;
     expect(parser, context, Token.WhileKeyword);
     expect(parser, context, Token.LeftParen);
-    const test = parseExpression(parser, context | Context.In);
+    const test = parseExpression(parser, context);
     expect(parser, context, Token.RightParen);
     consume(parser, context, Token.Semicolon);
     return {
@@ -603,7 +603,7 @@ export function parseDoWhileStatement(parser: Parser, context: Context): ESTree.
 export function parseWhileStatement(parser: Parser, context: Context): ESTree.WhileStatement {
     expect(parser, context, Token.WhileKeyword);
     expect(parser, context, Token.LeftParen);
-    const test = parseExpression(parser, context | Context.In);
+    const test = parseExpression(parser, context);
     expect(parser, context, Token.RightParen);
     const previousIterationStatement = parser.iterationStatement;
     parser.iterationStatement = LabelState.Iteration;
@@ -628,7 +628,7 @@ export function parseWhileStatement(parser: Parser, context: Context): ESTree.Wh
 export function parseContinueStatement(parser: Parser, context: Context): ESTree.ContinueStatement {
     expect(parser, context, Token.ContinueKeyword);
     let label: ESTree.Identifier | undefined | null = null;
-    if (!(parser.flags & Flags.NewLine) && parser.token & (Token.Identifier | Token.IsKeyword)) {
+    if (!(parser.flags & Flags.NewLine) && parser.token & (Token.Identifier | Token.Keyword)) {
         const { tokenValue  } = parser;
         label = parseIdentifier(parser, context);
         validateContinueLabel(parser, tokenValue)
@@ -654,7 +654,7 @@ export function parseContinueStatement(parser: Parser, context: Context): ESTree
 export function parseBreakStatement(parser: Parser, context: Context): ESTree.BreakStatement {
     expect(parser, context, Token.BreakKeyword);
     let label: ESTree.Identifier | undefined | null = null;
-    if (!(parser.flags & Flags.NewLine) && parser.token & (Token.Identifier | Token.IsKeyword)) {
+    if (!(parser.flags & Flags.NewLine) && parser.token & (Token.Identifier | Token.Keyword)) {
         const { tokenValue  } = parser;
         label = parseIdentifier(parser, context);
         validateBreakStatement(parser, tokenValue)
@@ -681,7 +681,7 @@ export function parseWithStatement(parser: Parser, context: Context): ESTree.Wit
     if (context & Context.Strict) recordErrors(parser, Errors.StrictModeWith);
     expect(parser, context, Token.WithKeyword);
     expect(parser, context, Token.LeftParen);
-    const object = parseExpression(parser, context | Context.In);
+    const object = parseExpression(parser, context);
     expect(parser, context, Token.RightParen);
     const body = parseStatement(parser, context);
     return {
@@ -719,7 +719,7 @@ function parseAsyncFunctionDeclarationOrStatement(
  */
 export function parseDirective(parser: Parser, context: Context): any {
     const directive = parser.tokenRaw.slice(1, -1);
-    const expr = parseExpression(parser, context | Context.In);
+    const expr = parseExpression(parser, context);
     consumeSemicolon(parser, context);
     return {
       type: 'ExpressionStatement',

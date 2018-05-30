@@ -17,13 +17,16 @@ import {
     expect,
     nextToken,
     nextTokenIsLeftParen,
+    nextTokenIsLeftParenOrKeyword,
     lookahead,
     nextTokenIsArrow,
     setGrammar,
     reinterpret,
     addCrossingBoundary,
     LabelState,
-    nextTokenIsPeriod
+    nextTokenIsPeriod,
+    nextTokenIsFuncKeywordOnSameLine,
+    isStartOfExpression
 } from '../common';
 
 /**
@@ -75,8 +78,11 @@ export function parseAssignmentExpression(parser: Parser, context: Context): any
     //   YieldExpression
     //   LeftHandSideExpression AssignmentOperator AssignmentExpression
     const { token } = parser;
-    const isAsync = token === Token.AsyncKeyword && /*!(parser.flags & Flags.NewLine) && */
-        lookahead(parser, context, nextTokenIsLeftParen);
+    
+    if (token === Token.YieldKeyword && !(context & Context.DisallowYield)) return parseYieldExpression(parser, context);
+
+    const isAsync = token === Token.AsyncKeyword /*&& !(parser.flags & Flags.NewLine)*/ &&
+        lookahead(parser, context, nextTokenIsLeftParenOrKeyword);
     let isParenthesized = parser.token === Token.LeftParen;
     let left: any = parseConditionalExpression(parser, context);
 
@@ -85,6 +91,7 @@ export function parseAssignmentExpression(parser: Parser, context: Context): any
     }
 
     if (parser.token === Token.Arrow) {
+        if ((token & Token.Identifier)) left = [left];
         return parseArrowFunction(parser, context, isAsync ? ModifierState.Async | ModifierState.Arrow : ModifierState.Arrow, left);
     }
 
@@ -95,7 +102,7 @@ export function parseAssignmentExpression(parser: Parser, context: Context): any
         }
         const operator = parser.token;
         nextToken(parser, context);
-        const right = parseAssignmentExpression(parser, context | Context.In);
+        const right = parseAssignmentExpression(parser, context | Context.DisallowYield);
         return {
             type: 'AssignmentExpression',
             left: left,
@@ -104,6 +111,31 @@ export function parseAssignmentExpression(parser: Parser, context: Context): any
         };
     }
     return left;
+}
+
+function parseYieldExpression(parser: Parser, context: Context): ESTree.YieldExpression {
+    if ((context & Context.Strict) === Context.Strict) {
+        if ((context & Context.InGenerator) !== Context.InGenerator) {
+          recordErrors(parser, Errors.Unexpected)
+        }
+    }
+    expect(parser, context, Token.YieldKeyword);
+    let argument: ESTree.Expression | null = null;
+    let delegate = false;
+    if (!(parser.flags & Flags.NewLine)) {
+        delegate = consume(parser, context, Token.Multiply);
+         // 'Token.IsExpressionStart' bitmask contains the complete set of
+         // tokens that can appear after an AssignmentExpression, and none of them
+         // can start an AssignmentExpression.
+        if (delegate || isStartOfExpression(parser)) {
+            argument = parseAssignmentExpression(parser, context);
+        }
+    }
+    return {
+            type: 'YieldExpression',
+            argument,
+            delegate,
+       };
 }
 
 /**
@@ -121,7 +153,7 @@ function parseConditionalExpression(parser: Parser, context: Context): ESTree.Ex
     // LogicalOrExpression '?' AssignmentExpression ':' AssignmentExpression
     const test = parseBinaryExpression(parser, context, 0);
     if (!consume(parser, context, Token.QuestionMark)) return test;
-    const consequent = parseAssignmentExpression(parser, context | Context.In);
+    const consequent = parseAssignmentExpression(parser, context);
     expect(parser, context, Token.Colon);
     const alternate = parseAssignmentExpression(parser, context);
     return {
@@ -159,7 +191,8 @@ function parseBinaryExpression(
 
     // Shift-reduce parser for the binary operator part of the JS expression
     // syntax.
-    const bit = context & Context.In ^ Context.In;
+    
+    const bit = (context & Context.DisallowIn) === Context.DisallowIn;
     while ((parser.token & Token.IsBinaryOp) === Token.IsBinaryOp) {
         const t: Token = parser.token;
         const prec = t & Token.Precedence;
@@ -174,7 +207,7 @@ function parseBinaryExpression(
         left = {
             type: t & Token.IsLogical ? 'LogicalExpression' : 'BinaryExpression',
             left,
-            right: parseBinaryExpression(parser, context & ~Context.In, prec),
+            right: parseBinaryExpression(parser, context, prec),
             operator: tokenDesc(t),
         };
     }
@@ -375,7 +408,7 @@ function parseImportExpressions(parser: Parser, context: Context): ESTree.Expres
 
     let expr: any = parseImportCall();
     expect(parser, context, Token.LeftParen);
-    const args = parseAssignmentExpression(parser, context | Context.In);
+    const args = parseAssignmentExpression(parser, context);
     expect(parser, context, Token.RightParen);
     expr = {
         type: 'CallExpression',
@@ -543,7 +576,7 @@ function parseArgumentList(parser: Parser, context: Context): (ESTree.Expression
         if (parser.token === Token.Ellipsis) {
             expressions.push(parseSpreadElement(parser, context));
         } else {
-            expressions.push(parseAssignmentExpression(parser, context | Context.In));
+            expressions.push(parseAssignmentExpression(parser, context));
         }
 
         if (parser.token !== Token.RightParen) expect(parser, context, Token.Comma);
@@ -555,7 +588,6 @@ function parseArgumentList(parser: Parser, context: Context): (ESTree.Expression
 
 export function parsePrimaryExpression(parser: Parser, context: Context): any {
     switch (parser.token) {
-        case Token.AsyncKeyword:
         case Token.LetKeyword:
         case Token.Identifier:
             return parseIdentifier(parser, context);
@@ -573,6 +605,8 @@ export function parsePrimaryExpression(parser: Parser, context: Context): any {
             return parseThisExpression(parser, context);
         case Token.FunctionKeyword:
             return parseFunctionExpression(parser, context & ~Context.Async);
+        case Token.AsyncKeyword:
+            return parseAsyncFunctionExpressionOrAsyncIdentifier(parser, context);
         case Token.LeftBrace:
             return parseObjectLiteral(parser, context);
         case Token.ClassKeyword:
@@ -684,6 +718,7 @@ function parseArrowFunction(
     params: any[]): ESTree.ArrowFunctionExpression {
     expect(parser, context, Token.Arrow);
     context = swapContext(context, state);
+    for (const i in params) reinterpret(parser, params[i]);
     let body: any;
     const expression = parser.token !== Token.LeftBrace;
     if (!expression) {
@@ -756,7 +791,7 @@ function parseArrayLiteral(parser: Parser, context: Context): ESTree.ArrayExpres
     //
     //
     expect(parser, context, Token.LeftBracket);
-    context = setContext(context, Context.In | Context.Asi);
+    context = setContext(context, Context.DisallowIn | Context.Asi);
     const elements: (ESTree.Expression | ESTree.SpreadElement | null)[] = [];
 
     while (parser.token !== Token.RightBracket) {
@@ -768,7 +803,7 @@ function parseArrayLiteral(parser: Parser, context: Context): ESTree.ArrayExpres
                 expect(parser, context, Token.Comma);
             }
         } else {
-            elements.push(parseAssignmentExpression(parser, context | Context.In));
+            elements.push(parseAssignmentExpression(parser, context));
             if (parser.token !== Token.RightBracket) expect(parser, context, Token.Comma);
         }
     }
@@ -789,7 +824,7 @@ function parseArrayLiteral(parser: Parser, context: Context): ESTree.ArrayExpres
  */
 function parseSpreadElement(parser: Parser, context: Context): ESTree.SpreadElement {
     expect(parser, context, Token.Ellipsis);
-    const argument = parseAssignmentExpression(parser, context | Context.In);
+    const argument = parseAssignmentExpression(parser, context);
     return {
         type: 'SpreadElement',
         argument,
@@ -812,7 +847,7 @@ export function parseFunctionExpression(
     expect(parser, context, Token.FunctionKeyword);
     const isGenerator = consume(parser, context, Token.Multiply) ? ModifierState.Generator : ModifierState.None;
     let id: ESTree.Identifier | null = null;
-    if (parser.token & Token.IsKeyword) {
+    if (parser.token & Token.Keyword) {
         id = parseBindingIdentifier(parser, context);
     }
     context = swapContext(context, state | isGenerator);
@@ -930,7 +965,7 @@ export function parsePropertyName(parser: Parser, context: Context): any {
 
 export function parseComputedPropertyName(parser: Parser, context: Context): ESTree.Expression {
     expect(parser, context, Token.LeftBracket);
-    const key: ESTree.Expression = parseAssignmentExpression(parser, context | Context.In);
+    const key: ESTree.Expression = parseAssignmentExpression(parser, context);
     expect(parser, context, Token.RightBracket);
     return key;
 }
@@ -947,7 +982,7 @@ export function parseClassExpression(parser: Parser, context: Context): any {
     context = context | Context.Strict;
     expect(parser, context, Token.ClassKeyword);
     let id: ESTree.Identifier | null = null;
-    if ((parser.token & Token.Identifier) === Token.Identifier || parser.token & Token.IsKeyword && parser.token !== Token.ExtendsKeyword) {
+    if ((parser.token & Token.Identifier) === Token.Identifier || parser.token & Token.Keyword && parser.token !== Token.ExtendsKeyword) {
         id = parseBindingIdentifier(parser, context);
     }
     let superClass: ESTree.Expression | null = null;
@@ -977,7 +1012,7 @@ export function parseClassExpression(parser: Parser, context: Context): any {
  */
 
 export function parseClassBodyAndElementList(parser: Parser, context: Context): ESTree.ClassBody {
-    context = setContext(context, Context.Template);
+    context = setContext(context, Context.TaggedTemplate);
     expect(parser, context, Token.LeftBrace);
     const body: (ESTree.MethodDefinition | ESTree.FieldDefinition)[] = [];
     while (parser.token !== Token.RightBrace) {
@@ -1104,7 +1139,7 @@ function parseMethod(
 export function parseObjectLiteral(parser: Parser, context: Context): ESTree.ObjectExpression {
     expect(parser, context, Token.LeftBrace);
     const properties: (ESTree.Property | ESTree.SpreadElement)[] = [];
-
+    context = setContext(context, Context.DisallowIn | Context.Asi);
     while (parser.token !== Token.RightBrace) {
         properties.push(parser.token === Token.Ellipsis ?
             parseSpreadProperties(parser, context) :
@@ -1130,7 +1165,7 @@ export function parseObjectLiteral(parser: Parser, context: Context): ESTree.Obj
 
 function parseSpreadProperties(parser: Parser, context: Context): ESTree.SpreadElement {
     expect(parser, context, Token.Ellipsis);
-    const argument = parseAssignmentExpression(parser, context | Context.In);
+    const argument = parseAssignmentExpression(parser, context);
     return {
         type: 'SpreadElement',
         argument,
@@ -1222,4 +1257,22 @@ function parsePropertyDefinition(parser: Parser, context: Context): ESTree.Prope
             'set' :
             'get',
     };
+}
+
+/**
+ * Parses either async function declaration or async identifier
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-AsyncFunctionDeclaration)
+ * @see [Link](https://tc39.github.io/ecma262/#prod-Statement)
+ *
+ * @param parser  Parser object
+ * @param context Context masks
+ */
+function parseAsyncFunctionExpressionOrAsyncIdentifier(
+    parser: Parser,
+    context: Context
+): any {
+    return lookahead(parser, context, nextTokenIsFuncKeywordOnSameLine, /* isLookaHead */ false) ?
+        parseFunctionExpression(parser, context, ModifierState.Async) :
+        parseIdentifier(parser, context);
 }

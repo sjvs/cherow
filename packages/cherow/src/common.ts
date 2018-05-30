@@ -13,21 +13,28 @@ export const enum Context {
     OptionsNext          = 1 << 3,
     OptionsWebCompat     = 1 << 4,
     OptionsEditorMode    = 1 << 5,
-    OptionsGlobalReturn  = 1 << 6,
-    Strict               = 1 << 7,
-    Module               = 1 << 8,
-    InFunctionBody       = 1 << 9,
-    Async                = 1 << 10,
-    Yield                = 1 << 11,
-    InParameter          = 1 << 12,
-    NewTarget            = 1 << 13,
-    Template             = 1 << 14,
-    In                   = 1 << 15,
-    Statement            = 1 << 16,
-    Asi                  = 1 << 17,
-    RequireIdentifier    = 1 << 18,
-    AllowSuperProperty   = 1 << 19,
-    Method               = 1 << 20,
+    OptionsLoc           = 1 << 6,
+    OptionsRanges        = 1 << 7,
+    OptionsRawIdentifier = 1 << 8,
+    OptionsGlobalReturn  = 1 << 9,
+    OptionsComments      = 1 << 10,
+    OptionsShebang       = 1 << 11,
+    Strict               = 1 << 12,
+    Module               = 1 << 13,
+    RequireIdentifier    = 1 << 14,
+    InFunctionBody       = 1 << 15,
+    Async                = 1 << 16,
+    DisallowYield        = 1 << 17,
+    InParameter          = 1 << 18,
+    Method               = 1 << 19,
+    InParen              = 1 << 20,
+    DisallowIn           = 1 << 21,
+    NewTarget            = 1 << 22,
+    TaggedTemplate       = 1 << 23,
+    Statement            = 1 << 24,
+    Asi                  = 1 << 25,
+    AllowSuperProperty   = 1 << 26,
+    InGenerator         = 1 << 27,
 }
 
 /* Mutual parser flags */
@@ -88,6 +95,7 @@ export const enum ModifierState {
     Shorthand    = 1 << 7,
     Getter       = 1 << 8,
     Setter       = 1 << 9,
+    Static       = 1 << 10,
 }
 
 /*@internal*/
@@ -106,10 +114,10 @@ export function setContext(context: Context, mask: Context): Context {
 }
 
 export function swapContext(context: Context, state: ModifierState): Context {
-    context = setContext(context, Context.Yield);
+    context = setContext(context, Context.InGenerator);
     context = setContext(context, Context.Async);
     context = setContext(context, Context.InParameter);
-    if (state & ModifierState.Generator) context = context | Context.Yield;
+    if (state & ModifierState.Generator) context = context | Context.InGenerator;
     if (state & ModifierState.Async) context = context | Context.Async;
     // `new.target` disallowed for arrows in global scope
     if (!(state & ModifierState.Arrow)) context = context | Context.NewTarget;
@@ -214,7 +222,7 @@ export function nextTokenIsLeftParenOrKeyword(parser: Parser, context: Context):
     nextToken(parser, context);
 
     return (parser.token & Token.Identifier) === Token.Identifier || 
-            parser.token === Token.IsKeyword ||
+            parser.token === Token.Keyword ||
             parser.token === Token.LeftParen;
   }
 
@@ -401,4 +409,31 @@ export function getLabel(
     }
 
     return LabelState.Empty;
+}
+
+
+export function isStartOfExpression(parser: Parser): boolean {
+    let start = true;
+    const value = parser.tokenValue;
+    switch (parser.token) {
+        case Token.Punctuator:
+            start = (value === '[') || (value === '(') || (value === '{') ||
+                (value === '+') || (value === '-') ||
+                (value === '!') || (value === '~') ||
+                (value === '++') || (value === '--') ||
+                (value === '/') || (value === '/=');  // regular expression literal
+            break;
+
+        case Token.Keyword:
+            start = (value === 'class') || (value === 'delete') ||
+                (value === 'function') || (value === 'let') || (value === 'new') ||
+                (value === 'super') || (value === 'this') || (value === 'typeof') ||
+                (value === 'void') || (value === 'yield');
+            break;
+
+        default:
+            break;
+    }
+
+    return start;
 }

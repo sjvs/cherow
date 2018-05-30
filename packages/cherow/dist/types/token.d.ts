@@ -17,7 +17,7 @@ export declare const enum Token {
     StringLiteral = 4194304,
     Identifier = 8388608,
     RegularExpression = 16777216,
-    Punctuators = 33554432,
+    Punctuator = 33554432,
     Template = 67108864,
     /** Misc */
     IsAssignOp = 134217728,
@@ -25,7 +25,7 @@ export declare const enum Token {
     IsUnaryOp = 536870912,
     IsUpdateOp = 1073741824,
     /** Constants */
-    IsKeyword = 8417280,
+    Keyword = 8417280,
     EndOfSource = 131072,
     FalseKeyword = 8193,
     TrueKeyword = 8194,

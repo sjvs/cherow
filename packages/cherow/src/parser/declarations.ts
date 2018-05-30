@@ -21,7 +21,7 @@ export function parseClassDeclaration(parser: Parser, context: Context): any {
     context = context | Context.Strict;
     expect(parser, context, Token.ClassKeyword);
     let id: ESTree.Identifier | null = null;
-    if ((parser.token & Token.Identifier) === Token.Identifier || parser.token & Token.IsKeyword && parser.token !== Token.ExtendsKeyword) {
+    if ((parser.token & Token.Identifier) === Token.Identifier || parser.token & Token.Keyword && parser.token !== Token.ExtendsKeyword) {
         id = parseBindingIdentifier(parser, context);
     } else if (!(context & Context.RequireIdentifier)) recordErrors(parser, Errors.UnNamedFunctionDecl);
     let superClass: ESTree.Expression | null = null;

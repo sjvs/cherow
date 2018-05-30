@@ -169,7 +169,7 @@ export function parseAssignmentPattern(
     return {
         type: 'AssignmentPattern',
         left,
-        right: parseAssignmentExpression(parser, context | Context.In),
+        right: parseAssignmentExpression(parser, context),
     };
 }
 

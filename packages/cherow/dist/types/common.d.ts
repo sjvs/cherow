@@ -9,21 +9,28 @@ export declare const enum Context {
     OptionsNext = 8,
     OptionsWebCompat = 16,
     OptionsEditorMode = 32,
-    OptionsGlobalReturn = 64,
-    Strict = 128,
-    Module = 256,
-    InFunctionBody = 512,
-    Async = 1024,
-    Yield = 2048,
-    InParameter = 4096,
-    NewTarget = 8192,
-    Template = 16384,
-    In = 32768,
-    Statement = 65536,
-    Asi = 131072,
-    RequireIdentifier = 262144,
-    AllowSuperProperty = 524288,
-    Method = 1048576,
+    OptionsLoc = 64,
+    OptionsRanges = 128,
+    OptionsRawIdentifier = 256,
+    OptionsGlobalReturn = 512,
+    OptionsComments = 1024,
+    OptionsShebang = 2048,
+    Strict = 4096,
+    Module = 8192,
+    RequireIdentifier = 16384,
+    InFunctionBody = 32768,
+    Async = 65536,
+    DisallowYield = 131072,
+    InParameter = 262144,
+    Method = 524288,
+    InParen = 1048576,
+    DisallowIn = 2097152,
+    NewTarget = 4194304,
+    TaggedTemplate = 8388608,
+    Statement = 16777216,
+    Asi = 33554432,
+    AllowSuperProperty = 67108864,
+    InGenerator = 134217728,
 }
 export declare const enum Flags {
     Empty = 0,
@@ -74,6 +81,7 @@ export declare const enum ModifierState {
     Shorthand = 128,
     Getter = 256,
     Setter = 512,
+    Static = 1024,
 }
 export declare function setGrammar(flags: Flags, mask: Flags): Context;
 export declare function setContext(context: Context, mask: Context): Context;
@@ -175,3 +183,4 @@ export declare function validateBreakStatement(parser: Parser, label: any): void
  * @param label Label to be added
  */
 export declare function getLabel(parser: Parser, label: string, iterationStatement?: boolean, crossBoundary?: boolean): LabelState;
+export declare function isStartOfExpression(parser: Parser): boolean;
