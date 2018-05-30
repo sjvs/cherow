@@ -103,7 +103,7 @@ define('cherow', ['exports'], function (exports) { 'use strict';
         import: { value: 8278 /* ImportKeyword */ },
         interface: { value: 16485 /* InterfaceKeyword */ },
         let: { value: 16453 /* LetKeyword */ },
-        null: { value: 8396803 /* NullKeyword */ },
+        null: { value: 8195 /* NullKeyword */ },
         of: { value: 4211 /* OfKeyword */ },
         package: { value: 16486 /* PackageKeyword */ },
         private: { value: 16487 /* PrivateKeyword */ },
@@ -258,17 +258,25 @@ define('cherow', ['exports'], function (exports) { 'use strict';
             type = 'Punctuator';
             value = tokenDesc(token);
         }
+        else if ((token & 8192 /* Reserved */) === 8192 /* Reserved */ ||
+            (token & 16384 /* FutureReserved */) === 16384 /* FutureReserved */ ||
+            (token & 4096 /* Contextual */) === 4096 /* Contextual */) {
+            type = 'Keyword';
+            value = tokenDesc(token);
+        }
         else {
             value = parser.source.slice(parser.startIndex, parser.index);
             if ((token & 2097152 /* NumericLiteral */) === 2097152 /* NumericLiteral */)
                 type = 'Numberic';
-            if ((token & 67108864 /* Template */) === 2097152 /* NumericLiteral */)
+            if ((token & 67108864 /* Template */) === 67108864 /* Template */)
                 type = 'Template';
             if ((token & 4194304 /* StringLiteral */) === 4194304 /* StringLiteral */)
                 type = 'String';
-            if ((token & 8388608 /* NullLiteral */) === 8388608 /* NullLiteral */)
-                type = 'Null';
+            if ((token & 8388608 /* Identifier */) === 8388608 /* Identifier */)
+                type = 'Identifier';
             if ((token & 16777216 /* RegularExpression */) === 16777216 /* RegularExpression */)
+                type = 'Null';
+            else if (token === 8195 /* NullKeyword */)
                 type = 'Null';
             else if (token === 8193 /* FalseKeyword */ || token === 8194 /* TrueKeyword */) {
                 type = 'Boolean';
@@ -1200,7 +1208,8 @@ define('cherow', ['exports'], function (exports) { 'use strict';
         parser.lastIndex = parser.index;
         parser.lastLine = parser.line;
         parser.lastColumn = parser.column;
-        return (parser.token = scan(parser, context));
+        const token = scan(parser, context);
+        return (parser.token = token);
     }
     function expect(parser, context, token, errMsg = 1 /* UnexpectedToken */) {
         if (parser.token !== token) {
@@ -3603,6 +3612,11 @@ define('cherow', ['exports'], function (exports) { 'use strict';
             nextToken: 131072 /* EndOfSource */,
             lastToken: 131072 /* EndOfSource */,
             startIndex: 0,
+            lastIndex: 0,
+            startColumn: 0,
+            lastColumn: 0,
+            startLine: 1,
+            lastLine: 0,
             index: 0,
             line: 1,
             column: 0,

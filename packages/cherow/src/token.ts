@@ -21,7 +21,6 @@ export const enum Token {
     Comments           = 1 << 20 | WhiteSpace,
     NumericLiteral     = 1 << 21,
     StringLiteral      = 1 << 22,
-    NullLiteral        = 1 << 23,
     Identifier         = 1 << 23,
     RegularExpression  = 1 << 24,
     Punctuators        = 1 << 25,
@@ -44,7 +43,7 @@ export const enum Token {
     TrueKeyword       = 2 | Reserved,
 
     /* Null literal */
-    NullKeyword       = 3 | NullLiteral | Reserved,
+    NullKeyword       = 3 | Reserved,
 
     /* Template nodes */
     TemplateHead  = 4 | Template,

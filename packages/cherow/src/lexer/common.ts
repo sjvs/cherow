@@ -1,3 +1,4 @@
+import { Identifier } from './../estree';
 import { Parser } from '../types';
 import { Token, tokenDesc } from '../token';
 import { Context, Flags } from '../common';
@@ -107,13 +108,19 @@ export function convertToken(parser: Parser, token: Token): any {
     if ((token & Token.Punctuators) === Token.Punctuators) {
         type = 'Punctuator';
         value = tokenDesc(token);
+    }  else if ((token & Token.Reserved) === Token.Reserved ||
+        (token & Token.FutureReserved) === Token.FutureReserved ||
+        (token & Token.Contextual) === Token.Contextual) {
+            type = 'Keyword';
+            value = tokenDesc(token);
     } else {
         value = parser.source.slice(parser.startIndex, parser.index);
         if ((token & Token.NumericLiteral) === Token.NumericLiteral) type = 'Numberic';
-        if ((token & Token.Template) === Token.NumericLiteral) type = 'Template';
+        if ((token & Token.Template) === Token.Template) type = 'Template';
         if ((token & Token.StringLiteral) === Token.StringLiteral) type = 'String';
-        if ((token & Token.NullLiteral) === Token.NullLiteral) type = 'Null';
+        if ((token & Token.Identifier) === Token.Identifier) type = 'Identifier';
         if ((token & Token.RegularExpression) === Token.RegularExpression) type = 'Null';
+        else if (token === Token.NullKeyword) type = 'Null';
         else if (token === Token.FalseKeyword || token === Token.TrueKeyword) {
             type = 'Boolean'
         }

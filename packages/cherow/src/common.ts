@@ -120,7 +120,8 @@ export function nextToken(parser: Parser, context: Context): Token {
     parser.lastIndex = parser.index;
     parser.lastLine = parser.line;
     parser.lastColumn = parser.column;
-    return (parser.token = scan(parser, context));
+    const token = scan(parser, context);
+    return (parser.token = token);
 }
 
 export function expect(parser: Parser, context: Context, token: Token, errMsg = Errors.UnexpectedToken): boolean {
