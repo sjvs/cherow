@@ -78,7 +78,7 @@ export function parseAssignmentExpression(parser: Parser, context: Context): any
     //   YieldExpression
     //   LeftHandSideExpression AssignmentOperator AssignmentExpression
     const { token } = parser;
-    
+
     if (token === Token.YieldKeyword && context & Context.Yield) return parseYieldExpression(parser, context);
 
     const isAsync = token === Token.AsyncKeyword /*&& !(parser.flags & Flags.NewLine)*/ &&

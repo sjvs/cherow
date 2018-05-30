@@ -375,12 +375,13 @@ table[Chars.VerticalBar] = (parser: Parser) => {
 export function scan(parser: Parser, context: Context): Token {
     parser.flags &= ~Flags.NewLine;
     while (parser.index < parser.length) {
+        const first = parser.source.charCodeAt(parser.index);
+    //    if (first <= 32) continue;
         // Remember the position of the next token
         parser.startIndex = parser.index;
         parser.startColumn = parser.column;
         parser.startLine = parser.line;
-        const first = parser.source.charCodeAt(parser.index);
-        if (first === Chars.Dollar || (first >= Chars.LowerA && first <= Chars.LowerZ)) {
+        if ((first >= Chars.LowerA && first <= Chars.LowerZ) || first === Chars.Dollar) {
             return scanIdentifier(parser);
         } else {
             const token = table[first](parser, context, first);

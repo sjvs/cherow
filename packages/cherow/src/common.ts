@@ -409,29 +409,40 @@ export function getLabel(
     return LabelState.Empty;
 }
 
-
 export function isStartOfExpression(parser: Parser): boolean {
-    let start = true;
-    const value = parser.tokenValue;
     switch (parser.token) {
-        case Token.Punctuator:
-            start = (value === '[') || (value === '(') || (value === '{') ||
-                (value === '+') || (value === '-') ||
-                (value === '!') || (value === '~') ||
-                (value === '++') || (value === '--') ||
-                (value === '/') || (value === '/=');  // regular expression literal
-            break;
-
-        case Token.Keyword:
-            start = (value === 'class') || (value === 'delete') ||
-                (value === 'function') || (value === 'let') || (value === 'new') ||
-                (value === 'super') || (value === 'this') || (value === 'typeof') ||
-                (value === 'void') || (value === 'yield');
-            break;
-
+        case Token.Identifier:
+        case Token.NumericLiteral:
+        case Token.StringLiteral:
+        case Token.RegularExpression:
+        case Token.FalseKeyword:
+        case Token.TrueKeyword:
+        case Token.NullKeyword:
+        case Token.Template:
+        case Token.LeftParen:
+        case Token.LeftBrace:
+        case Token.LeftBracket:
+        case Token.DivideAssign:
+        case Token.Divide:
+        case Token.LessThan:
+        case Token.VarKeyword:
+        case Token.LetKeyword:
+        case Token.ConstKeyword:
+        case Token.FunctionKeyword:
+        case Token.IfKeyword:
+        case Token.ImportKeyword:
+        case Token.SuperKeyword:
+        case Token.SwitchKeyword:
+        case Token.ThisKeyword:
+        case Token.ThrowKeyword:
+        case Token.YieldKeyword:
+        case Token.AwaitKeyword:
+        case Token.Eval:
+        case Token.Arguments:
+        case Token.BigInt:
+        case Token.SuperKeyword:
+            return true;
         default:
-            break;
+            return false;
     }
-
-    return start;
 }
