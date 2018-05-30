@@ -6,9 +6,14 @@ export interface Parser {
     length: number;
     flags: Flags;
     startIndex: number;
+    lastIndex: number;
     index: number;
     line: number;
+    startLine: number;
+    lastLine: number;
     column: number;
+    startColumn: number;
+    lastColumn: number;
     token: Token;
     lastToken: Token;
     nextToken: Token;
