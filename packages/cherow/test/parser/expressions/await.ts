@@ -2,7 +2,7 @@ import * as t from 'assert';
 import { pass } from '../../test-utils';
 import { Context } from '../../../src/common';
 
-describe('Miscellaneous - Yield', () => {
+describe('Expressions - Await', () => {
 
     describe('Pass', () => {
 

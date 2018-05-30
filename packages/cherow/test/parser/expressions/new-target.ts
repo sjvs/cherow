@@ -2,7 +2,7 @@ import * as t from 'assert';
 import { pass } from '../../test-utils';
 import { Context } from '../../../src/common';
 
-describe('Miscellaneous - New target', () => {
+describe('Expressions - New target', () => {
 
     describe('Editor mode', () => {
 
