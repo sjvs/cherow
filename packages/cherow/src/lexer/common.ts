@@ -1,4 +1,5 @@
 import { Parser } from '../types';
+import { Token, tokenDesc } from '../token';
 import { Context, Flags } from '../common';
 import { Chars } from '../chars';
 import { Errors, recordErrors } from '../errors';
@@ -99,3 +100,23 @@ export const fromCodePoint = (code: Chars) => {
           ((code - Chars.NonBMPMin) >> 10) + Chars.LeadSurrogateMin,
           ((code - Chars.NonBMPMin) & (1024 - 1)) + Chars.TrailSurrogateMin);
 };
+
+export function convertToken(token: Token): any {
+    let type;
+    let value;
+    if ((token & Token.Punctuators) === Token.Punctuators) {
+        type = 'Punctuator';
+        value = tokenDesc(token);
+    } else {
+        if ((token & Token.NumericLiteral) === Token.NumericLiteral) type = 'Numberic';
+        if ((token & Token.Template) === Token.NumericLiteral) type = 'Template';
+        if ((token & Token.StringLiteral) === Token.StringLiteral) type = 'String';
+        if ((token & Token.NullLiteral) === Token.NullLiteral) type = 'Null';
+        if ((token & Token.RegularExpression) === Token.RegularExpression) type = 'Null';
+        else if (token === Token.FalseKeyword || token === Token.TrueKeyword) {
+            type = 'Boolean'
+        }
+    }
+    const t: any = { type, value };
+    return t;
+}

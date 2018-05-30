@@ -1,13 +1,14 @@
 import { Parser } from '../types';
 import { Token, tokenDesc } from '../token';
 import { Context, Flags } from '../common';
-import { advanceNewline, consumeOpt } from './common';
+import { convertToken, advanceNewline, consumeOpt } from './common';
 import { Chars } from '../chars';
 import { scanIdentifier } from './identifier';
 import { skipSingleHTMLComment, skipSingleLineComment, skipMultilineComment } from './comments';
 import { scanStringLiteral } from './string';
 import { scanNumeric, parseFractionalNumber, parseLeadingZero } from './numeric';
 import { isValidIdentifierStart } from '../unicode';
+
 const table = new Array(128).fill(() => Token.EndOfSource) as any;
 
 table[Chars.Space] =
@@ -384,7 +385,7 @@ export function scan(parser: Parser, context: Context): Token {
         } else {
             const token = table[first](parser, context, first);
             if ((token & Token.WhiteSpace) === Token.WhiteSpace) continue;
-            if (context & Context.OptionsTokenize) parser.tokens.push(token); // TODO: Replace array with callback
+            if (context & Context.OptionsTokenize) parser.tokens.push(convertToken(token));
             return token;
         }
     }

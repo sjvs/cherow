@@ -70,6 +70,10 @@ export declare const enum ModifierState {
     Async = 8,
     Heritage = 16,
     Constructor = 32,
+    Method = 64,
+    Shorthand = 128,
+    Getter = 256,
+    Setter = 512,
 }
 export declare function setGrammar(flags: Flags, mask: Flags): Context;
 export declare function setContext(context: Context, mask: Context): Context;

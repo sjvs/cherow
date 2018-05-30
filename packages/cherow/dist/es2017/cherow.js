@@ -183,6 +183,7 @@ function consumeOpt(parser, code) {
 * @param parser Parser object
 */
 function advanceNewline(parser, ch) {
+    parser.index++;
     parser.column = 0;
     parser.line++;
     if (parser.index < parser.length && ch === 13 /* CarriageReturn */ &&
@@ -198,7 +199,6 @@ function skipToNewline(parser) {
             case 10 /* LineFeed */:
             case 8232 /* LineSeparator */:
             case 8233 /* ParagraphSeparator */:
-                parser.index++;
                 advanceNewline(parser, ch);
                 return true;
             default:
@@ -249,6 +249,31 @@ const fromCodePoint = (code) => {
         String.fromCharCode(code) :
         String.fromCharCode(((code - 65536 /* NonBMPMin */) >> 10) + 55296 /* LeadSurrogateMin */, ((code - 65536 /* NonBMPMin */) & (1024 - 1)) + 56320 /* TrailSurrogateMin */);
 };
+function convertToken(token) {
+    let type;
+    let value;
+    if ((token & 33554432 /* Punctuators */) === 33554432 /* Punctuators */) {
+        type = 'Punctuator';
+        value = tokenDesc(token);
+    }
+    else {
+        if ((token & 2097152 /* NumericLiteral */) === 2097152 /* NumericLiteral */)
+            type = 'Numberic';
+        if ((token & 67108864 /* Template */) === 2097152 /* NumericLiteral */)
+            type = 'Template';
+        if ((token & 4194304 /* StringLiteral */) === 4194304 /* StringLiteral */)
+            type = 'String';
+        if ((token & 8388608 /* NullLiteral */) === 8388608 /* NullLiteral */)
+            type = 'Null';
+        if ((token & 16777216 /* RegularExpression */) === 16777216 /* RegularExpression */)
+            type = 'Null';
+        else if (token === 8193 /* FalseKeyword */ || token === 8194 /* TrueKeyword */) {
+            type = 'Boolean';
+        }
+    }
+    const t = { type, value };
+    return t;
+}
 
 // Unicode v. 10 support
 // tslint:disable
@@ -328,7 +353,6 @@ function skipMultilineComment(parser) {
             case 10 /* LineFeed */:
             case 8232 /* LineSeparator */:
             case 8233 /* ParagraphSeparator */:
-                parser.index++;
                 advanceNewline(parser, ch);
                 break;
             default:
@@ -348,6 +372,8 @@ function skipMultilineComment(parser) {
  * @param quote codepoint
  */
 function scanStringLiteral(parser, context, quote) {
+    parser.index++;
+    parser.column++;
     let { index, column } = parser;
     let ret = '';
     let ch = parser.source.charCodeAt(parser.index);
@@ -556,7 +582,6 @@ table[117 /* LowerU */] = (parser, _, prev) => {
     }
 };
 
-// Note: Diffeent corde paths for decimal and floating numbers to speed things up.
 /**
  *  Scans numeric literal
  *
@@ -576,7 +601,7 @@ function scanNumeric(parser) {
         parser.column++;
         scanSignedInteger(parser);
     }
-    parser.tokenValue = parseFloat(parser.source.slice(index - 1, parser.index));
+    parser.tokenValue = parseFloat(parser.source.slice(index, parser.index));
     return 2097152 /* NumericLiteral */;
 }
 /**
@@ -587,6 +612,7 @@ function scanNumeric(parser) {
  */
 function parseFractionalNumber(parser) {
     const { index } = parser;
+    parser.index++;
     const ch = skipDigits(parser);
     // scan exponent
     if (ch === 101 /* LowerE */ || ch === 69 /* UpperE */) {
@@ -594,7 +620,7 @@ function parseFractionalNumber(parser) {
         parser.column++;
         scanSignedInteger(parser);
     }
-    parser.tokenValue = parseFloat(parser.source.slice(index - 1, parser.index));
+    parser.tokenValue = parseFloat(parser.source.slice(index, parser.index));
     return 2097152 /* NumericLiteral */;
 }
 /**
@@ -605,9 +631,9 @@ function parseFractionalNumber(parser) {
 function skipDigits(parser) {
     let ch = parser.source.charCodeAt(parser.index);
     while (ch >= 48 /* Zero */ && ch <= 57 /* Nine */) {
-        ch = parser.source.charCodeAt(parser.index);
-        parser.column++;
         parser.index++;
+        parser.column++;
+        ch = parser.source.charCodeAt(parser.index);
     }
     return ch;
 }
@@ -626,28 +652,29 @@ function scanSignedInteger(parser) {
     skipDigits(parser);
 }
 function parseLeadingZero(parser, context) {
-    switch (parser.source.charCodeAt(parser.index)) {
-        case 120 /* LowerX */:
-        case 88 /* UpperX */:
-            return scanHexDigits(parser);
-        case 98 /* LowerB */:
-        case 66 /* UpperB */:
-            return scanBinaryDigits(parser);
-        case 111 /* LowerO */:
-        case 79 /* UpperO */:
-            return scanOctalDigits(parser);
-        case 48 /* Zero */:
-        case 49 /* One */:
-        case 50 /* Two */:
-        case 51 /* Three */:
-        case 52 /* Four */:
-        case 53 /* Five */:
-        case 54 /* Six */:
-        case 55 /* Seven */:
+    let index = parser.index + 1;
+    if (index < parser.source.length) {
+        const next = parser.source.charCodeAt(index);
+        if (next >= 48 /* Zero */ && next <= 55 /* Seven */) {
             return scanImplicitOctalDigits(parser, context);
-        default:
-            return scanNumeric(parser);
+        }
+        switch (next) {
+            case 120 /* LowerX */:
+            case 88 /* UpperX */:
+                parser.index++;
+                return scanHexDigits(parser);
+            case 98 /* LowerB */:
+            case 66 /* UpperB */:
+                parser.index++;
+                return scanBinaryDigits(parser);
+            case 111 /* LowerO */:
+            case 79 /* UpperO */:
+                parser.index++;
+                return scanOctalDigits(parser);
+            default:
+        }
     }
+    return scanNumeric(parser);
 }
 function scanOctalDigits(parser) {
     parser.index++;
@@ -728,7 +755,7 @@ function scanBinaryDigits(parser) {
  * @param context Context masks
  */
 function scanImplicitOctalDigits(parser, context) {
-    if (context & 16 /* Strict */)
+    if (context & 128 /* Strict */)
         recordErrors(parser, 0 /* Unexpected */);
     let next = parser.source.charCodeAt(parser.index);
     let value = 0;
@@ -764,7 +791,9 @@ table$1[32 /* Space */] =
     table$1[9 /* Tab */] =
         table$1[12 /* FormFeed */] =
             table$1[11 /* VerticalTab */] =
-                table$1[12 /* FormFeed */] = () => {
+                table$1[12 /* FormFeed */] = (parser) => {
+                    parser.index++;
+                    parser.column++;
                     return 524288 /* WhiteSpace */;
                 };
 table$1[8232 /* LineSeparator */] =
@@ -777,8 +806,9 @@ table$1[8232 /* LineSeparator */] =
             };
 /** Punctuators */
 function mapToToken(token) {
-    return () => {
-        //    parser.index++;parser.column++;
+    return (parser) => {
+        parser.index++;
+        parser.column++;
         return token;
     };
 }
@@ -810,6 +840,8 @@ table$1[39 /* SingleQuote */] = table$1[34 /* DoubleQuote */] = scanStringLitera
 table$1[48 /* Zero */] = parseLeadingZero;
 // `/`, `/=`, `/>`
 table$1[47 /* Slash */] = (parser) => {
+    parser.index++;
+    parser.column++;
     if (parser.index >= parser.length)
         return 301992498 /* Divide */;
     const next = parser.source.charCodeAt(parser.index);
@@ -833,6 +865,8 @@ table$1[47 /* Slash */] = (parser) => {
 };
 // `!`, `!=`, `!==`
 table$1[33 /* Exclamation */] = (parser) => {
+    parser.index++;
+    parser.column++;
     if (consumeOpt(parser, 61 /* EqualSign */)) {
         if (consumeOpt(parser, 61 /* EqualSign */)) {
             return 301991479 /* StrictNotEqual */;
@@ -847,6 +881,8 @@ table$1[33 /* Exclamation */] = (parser) => {
 };
 // `%`, `%=`
 table$1[37 /* Percent */] = (parser) => {
+    parser.index++;
+    parser.column++;
     if (consumeOpt(parser, 61 /* EqualSign */)) {
         return 167772195 /* ModuloAssign */;
     }
@@ -856,6 +892,8 @@ table$1[37 /* Percent */] = (parser) => {
 };
 // `&`, `&&`, `&=`
 table$1[38 /* Ampersand */] = (parser) => {
+    parser.index++;
+    parser.column++;
     if (parser.index < parser.length) {
         const next = parser.source.charCodeAt(parser.index);
         if (next === 38 /* Ampersand */) {
@@ -873,6 +911,8 @@ table$1[38 /* Ampersand */] = (parser) => {
 };
 // `*`, `**`, `*=`, `**=`
 table$1[42 /* Asterisk */] = (parser) => {
+    parser.index++;
+    parser.column++;
     if (parser.index < parser.length) {
         const next = parser.source.charCodeAt(parser.index);
         if (next === 42 /* Asterisk */) {
@@ -895,6 +935,8 @@ table$1[42 /* Asterisk */] = (parser) => {
 };
 // `+`, `++`, `+=`
 table$1[43 /* Plus */] = (parser) => {
+    parser.index++;
+    parser.column++;
     if (parser.index < parser.length) {
         const next = parser.source.charCodeAt(parser.index);
         if (next === 43 /* Plus */) {
@@ -912,6 +954,8 @@ table$1[43 /* Plus */] = (parser) => {
 };
 // `-`, `--`, `-=`
 table$1[45 /* Hyphen */] = (parser) => {
+    parser.index++;
+    parser.column++;
     const next = parser.source.charCodeAt(parser.index);
     if (next === 45 /* Hyphen */ &&
         parser.source.charCodeAt(parser.index + 1) === 62 /* GreaterThan */) {
@@ -934,19 +978,24 @@ table$1[45 /* Hyphen */] = (parser) => {
 };
 // `.`, `...`, `.123` (numeric literal)
 table$1[46 /* Period */] = (parser) => {
-    if (parser.index < parser.source.length) {
-        const next = parser.source.charCodeAt(parser.index);
-        if (next >= 48 /* Zero */ && next <= 57 /* Nine */) {
-            return parseFractionalNumber(parser);
-        }
-        else if (next === 46 /* Period */) {
-            if (parser.index + 1 < parser.source.length && parser.source.charCodeAt(parser.index) === 46 /* Period */) {
-                parser.index += 2;
-                parser.column += 2;
+    let index = parser.index + 1;
+    if (index < parser.source.length) {
+        const next = parser.source.charCodeAt(index);
+        if (next === 46 /* Period */) {
+            index++;
+            if (index < parser.source.length &&
+                parser.source.charCodeAt(index) === 46 /* Period */) {
+                parser.index = index + 1;
+                parser.column += 3;
                 return 33554443 /* Ellipsis */;
             }
         }
+        else if (next >= 48 /* Zero */ && next <= 57 /* Nine */) {
+            return parseFractionalNumber(parser);
+        }
     }
+    parser.index++;
+    parser.column++;
     return 33554442 /* Period */;
 };
 // `1`...`9`
@@ -955,6 +1004,8 @@ for (let i = 49 /* One */; i <= 57 /* Nine */; i++) {
 }
 // `<`, `<=`, `<<`, `<<=`, `</`,  <!--
 table$1[60 /* LessThan */] = (parser, context) => {
+    parser.index++;
+    parser.column++;
     if (parser.index < parser.source.length) {
         switch (parser.source.charCodeAt(parser.index)) {
             case 60 /* LessThan */:
@@ -1000,6 +1051,8 @@ table$1[60 /* LessThan */] = (parser, context) => {
 };
 // `=`, `==`, `===`, `=>`
 table$1[61 /* EqualSign */] = (parser) => {
+    parser.index++;
+    parser.column++;
     if (parser.index < parser.source.length) {
         const next = parser.source.charCodeAt(parser.index);
         if (next === 61 /* EqualSign */) {
@@ -1022,6 +1075,8 @@ table$1[61 /* EqualSign */] = (parser) => {
 };
 // `>`, `>=`, `>>`, `>>>`, `>>=`, `>>>=`
 table$1[62 /* GreaterThan */] = (parser) => {
+    parser.index++;
+    parser.column++;
     if (parser.index < parser.source.length) {
         const next = parser.source.charCodeAt(parser.index);
         if (next === 62 /* GreaterThan */) {
@@ -1059,10 +1114,16 @@ table$1[62 /* GreaterThan */] = (parser) => {
 for (let i = 65 /* UpperA */; i <= 90 /* UpperZ */; i++) {
     table$1[i] = scanIdentifier;
 }
+// `a`...z`
+for (let i = 97 /* LowerA */; i <= 122 /* LowerZ */; i++) {
+    table$1[i] = scanIdentifier;
+}
 // `\\u{N}var`
 table$1[92 /* Backslash */] = scanIdentifier;
 // `^`, `^=`
 table$1[94 /* Caret */] = (parser) => {
+    parser.index++;
+    parser.column++;
     if (consumeOpt(parser, 61 /* EqualSign */)) {
         return 167772196 /* BitwiseXorAssign */;
     }
@@ -1076,37 +1137,40 @@ table$1[95 /* Underscore */] = scanIdentifier;
 // table[Chars.Backtick] = scanTemplate;
 // `|`, `||`, `|=`
 table$1[124 /* VerticalBar */] = (parser) => {
-    if (parser.index < parser.length) {
-        const next = parser.source.charCodeAt(parser.index);
-        if (next === 124 /* VerticalBar */) {
-            parser.index++;
-            parser.column++;
-            return 301990197 /* LogicalOr */;
-        }
-        else if (next === 61 /* EqualSign */) {
-            parser.index++;
-            parser.column++;
-            return 167772197 /* BitwiseOrAssign */;
-        }
+    parser.index++;
+    parser.column++;
+    if (parser.index >= parser.length)
+        return 301990722 /* BitwiseOr */;
+    const next = parser.source.charCodeAt(parser.index);
+    if (next === 124 /* VerticalBar */) {
+        parser.index++;
+        parser.column++;
+        return 301990197 /* LogicalOr */;
+    }
+    else if (next === 61 /* EqualSign */) {
+        parser.index++;
+        parser.column++;
+        return 167772197 /* BitwiseOrAssign */;
     }
     return 301990722 /* BitwiseOr */;
 };
 function scan(parser, context) {
     parser.flags &= ~1 /* NewLine */;
     while (parser.index < parser.length) {
+        // Remember the position of the next token
         parser.startIndex = parser.index;
+        parser.startColumn = parser.column;
+        parser.startLine = parser.line;
         const first = parser.source.charCodeAt(parser.index);
         if (first === 36 /* Dollar */ || (first >= 97 /* LowerA */ && first <= 122 /* LowerZ */)) {
             return scanIdentifier(parser);
         }
         else {
-            parser.index++;
-            parser.column++;
             const token = table$1[first](parser, context, first);
             if ((token & 524288 /* WhiteSpace */) === 524288 /* WhiteSpace */)
                 continue;
             if (context & 1 /* OptionsTokenize */)
-                parser.tokens.push(token); // TODO: Replace array with callback
+                parser.tokens.push(convertToken(token));
             return token;
         }
     }
@@ -1130,6 +1194,9 @@ function swapContext(context, state) {
     return context;
 }
 function nextToken(parser, context) {
+    parser.lastIndex = parser.index;
+    parser.lastLine = parser.line;
+    parser.lastColumn = parser.column;
     return (parser.token = scan(parser, context));
 }
 function expect(parser, context, token, errMsg = 1 /* UnexpectedToken */) {
@@ -2784,21 +2851,27 @@ function parseSpreadProperties(parser, context) {
         argument,
     };
 }
+/**
+ * Parse property definition
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-PropertyDefinition)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
 function parsePropertyDefinition(parser, context) {
     let value;
-    let state = 0 /* None */;
+    let state = 64 /* Method */;
     if (consume(parser, context, 301992496 /* Multiply */))
         state = state | 1 /* Generator */;
     let token = parser.token;
     let key = parsePropertyName(parser, context);
-    let kind = 'init';
-    let method = true;
-    let shorthand = false;
-    if (token === 4205 /* AsyncKeyword */) {
-        if (parser.token & (4194304 /* StringLiteral */ | 4096 /* Contextual */ | 2097152 /* NumericLiteral */) ||
-            parser.token === 301992496 /* Multiply */) {
+    if (token === 4205 /* AsyncKeyword */ && !(parser.flags & 1 /* NewLine */)) {
+        if (parser.token & (8388608 /* Identifier */ | 4194304 /* StringLiteral */ | 4096 /* Contextual */ | 2097152 /* NumericLiteral */) ||
+            parser.token === 301992496 /* Multiply */ || parser.token === 33554448 /* LeftBracket */) {
+            if (state & 1 /* Generator */)
+                recordErrors(parser, 0 /* Unexpected */);
             state = state | 8 /* Async */;
-            token = parser.token;
             if (consume(parser, context, 301992496 /* Multiply */))
                 state = state | 1 /* Generator */;
             token = parser.token;
@@ -2806,12 +2879,14 @@ function parsePropertyDefinition(parser, context) {
         }
     }
     if (token === 4208 /* GetKeyword */ || token === 4209 /* SetKeyword */) {
-        if (parser.token & (4194304 /* StringLiteral */ | 4096 /* Contextual */ | 2097152 /* NumericLiteral */) ||
-            parser.token === 301992496 /* Multiply */) {
+        if (parser.token & (8388608 /* Identifier */ | 4194304 /* StringLiteral */ | 4096 /* Contextual */ | 2097152 /* NumericLiteral */) ||
+            parser.token === 301992496 /* Multiply */ || parser.token === 33554448 /* LeftBracket */) {
+            if (state & 1 /* Generator */)
+                recordErrors(parser, 0 /* Unexpected */);
             if (consume(parser, context, 301992496 /* Multiply */))
                 state = state | 1 /* Generator */;
+            state = state & ~64 /* Method */ | (token === 4208 /* GetKeyword */ ? 256 /* Getter */ : 512 /* Setter */);
             token = parser.token;
-            kind = token === 4208 /* GetKeyword */ ? 'get' : 'set';
             key = parsePropertyName(parser, context);
         }
     }
@@ -2819,15 +2894,20 @@ function parsePropertyDefinition(parser, context) {
         value = parseMethod(parser, context, state);
     }
     else {
-        method = false;
+        if (state & (1 /* Generator */ | 8 /* Async */)) {
+            recordErrors(parser, 0 /* Unexpected */);
+        }
+        state = state & ~64 /* Method */;
         if (parser.token === 33554450 /* Colon */) {
-            expect(parser, context, 33554450 /* Colon */);
+            if (token !== 33554448 /* LeftBracket */ && parser.tokenValue === '__proto__') ;
+            nextToken(parser, context);
             value = parseAssignmentExpression(parser, context);
         }
         else {
-            shorthand = true;
+            state |= 128 /* Shorthand */;
             if (parser.token === 167772186 /* Assign */) {
-                expect(parser, context, 167772186 /* Assign */);
+                // TODO: 'CoverInitializedName'
+                nextToken(parser, context);
                 value = parseAssignmentPattern(parser, context, key);
             }
             else {
@@ -2839,10 +2919,14 @@ function parsePropertyDefinition(parser, context) {
         type: 'Property',
         key,
         value,
-        kind,
         computed: token === 33554448 /* LeftBracket */,
-        method,
-        shorthand,
+        method: (state & 64 /* Method */) === 64 /* Method */,
+        shorthand: (state & 128 /* Shorthand */) === 128 /* Shorthand */,
+        kind: !(state & 256 /* Getter */ | state & 512 /* Setter */) ?
+            'init' :
+            (state & 512 /* Setter */) ?
+                'set' :
+                'get',
     };
 }
 

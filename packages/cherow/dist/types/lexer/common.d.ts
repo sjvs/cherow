@@ -1,4 +1,5 @@
 import { Parser } from '../types';
+import { Token } from '../token';
 import { Chars } from '../chars';
 export declare function consumeOpt(parser: Parser, code: number): boolean;
 /**
@@ -20,3 +21,4 @@ export declare function nextUnicodeChar(parser: Parser): number;
 export declare function isHex(code: number): boolean;
 export declare function toHex(code: number): number;
 export declare const fromCodePoint: (code: Chars) => string;
+export declare function convertToken(token: Token): any;
