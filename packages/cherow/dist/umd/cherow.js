@@ -1172,12 +1172,13 @@
     function scan(parser, context) {
         parser.flags &= ~1 /* NewLine */;
         while (parser.index < parser.length) {
+            const first = parser.source.charCodeAt(parser.index);
+            //    if (first <= 32) continue;
             // Remember the position of the next token
             parser.startIndex = parser.index;
             parser.startColumn = parser.column;
             parser.startLine = parser.line;
-            const first = parser.source.charCodeAt(parser.index);
-            if (first === 36 /* Dollar */ || (first >= 97 /* LowerA */ && first <= 122 /* LowerZ */)) {
+            if ((first >= 97 /* LowerA */ && first <= 122 /* LowerZ */) || first === 36 /* Dollar */) {
                 return scanIdentifier(parser);
             }
             else {
@@ -1193,10 +1194,12 @@
     }
 
     function setContext(context, mask) {
-        return (context | context) ^ mask;
+        return (context | mask) ^ mask;
     }
     function swapContext(context, state) {
-        context &= ~(65536 /* Async */ | 2097152 /* Yield */ | 262144 /* InParameter */);
+        context = setContext(context, 2097152 /* Yield */);
+        context = setContext(context, 65536 /* Async */);
+        context = setContext(context, 262144 /* InParameter */);
         if (state & 1 /* Generator */)
             context = context | 2097152 /* Yield */;
         if (state & 8 /* Async */)
@@ -1369,7 +1372,7 @@
      * @param label Label to be added
      */
     function addLabel(parser, label) {
-        if (!parser.labelSet)
+        if (parser.labelSet === undefined)
             parser.labelSet = {};
         parser.labelSet[label] = true;
         parser.labelSetStack[parser.labelDepth] = parser.labelSet;
@@ -1450,26 +1453,41 @@
         return 0 /* Empty */;
     }
     function isStartOfExpression(parser) {
-        let start = true;
-        const value = parser.tokenValue;
         switch (parser.token) {
-            case 33554432 /* Punctuator */:
-                start = (value === '[') || (value === '(') || (value === '{') ||
-                    (value === '+') || (value === '-') ||
-                    (value === '!') || (value === '~') ||
-                    (value === '++') || (value === '--') ||
-                    (value === '/') || (value === '/='); // regular expression literal
-                break;
-            case 8417280 /* Keyword */:
-                start = (value === 'class') || (value === 'delete') ||
-                    (value === 'function') || (value === 'let') || (value === 'new') ||
-                    (value === 'super') || (value === 'this') || (value === 'typeof') ||
-                    (value === 'void') || (value === 'yield');
-                break;
+            case 8388608 /* Identifier */:
+            case 2097152 /* NumericLiteral */:
+            case 4194304 /* StringLiteral */:
+            case 16777216 /* RegularExpression */:
+            case 8193 /* FalseKeyword */:
+            case 8194 /* TrueKeyword */:
+            case 8195 /* NullKeyword */:
+            case 67108864 /* Template */:
+            case 33554440 /* LeftParen */:
+            case 33554441 /* LeftBrace */:
+            case 33554448 /* LeftBracket */:
+            case 167772194 /* DivideAssign */:
+            case 301992498 /* Divide */:
+            case 301991740 /* LessThan */:
+            case 8260 /* VarKeyword */:
+            case 16453 /* LetKeyword */:
+            case 8262 /* ConstKeyword */:
+            case 8276 /* FunctionKeyword */:
+            case 8277 /* IfKeyword */:
+            case 8278 /* ImportKeyword */:
+            case 8281 /* SuperKeyword */:
+            case 8282 /* SwitchKeyword */:
+            case 8283 /* ThisKeyword */:
+            case 8284 /* ThrowKeyword */:
+            case 16491 /* YieldKeyword */:
+            case 4206 /* AwaitKeyword */:
+            case 8388705 /* Eval */:
+            case 8388704 /* Arguments */:
+            case 2097275 /* BigInt */:
+            case 8281 /* SuperKeyword */:
+                return true;
             default:
-                break;
+                return false;
         }
-        return start;
     }
 
     // Declarations
@@ -1950,9 +1968,6 @@
         let delegate = false;
         if (!(parser.flags & 1 /* NewLine */)) {
             delegate = consume(parser, context, 301992496 /* Multiply */);
-            // 'Token.IsExpressionStart' bitmask contains the complete set of
-            // tokens that can appear after an AssignmentExpression, and none of them
-            // can start an AssignmentExpression.
             if (delegate || isStartOfExpression(parser)) {
                 argument = parseAssignmentExpression(parser, context);
             }
@@ -2413,6 +2428,7 @@
         switch (parser.token) {
             case 16453 /* LetKeyword */:
             case 16491 /* YieldKeyword */:
+            case 4206 /* AwaitKeyword */:
             case 8388608 /* Identifier */:
                 return parseIdentifier(parser, context);
             case 4194304 /* StringLiteral */:
@@ -3752,7 +3768,7 @@
         if (!!options) {
             // The flag to enable module syntax support
             if (options.module)
-                context |= 256 /* Module */;
+                context |= 8192 /* Module */;
             // The flag to enable stage 3 support (ESNext)
             if (options.next)
                 context |= 8 /* OptionsNext */;
@@ -3776,7 +3792,7 @@
         const body = parseStatementList(parser, context);
         return {
             type: 'Program',
-            sourceType: context & 256 /* Module */ ? 'module' : 'script',
+            sourceType: context & 8192 /* Module */ ? 'module' : 'script',
             body: body,
         };
     }
@@ -3814,7 +3830,7 @@
      * @param options parser options
      */
     function parseModule(source, options, errCallback) {
-        return parseSource(source, options, 128 /* Strict */ | 256 /* Module */, errCallback);
+        return parseSource(source, options, 4096 /* Strict */ | 8192 /* Module */, errCallback);
     }
 
     const version = '1.6.5';

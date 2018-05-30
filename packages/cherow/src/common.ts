@@ -110,11 +110,13 @@ export function setGrammar(flags: Flags, mask: Flags): Context {
 }
 
 export function setContext(context: Context, mask: Context): Context {
-    return (context | context) ^ mask;
+    return (context | mask) ^ mask;
 }
 
 export function swapContext(context: Context, state: ModifierState): Context {
-    context &= ~(Context.Async | Context.Yield | Context.InParameter);
+    context = setContext(context, Context.Yield);
+    context = setContext(context, Context.Async);
+    context = setContext(context, Context.InParameter);
     if (state & ModifierState.Generator) context = context | Context.Yield;
     if (state & ModifierState.Async) context = context | Context.Async;
     // `new.target` disallowed for arrows in global scope
