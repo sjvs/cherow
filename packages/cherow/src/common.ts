@@ -319,7 +319,7 @@ function isIterationStatement(parser: Parser): boolean {
  * @param label Label to be added
  */
 export function addLabel(parser: Parser, label: string): void {
-    if (!parser.labelSet) parser.labelSet = {};
+    if (parser.labelSet === undefined) parser.labelSet = {};
     parser.labelSet[label] = true;
     parser.labelSetStack[parser.labelDepth] = parser.labelSet;
     parser.iterationStack[parser.labelDepth] = isIterationStatement(parser);
