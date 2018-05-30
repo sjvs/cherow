@@ -136,7 +136,7 @@ export declare const enum Token {
     YieldKeyword = 16491,
     AsKeyword = 4204,
     AsyncKeyword = 4205,
-    AwaitKeyword = 536875118,
+    AwaitKeyword = 4206,
     ConstructorKeyword = 4207,
     GetKeyword = 4208,
     SetKeyword = 4209,

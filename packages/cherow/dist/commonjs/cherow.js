@@ -89,7 +89,7 @@ const descKeywordTable = Object.create(null, {
     finally: { value: 8274 /* FinallyKeyword */ },
     arguments: { value: 8388704 /* Arguments */ },
     async: { value: 4205 /* AsyncKeyword */ },
-    await: { value: 536875118 /* AwaitKeyword */ },
+    await: { value: 4206 /* AwaitKeyword */ },
     class: { value: 8266 /* ClassKeyword */ },
     const: { value: 8262 /* ConstKeyword */ },
     constructor: { value: 4207 /* ConstructorKeyword */ },
@@ -256,7 +256,7 @@ const fromCodePoint = (code) => {
 function convertToken(parser, token) {
     let type;
     let value;
-    if ((token & 33554432 /* Punctuators */) === 33554432 /* Punctuators */) {
+    if ((token & 33554432 /* Punctuator */) === 33554432 /* Punctuator */) {
         type = 'Punctuator';
         value = tokenDesc(token);
     }
@@ -501,12 +501,12 @@ table[48 /* Zero */] =
                 if (next < 48 /* Zero */ || next > 55 /* Seven */) {
                     // Strict mode code allows only \0, then a non-digit.
                     if (code !== 0 || next === 56 /* Eight */ || next === 57 /* Nine */) {
-                        if (context & 128 /* Strict */)
+                        if (context & 4096 /* Strict */)
                             return -2 /* StrictOctal */;
                         parser.flags |= 2 /* HasOctal */;
                     }
                 }
-                else if (context & 128 /* Strict */) {
+                else if (context & 4096 /* Strict */) {
                     return -2 /* StrictOctal */;
                 }
                 else {
@@ -529,7 +529,7 @@ table[52 /* Four */] =
     table[53 /* Five */] =
         table[54 /* Six */] =
             table[55 /* Seven */] = (parser, context, first) => {
-                if (context & 128 /* Strict */)
+                if (context & 4096 /* Strict */)
                     return -2 /* StrictOctal */;
                 let code = first - 48 /* Zero */;
                 const index = parser.index + 1;
@@ -768,7 +768,7 @@ function scanBinaryDigits(parser) {
  * @param context Context masks
  */
 function scanImplicitOctalDigits(parser, context) {
-    if (context & 128 /* Strict */)
+    if (context & 4096 /* Strict */)
         recordErrors(parser, 0 /* Unexpected */);
     let next = parser.source.charCodeAt(parser.index);
     let value = 0;
@@ -1194,11 +1194,9 @@ function setContext(context, mask) {
     return (context | context) ^ mask;
 }
 function swapContext(context, state) {
-    context = setContext(context, 134217728 /* InGenerator */);
-    context = setContext(context, 65536 /* Async */);
-    context = setContext(context, 262144 /* InParameter */);
+    context &= ~(65536 /* Async */ | 2097152 /* Yield */ | 262144 /* InParameter */);
     if (state & 1 /* Generator */)
-        context = context | 134217728 /* InGenerator */;
+        context = context | 2097152 /* Yield */;
     if (state & 8 /* Async */)
         context = context | 65536 /* Async */;
     // `new.target` disallowed for arrows in global scope
@@ -1580,7 +1578,7 @@ function parseBindingIdentifier(parser, context, kind = 'var') {
     // Reserved 
     if ((t & 8192 /* Reserved */) === 8192 /* Reserved */)
         recordErrors(parser, 0 /* Unexpected */);
-    if (t === 536875118 /* AwaitKeyword */ && context & (4096 /* Strict */ | 65536 /* Async */)) {
+    if (t === 4206 /* AwaitKeyword */ && context & (4096 /* Strict */ | 65536 /* Async */)) {
         recordErrors(parser, 0 /* Unexpected */);
     }
     if (t === 8388705 /* Eval */ || t === 8388704 /* Arguments */ && kind === 'let' || kind === 'const')
@@ -1911,7 +1909,7 @@ function parseAssignmentExpression(parser, context) {
     //   YieldExpression
     //   LeftHandSideExpression AssignmentOperator AssignmentExpression
     const { token } = parser;
-    if (token === 16491 /* YieldKeyword */ && !(context & 131072 /* DisallowYield */))
+    if (token === 16491 /* YieldKeyword */ && context & 2097152 /* Yield */)
         return parseYieldExpression(parser, context);
     const isAsync = token === 4205 /* AsyncKeyword */ /*&& !(parser.flags & Flags.NewLine)*/ &&
         lookahead(parser, context, nextTokenIsLeftParenOrKeyword);
@@ -1934,7 +1932,7 @@ function parseAssignmentExpression(parser, context) {
         }
         const operator = parser.token;
         nextToken(parser, context);
-        const right = parseAssignmentExpression(parser, context | 131072 /* DisallowYield */);
+        const right = parseAssignmentExpression(parser, context);
         return {
             type: 'AssignmentExpression',
             left: left,
@@ -1945,11 +1943,6 @@ function parseAssignmentExpression(parser, context) {
     return left;
 }
 function parseYieldExpression(parser, context) {
-    if ((context & 4096 /* Strict */) === 4096 /* Strict */) {
-        if ((context & 134217728 /* InGenerator */) !== 134217728 /* InGenerator */) {
-            recordErrors(parser, 0 /* Unexpected */);
-        }
-    }
     expect(parser, context, 16491 /* YieldKeyword */);
     let argument = null;
     let delegate = false;
@@ -2014,7 +2007,7 @@ function parseConditionalExpression(parser, context) {
 function parseBinaryExpression(parser, context, minPrec, left = parseUnaryExpression(parser, context)) {
     // Shift-reduce parser for the binary operator part of the JS expression
     // syntax.
-    const bit = (context & 2097152 /* DisallowIn */) === 2097152 /* DisallowIn */;
+    const bit = (context & 131072 /* DisallowIn */) === 131072 /* DisallowIn */;
     while ((parser.token & 268435456 /* IsBinaryOp */) === 268435456 /* IsBinaryOp */) {
         const t = parser.token;
         const prec = t & 3840 /* Precedence */;
@@ -2036,6 +2029,32 @@ function parseBinaryExpression(parser, context, minPrec, left = parseUnaryExpres
     }
     return left;
 }
+/**
+ * Parse await expression
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-AwaitExpression)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ * @param pos Location info
+ */
+function parseAwaitExpression(parser, context) {
+    if (context & 262144 /* InParameter */)
+        recordErrors(parser, 0 /* Unexpected */);
+    expect(parser, context, 4206 /* AwaitKeyword */);
+    return {
+        type: 'AwaitExpression',
+        argument: parseUnaryExpression(parser, context),
+    };
+}
+/**
+ * Parses unary expression
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-UnaryExpression)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
 function parseUnaryExpression(parser, context) {
     // UnaryExpression ::
     //   PostfixExpression
@@ -2059,6 +2078,9 @@ function parseUnaryExpression(parser, context) {
             argument,
             prefix: true,
         };
+    }
+    else if (context & 65536 /* Async */ && parser.token === 4206 /* AwaitKeyword */) {
+        return parseAwaitExpression(parser, context);
     }
     return parseUpdateExpression(parser, context);
 }
@@ -2388,6 +2410,7 @@ function parseArgumentList(parser, context) {
 function parsePrimaryExpression(parser, context) {
     switch (parser.token) {
         case 16453 /* LetKeyword */:
+        case 16491 /* YieldKeyword */:
         case 8388608 /* Identifier */:
             return parseIdentifier(parser, context);
         case 4194304 /* StringLiteral */:
@@ -2576,7 +2599,7 @@ function parseArrayLiteral(parser, context) {
     //
     //
     expect(parser, context, 33554448 /* LeftBracket */);
-    context = setContext(context, 2097152 /* DisallowIn */ | 33554432 /* Asi */);
+    context = setContext(context, 131072 /* DisallowIn */ | 33554432 /* Asi */);
     const elements = [];
     while (parser.token !== 33554449 /* RightBracket */) {
         if (consume(parser, context, 33554447 /* Comma */)) {
@@ -2901,7 +2924,7 @@ function parseMethod(parser, context, state) {
 function parseObjectLiteral(parser, context) {
     expect(parser, context, 33554441 /* LeftBrace */);
     const properties = [];
-    context = setContext(context, 2097152 /* DisallowIn */ | 33554432 /* Asi */);
+    context = setContext(context, 131072 /* DisallowIn */ | 33554432 /* Asi */);
     while (parser.token !== 33685516 /* RightBrace */) {
         properties.push(parser.token === 33554443 /* Ellipsis */ ?
             parseSpreadProperties(parser, context) :
@@ -3356,7 +3379,7 @@ function parseVariableStatement(parser, context, type) {
  */
 function parseForStatement(parser, context) {
     expect(parser, context, 8275 /* ForKeyword */);
-    const forAwait = context & 65536 /* Async */ && consume(parser, context, 536875118 /* AwaitKeyword */);
+    const forAwait = context & 65536 /* Async */ && consume(parser, context, 4206 /* AwaitKeyword */);
     expect(parser, context, 33554440 /* LeftParen */);
     let init = null;
     let declarations = null;
@@ -3377,10 +3400,10 @@ function parseForStatement(parser, context) {
             bindingType = 4 /* Let */;
         }
         else
-            init = parseAssignmentExpression(parser, context | 2097152 /* DisallowIn */);
+            init = parseAssignmentExpression(parser, context | 131072 /* DisallowIn */);
         if (bindingType & 14 /* Variable */) {
             nextToken(parser, context);
-            declarations = parseVariableDeclarationList(parser, context | 2097152 /* DisallowIn */, bindingType, 1 /* ForStatement */);
+            declarations = parseVariableDeclarationList(parser, context | 131072 /* DisallowIn */, bindingType, 1 /* ForStatement */);
             init = {
                 type: 'VariableDeclaration',
                 kind: tokenDesc(token),
