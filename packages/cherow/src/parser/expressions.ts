@@ -79,7 +79,7 @@ export function parseAssignmentExpression(parser: Parser, context: Context): any
     //   LeftHandSideExpression AssignmentOperator AssignmentExpression
     const { token } = parser;
     
-    if (token === Token.YieldKeyword && !(context & Context.DisallowYield)) return parseYieldExpression(parser, context);
+    if (token === Token.YieldKeyword && context & Context.Yield) return parseYieldExpression(parser, context);
 
     const isAsync = token === Token.AsyncKeyword /*&& !(parser.flags & Flags.NewLine)*/ &&
         lookahead(parser, context, nextTokenIsLeftParenOrKeyword);
@@ -102,7 +102,7 @@ export function parseAssignmentExpression(parser: Parser, context: Context): any
         }
         const operator = parser.token;
         nextToken(parser, context);
-        const right = parseAssignmentExpression(parser, context | Context.DisallowYield);
+        const right = parseAssignmentExpression(parser, context);
         return {
             type: 'AssignmentExpression',
             left: left,
@@ -114,11 +114,6 @@ export function parseAssignmentExpression(parser: Parser, context: Context): any
 }
 
 function parseYieldExpression(parser: Parser, context: Context): ESTree.YieldExpression {
-    if ((context & Context.Strict) === Context.Strict) {
-        if ((context & Context.InGenerator) !== Context.InGenerator) {
-          recordErrors(parser, Errors.Unexpected)
-        }
-    }
     expect(parser, context, Token.YieldKeyword);
     let argument: ESTree.Expression | null = null;
     let delegate = false;
@@ -215,6 +210,32 @@ function parseBinaryExpression(
     return left;
 }
 
+/**
+ * Parse await expression
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-AwaitExpression)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ * @param pos Location info
+ */
+function parseAwaitExpression(parser: Parser, context: Context): any {
+    if (context & Context.InParameter) recordErrors(parser, Errors.Unexpected);
+    expect(parser, context, Token.AwaitKeyword);
+    return {
+        type: 'AwaitExpression',
+        argument: parseUnaryExpression(parser, context),
+    };
+}
+
+/**
+ * Parses unary expression
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-UnaryExpression)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
 function parseUnaryExpression(parser: Parser, context: Context): any {
     // UnaryExpression ::
     //   PostfixExpression
@@ -238,6 +259,8 @@ function parseUnaryExpression(parser: Parser, context: Context): any {
             argument,
             prefix: true,
         };
+    } else if (context & Context.Async && parser.token === Token.AwaitKeyword) {
+        return parseAwaitExpression(parser, context);
     }
 
     return parseUpdateExpression(parser, context);
@@ -589,6 +612,7 @@ function parseArgumentList(parser: Parser, context: Context): (ESTree.Expression
 export function parsePrimaryExpression(parser: Parser, context: Context): any {
     switch (parser.token) {
         case Token.LetKeyword:
+        case Token.YieldKeyword:
         case Token.Identifier:
             return parseIdentifier(parser, context);
         case Token.StringLiteral:

@@ -72,7 +72,7 @@ describe('Lexer - Punctuators', () => {
             const punctuator = scan(parser, context);
             t.deepEqual({
                 token: tokenDesc(punctuator),
-                punctuator: (token & Token.Punctuators) === Token.Punctuators,
+                punctuator: (token & Token.Punctuator) === Token.Punctuator,
                 line: parser.line,
                 column: parser.column,
             }, {

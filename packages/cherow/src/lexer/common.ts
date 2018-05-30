@@ -105,7 +105,7 @@ export const fromCodePoint = (code: Chars) => {
 export function convertToken(parser: Parser, token: Token): any {
     let type;
     let value;
-    if ((token & Token.Punctuators) === Token.Punctuators) {
+    if ((token & Token.Punctuator) === Token.Punctuator) {
         type = 'Punctuator';
         value = tokenDesc(token);
     }  else if ((token & Token.Reserved) === Token.Reserved ||

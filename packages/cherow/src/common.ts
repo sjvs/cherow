@@ -24,17 +24,17 @@ export const enum Context {
     RequireIdentifier    = 1 << 14,
     InFunctionBody       = 1 << 15,
     Async                = 1 << 16,
-    DisallowYield        = 1 << 17,
+    DisallowIn           = 1 << 17,
     InParameter          = 1 << 18,
     Method               = 1 << 19,
     InParen              = 1 << 20,
-    DisallowIn           = 1 << 21,
+    Yield                = 1 << 21,
     NewTarget            = 1 << 22,
     TaggedTemplate       = 1 << 23,
     Statement            = 1 << 24,
     Asi                  = 1 << 25,
     AllowSuperProperty   = 1 << 26,
-    InGenerator         = 1 << 27,
+
 }
 
 /* Mutual parser flags */
@@ -114,10 +114,8 @@ export function setContext(context: Context, mask: Context): Context {
 }
 
 export function swapContext(context: Context, state: ModifierState): Context {
-    context = setContext(context, Context.InGenerator);
-    context = setContext(context, Context.Async);
-    context = setContext(context, Context.InParameter);
-    if (state & ModifierState.Generator) context = context | Context.InGenerator;
+    context &= ~(Context.Async | Context.Yield | Context.InParameter);
+    if (state & ModifierState.Generator) context = context | Context.Yield;
     if (state & ModifierState.Async) context = context | Context.Async;
     // `new.target` disallowed for arrows in global scope
     if (!(state & ModifierState.Arrow)) context = context | Context.NewTarget;

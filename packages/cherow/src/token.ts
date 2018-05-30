@@ -174,7 +174,7 @@ export const enum Token {
     /* Contextual keywords */
     AsKeyword          = 108 | Contextual,
     AsyncKeyword       = 109 | Contextual,
-    AwaitKeyword       = 110 | Contextual | IsUnaryOp,
+    AwaitKeyword       = 110 | Contextual,
     ConstructorKeyword = 111 | Contextual,
     GetKeyword         = 112 | Contextual,
     SetKeyword         = 113 | Contextual,
