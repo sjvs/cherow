@@ -119,9 +119,6 @@ function parseYieldExpression(parser: Parser, context: Context): ESTree.YieldExp
     let delegate = false;
     if (!(parser.flags & Flags.NewLine)) {
         delegate = consume(parser, context, Token.Multiply);
-         // 'Token.IsExpressionStart' bitmask contains the complete set of
-         // tokens that can appear after an AssignmentExpression, and none of them
-         // can start an AssignmentExpression.
         if (delegate || isStartOfExpression(parser)) {
             argument = parseAssignmentExpression(parser, context);
         }
@@ -613,6 +610,7 @@ export function parsePrimaryExpression(parser: Parser, context: Context): any {
     switch (parser.token) {
         case Token.LetKeyword:
         case Token.YieldKeyword:
+        case Token.AwaitKeyword:
         case Token.Identifier:
             return parseIdentifier(parser, context);
         case Token.StringLiteral:
