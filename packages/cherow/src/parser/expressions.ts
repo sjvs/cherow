@@ -937,46 +937,60 @@ function parseFormalParameters(parser: Parser, context: Context) {
  * @param context Context masks
  */
 function parseFunctionBody(parser: Parser, context: Context): ESTree.BlockStatement {
+
     const body: ESTree.Statement[] = [];
+
     expect(parser, context, Token.LeftBrace);
-    const previousSwitchStatement = parser.switchStatement;
-    const previousIterationStatement = parser.iterationStatement;
-    if ((parser.switchStatement & LabelState.Iteration) === LabelState.Iteration) {
-        parser.switchStatement = LabelState.CrossingBoundary;
-    }
-    if ((parser.iterationStatement & LabelState.Iteration) === LabelState.Iteration) {
-        parser.iterationStatement = LabelState.CrossingBoundary;
-    }
 
-    addCrossingBoundary(parser);
+    if (parser.token !== Token.RightBrace) {
 
-    while (parser.token === Token.StringLiteral) {
-        const { tokenRaw, tokenValue} = parser;
-        body.push(parseDirective(parser, context));
-        if (tokenRaw.length === /* length of prologue*/ 12 && tokenValue === 'use strict') {
-            if (parser.flags & Flags.SimpleParameterList) {
-                recordErrors(parser, context, Errors.IllegalUseStrict);
-            } else if (parser.flags & Flags.StrictEvalArguments) {
-                recordErrors(parser, context, Errors.StrictEvalArguments);
+        // Note: A separate "while" loop is used to avoid unseting the 
+        // mutual flags within the iteration loop itself. 
+        while (parser.token === Token.StringLiteral) {
+            const { tokenRaw, tokenValue } = parser;
+            body.push(parseDirective(parser, context));
+            if (tokenRaw.length === /* length of prologue*/ 12 && tokenValue === 'use strict') {
+                if (parser.flags & Flags.SimpleParameterList) {
+                    recordErrors(parser, context, Errors.IllegalUseStrict);
+                } else if (parser.flags & Flags.StrictEvalArguments) {
+                    recordErrors(parser, context, Errors.StrictEvalArguments);
+                }
+                context |= Context.Strict;
             }
-            context |= Context.Strict;
         }
+
+        parser.flags = swapFlags(parser.flags, Flags.StrictFunctionName | Flags.StrictEvalArguments);
+
+        const previousSwitchStatement = parser.switchStatement;
+        const previousIterationStatement = parser.iterationStatement;
+ 
+        if ((parser.switchStatement & LabelState.Iteration) === LabelState.Iteration) {
+            parser.switchStatement = LabelState.CrossingBoundary;
+        }
+ 
+        if ((parser.iterationStatement & LabelState.Iteration) === LabelState.Iteration) {
+            parser.iterationStatement = LabelState.CrossingBoundary;
+        }
+
+        addCrossingBoundary(parser);
+
+        while (parser.token !== Token.RightBrace) {
+            body.push(parseStatementListItem(parser, context));
+        }
+
+        parser.labelDepth--;
+        parser.switchStatement = previousSwitchStatement;
+        parser.iterationStatement = previousIterationStatement;
     }
 
-    parser.flags = swapFlags(parser.flags, Flags.StrictFunctionName | Flags.StrictEvalArguments);
-
-    while (parser.token !== Token.RightBrace) {
-        body.push(parseStatementListItem(parser, context));
-    }
-    parser.labelDepth--;
-    parser.switchStatement = previousSwitchStatement;
-    parser.iterationStatement = previousIterationStatement;
     expect(parser, context, Token.RightBrace);
+
     return {
         type: 'BlockStatement',
         body,
     };
 }
+
 /**
  * Parse property name
  *
