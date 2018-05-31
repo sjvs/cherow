@@ -59,7 +59,7 @@ export function parseFunctionDeclaration(
         id = parseBindingIdentifier(parser, context);
     } else if (!(context & Context.RequireIdentifier)) recordErrors(parser, context, Errors.UnNamedFunctionDecl);
     context = swapContext(context, state);
-    const { params, body } = parseFormalListAndBody(parser, context | Context.InFunctionBody);
+    const { params, body } = parseFormalListAndBody(parser, context);
     return {
         type: 'FunctionDeclaration',
         body,

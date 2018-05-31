@@ -6,6 +6,50 @@ describe('Expressions - Async arrow', () => {
 
     describe('Pass', () => {
 
+        pass('async () => { await import(x) }', Context.OptionsNext, {
+            source: `async () => { await import(x) }`,
+            expected: {
+                  "body": [
+                    {
+                      "expression": {
+                        "async": true,
+                        "body": {
+                          "body": [
+                            {
+                              "expression": {
+                                "argument": {
+                                  "arguments": [
+                                    {
+                                     "name": "x",
+                                      "type": "Identifier",
+                                    },
+                                  ],
+                                  "callee": {
+                                    "type": "Import",
+                                 },
+                                  "type": "CallExpression",
+                                },
+                                "type": "AwaitExpression",
+                              },
+                              "type": "ExpressionStatement",
+                            },
+                          ],
+                          "type": "BlockStatement",
+                        },
+                        "expression": false,
+                        "generator": false,
+                        "id": null,
+                        "params": [],
+                       "type": "ArrowFunctionExpression",
+                      },
+                      "type": "ExpressionStatement",
+                    },
+                  ],
+                  "sourceType": "script",
+                  "type": "Program",
+                }
+        });
+
         pass('async (x)=>x;', Context.Empty, {
             source: `async (x)=>x;`,
             expected: {

@@ -1,7 +1,9 @@
 import { scan } from './lexer/scan';
 import { Token, tokenDesc } from './token';
 import { Parser } from './types';
+import * as ESTree from './estree';
 import { Errors, recordErrors, } from './errors';
+import { parseIdentifier } from './parser/expressions';
 
 /* Context masks */
 export const enum Context {
@@ -189,7 +191,7 @@ export function consumeSemicolon(parser: Parser, context: Context): void | boole
  export function lookahead<T>(
      parser: Parser, 
      context: Context, 
-     callback: (parser: Parser, context: Context) => T, 
+     callback: (parser: Parser, context: Context) => T,
      isLookahead: boolean = true): T {
     const {
         tokenValue,
@@ -227,6 +229,17 @@ export function consumeSemicolon(parser: Parser, context: Context): void | boole
 export function nextTokenIsFuncKeywordOnSameLine(parser: Parser, context: Context): boolean {
     nextToken(parser, context);
     return !(parser.flags & Flags.NewLine) && parser.token === Token.FunctionKeyword;
+  }
+  
+  /**
+ * Validates if the next token in the stream is a left paren or a period
+ *
+ * @param parser Parser object
+ * @param context  Context masks
+ */
+export function nextTokenIsLeftParenOrPeriod(parser: Parser, context: Context): boolean {
+    nextToken(parser, context);
+    return parser.token === Token.LeftParen || parser.token === Token.Period;
   }
   
   /**
@@ -464,4 +477,21 @@ export function isStartOfExpression(parser: Parser): boolean {
         default:
             return false;
     }
+}
+
+/**
+ * Parse identifier name
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-IdentifierName)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ * @param t token
+ */
+
+export function parseIdentifierName(parser: Parser, context: Context, t: Token): ESTree.Identifier {
+    if (!(t & (Token.Identifier | Token.Keyword))) {
+        recordErrors(parser, context, Errors.UnexpectedKeyword, tokenDesc(t));
+    }
+    return parseIdentifier(parser, context);
 }

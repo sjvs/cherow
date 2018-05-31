@@ -1,6 +1,6 @@
 import { Parser } from '../types';
 import * as ESTree from '../estree';
-import { Context, BindingType } from '../common';
+import { Context, BindingType, BindingOrigin } from '../common';
 export declare const enum LabelledFunctionState {
     Allow = 0,
     Disallow = 1,
@@ -114,7 +114,7 @@ export declare function parseExpressionOrLabelledStatement(parser: Parser, conte
  * @param parser  Parser object
  * @param context Context masks
  */
-export declare function parseVariableStatement(parser: Parser, context: Context, type: BindingType): ESTree.VariableDeclaration;
+export declare function parseVariableStatement(parser: Parser, context: Context, type: BindingType, origin?: BindingOrigin): ESTree.VariableDeclaration;
 /**
  * Parses either For, ForIn or ForOf statement
  *

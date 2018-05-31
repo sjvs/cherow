@@ -164,6 +164,7 @@ System.register([], function (exports, module) {
                 [31 /* IllegalUseStrict */]: 'Illegal \'use strict\' directive in function with non-simple parameter list',
                 [32 /* StrictEvalArguments */]: 'Unexpected eval or arguments in strict mode',
                 [33 /* UnexpectedStrictReserved */]: 'Unexpected strict mode reserved word',
+                [34 /* UnexpectedKeyword */]: 'Unexpected keyword \'%0\'',
             };
             function constructError(index, line, column, description) {
                 const error = new SyntaxError(`Line ${line}, column ${column}: ${description}`);
@@ -510,12 +511,12 @@ System.register([], function (exports, module) {
                             if (next < 48 /* Zero */ || next > 55 /* Seven */) {
                                 // Strict mode code allows only \0, then a non-digit.
                                 if (code !== 0 || next === 56 /* Eight */ || next === 57 /* Nine */) {
-                                    if (context & 4096 /* Strict */)
+                                    if (context & 32768 /* Strict */)
                                         return -2 /* StrictOctal */;
                                     parser.flags |= 2 /* HasOctal */;
                                 }
                             }
-                            else if (context & 4096 /* Strict */) {
+                            else if (context & 32768 /* Strict */) {
                                 return -2 /* StrictOctal */;
                             }
                             else {
@@ -538,7 +539,7 @@ System.register([], function (exports, module) {
                 table[53 /* Five */] =
                     table[54 /* Six */] =
                         table[55 /* Seven */] = (parser, context, first) => {
-                            if (context & 4096 /* Strict */)
+                            if (context & 32768 /* Strict */)
                                 return -2 /* StrictOctal */;
                             let code = first - 48 /* Zero */;
                             const index = parser.index + 1;
@@ -777,7 +778,7 @@ System.register([], function (exports, module) {
              * @param context Context masks
              */
             function scanImplicitOctalDigits(parser, context) {
-                if (context & 4096 /* Strict */)
+                if (context & 32768 /* Strict */)
                     recordErrors(parser, context, 0 /* Unexpected */);
                 let next = parser.source.charCodeAt(parser.index);
                 let value = 0;
@@ -1290,6 +1291,16 @@ System.register([], function (exports, module) {
                 return !(parser.flags & 1 /* NewLine */) && parser.token === 8276 /* FunctionKeyword */;
             }
             /**
+            * Validates if the next token in the stream is a left paren or a period
+            *
+            * @param parser Parser object
+            * @param context  Context masks
+            */
+            function nextTokenIsLeftParenOrPeriod(parser, context) {
+                nextToken(parser, context);
+                return parser.token === 33554440 /* LeftParen */ || parser.token === 33554442 /* Period */;
+            }
+            /**
             * Validates if the next token in the stream is left parenthesis.
             *
             * @param parser Parser object
@@ -1498,6 +1509,21 @@ System.register([], function (exports, module) {
                         return false;
                 }
             }
+            /**
+             * Parse identifier name
+             *
+             * @see [Link](https://tc39.github.io/ecma262/#prod-IdentifierName)
+             *
+             * @param parser Parser object
+             * @param context Context masks
+             * @param t token
+             */
+            function parseIdentifierName(parser, context, t) {
+                if (!(t & (8388608 /* Identifier */ | 8417280 /* Keyword */))) {
+                    recordErrors(parser, context, 34 /* UnexpectedKeyword */, tokenDesc(t));
+                }
+                return parseIdentifier(parser, context);
+            }
 
             // Declarations
             /**
@@ -1509,17 +1535,17 @@ System.register([], function (exports, module) {
              * @param context Context masks
              */
             function parseClassDeclaration(parser, context) {
-                context = context | 4096 /* Strict */;
+                context = context | 32768 /* Strict */;
                 expect(parser, context, 8266 /* ClassKeyword */);
                 let id = null;
                 if ((parser.token & 8388608 /* Identifier */) === 8388608 /* Identifier */ || parser.token & 8417280 /* Keyword */ && parser.token !== 8273 /* ExtendsKeyword */) {
                     id = parseBindingIdentifier(parser, context);
                 }
-                else if (!(context & 16384 /* RequireIdentifier */))
+                else if (!(context & 131072 /* RequireIdentifier */))
                     recordErrors(parser, context, 18 /* UnNamedFunctionDecl */);
                 let superClass = null;
                 if (consume(parser, context, 8273 /* ExtendsKeyword */)) {
-                    superClass = parseLeftHandSideExpression(parser, context | 4096 /* Strict */);
+                    superClass = parseLeftHandSideExpression(parser, context | 32768 /* Strict */);
                 }
                 const body = parseClassBodyAndElementList(parser, context);
                 return {
@@ -1545,10 +1571,10 @@ System.register([], function (exports, module) {
                 if (parser.token !== 33554440 /* LeftParen */) {
                     id = parseBindingIdentifier(parser, context);
                 }
-                else if (!(context & 16384 /* RequireIdentifier */))
+                else if (!(context & 131072 /* RequireIdentifier */))
                     recordErrors(parser, context, 18 /* UnNamedFunctionDecl */);
                 context = swapContext(context, state);
-                const { params, body } = parseFormalListAndBody(parser, context | 32768 /* InFunctionBody */);
+                const { params, body } = parseFormalListAndBody(parser, context);
                 return {
                     type: 'FunctionDeclaration',
                     body,
@@ -1599,12 +1625,12 @@ System.register([], function (exports, module) {
                 const { token: t } = parser;
                 if ((t & 4096 /* Contextual */) === 4096 /* Contextual */ && t === 4205 /* AsyncKeyword */) ;
                 else if (t === 8388705 /* Eval */ || t === 8388704 /* Arguments */) {
-                    if ((context & 4096 /* Strict */) === 4096 /* Strict */)
+                    if ((context & 32768 /* Strict */) === 32768 /* Strict */)
                         recordErrors(parser, context, 0 /* Unexpected */);
                     parser.flags |= 64 /* StrictEvalArguments */;
                 }
                 else if ((t & 16384 /* FutureReserved */) === 16384 /* FutureReserved */) {
-                    if ((context & 4096 /* Strict */) === 4096 /* Strict */)
+                    if ((context & 32768 /* Strict */) === 32768 /* Strict */)
                         recordErrors(parser, context, 0 /* Unexpected */);
                     parser.flags |= 128 /* StrictReserved */;
                 }
@@ -3108,8 +3134,8 @@ System.register([], function (exports, module) {
                 const statements = [];
                 while (parser.token !== 131072 /* EndOfSource */) {
                     if ((parser.token & 4194304 /* StringLiteral */) === 4194304 /* StringLiteral */) {
-                        if (!(context & 4096 /* Strict */) && parser.tokenRaw.length === 12 && parser.tokenValue === 'use strict') {
-                            context |= 4096 /* Strict */;
+                        if (!(context & 32768 /* Strict */) && parser.tokenRaw.length === 12 && parser.tokenValue === 'use strict') {
+                            context |= 32768 /* Strict */;
                         }
                         statements.push(parseDirective(parser, context));
                     }
@@ -3195,8 +3221,8 @@ System.register([], function (exports, module) {
                     case 8276 /* FunctionKeyword */:
                         // A function declaration has to be parsed out for 'editor mode'
                         if (context & 32 /* OptionsEditorMode */)
-                            return parseFunctionDeclaration(parser, context | 16384 /* RequireIdentifier */);
-                        recordErrors(parser, context, context & 4096 /* Strict */ ? 16 /* StrictFunction */ : 17 /* SloppyFunction */);
+                            return parseFunctionDeclaration(parser, context | 131072 /* RequireIdentifier */);
+                        recordErrors(parser, context, context & 32768 /* Strict */ ? 16 /* StrictFunction */ : 17 /* SloppyFunction */);
                     case 8266 /* ClassKeyword */:
                         recordErrors(parser, context, 0 /* Unexpected */);
                     default:
@@ -3248,12 +3274,12 @@ System.register([], function (exports, module) {
              * @param context Context masks
              */
             function parseReturnStatement(parser, context) {
-                if (!(context & (512 /* OptionsGlobalReturn */ | 32768 /* InFunctionBody */))) {
+                if (!(context & (512 /* OptionsGlobalReturn */ | 262144 /* InFunctionBody */))) {
                     recordErrors(parser, context, 27 /* IllegalReturn */);
                 }
                 expect(parser, context, 8280 /* ReturnKeyword */);
                 const argument = (parser.token & 131072 /* ASI */) !== 131072 /* ASI */ && !(parser.flags & 1 /* NewLine */) ?
-                    parseExpression(parser, context & ~32768 /* InFunctionBody */) :
+                    parseExpression(parser, context & ~262144 /* InFunctionBody */) :
                     null;
                 consumeSemicolon(parser, context);
                 return {
@@ -3364,7 +3390,7 @@ System.register([], function (exports, module) {
                     }
                     addLabel(parser, tokenValue);
                     let body = null;
-                    if (parser.token === 8276 /* FunctionKeyword */ && !(context & 4096 /* Strict */) &&
+                    if (parser.token === 8276 /* FunctionKeyword */ && !(context & 32768 /* Strict */) &&
                         label === 0 /* Allow */) {
                         body = parseFunctionDeclaration(parser, context);
                     }
@@ -3405,10 +3431,10 @@ System.register([], function (exports, module) {
              * @param parser  Parser object
              * @param context Context masks
              */
-            function parseVariableStatement(parser, context, type) {
+            function parseVariableStatement(parser, context, type, origin = 32 /* Statement */) {
                 const { token } = parser;
                 nextToken(parser, context);
-                const declarations = parseVariableDeclarationList(parser, context, type, 32 /* Statement */);
+                const declarations = parseVariableDeclarationList(parser, context, type, origin);
                 consumeSemicolon(parser, context);
                 return {
                     type: 'VariableDeclaration',
@@ -3427,7 +3453,7 @@ System.register([], function (exports, module) {
              */
             function parseForStatement(parser, context) {
                 expect(parser, context, 8275 /* ForKeyword */);
-                const forAwait = context & 65536 /* Async */ && consume(parser, context, 4206 /* AwaitKeyword */);
+                const forAwait = context & 524288 /* Async */ && consume(parser, context, 4206 /* AwaitKeyword */);
                 expect(parser, context, 33554440 /* LeftParen */);
                 let init = null;
                 let declarations = null;
@@ -3448,10 +3474,10 @@ System.register([], function (exports, module) {
                         bindingType = 4 /* Let */;
                     }
                     else
-                        init = parseAssignmentExpression(parser, context | 131072 /* DisallowIn */);
+                        init = parseAssignmentExpression(parser, context | 1048576 /* DisallowIn */);
                     if (bindingType & 14 /* Variable */) {
                         nextToken(parser, context);
-                        declarations = parseVariableDeclarationList(parser, context | 131072 /* DisallowIn */, bindingType, 1 /* ForStatement */);
+                        declarations = parseVariableDeclarationList(parser, context | 1048576 /* DisallowIn */, bindingType, 1 /* ForStatement */);
                         init = {
                             type: 'VariableDeclaration',
                             kind: tokenDesc(token),
@@ -3523,7 +3549,7 @@ System.register([], function (exports, module) {
                 expect(parser, context, 8282 /* SwitchKeyword */);
                 expect(parser, context, 33554440 /* LeftParen */);
                 const discriminant = parseExpression(parser, context);
-                context = setContext(context, 8388608 /* TaggedTemplate */);
+                context = setContext(context, 67108864 /* TaggedTemplate */);
                 expect(parser, context, 33554445 /* RightParen */);
                 expect(parser, context, 33554441 /* LeftBrace */);
                 const cases = [];
@@ -3600,7 +3626,7 @@ System.register([], function (exports, module) {
              * @param context Context masks
              */
             function parseConsequentOrAlternate(parser, context) {
-                return context & 4096 /* Strict */ || parser.token !== 8276 /* FunctionKeyword */ ?
+                return context & 32768 /* Strict */ || parser.token !== 8276 /* FunctionKeyword */ ?
                     parseStatement(parser, context) :
                     parseFunctionDeclaration(parser, context);
             }
@@ -3710,7 +3736,7 @@ System.register([], function (exports, module) {
              * @param context Context masks
              */
             function parseWithStatement(parser, context) {
-                if (context & 4096 /* Strict */)
+                if (context & 32768 /* Strict */)
                     recordErrors(parser, context, 19 /* StrictModeWith */);
                 expect(parser, context, 8287 /* WithKeyword */);
                 expect(parser, context, 33554440 /* LeftParen */);
@@ -3754,6 +3780,357 @@ System.register([], function (exports, module) {
                     expression: expr,
                     directive
                 };
+            }
+
+            function parseModuleItemList(parser, context) {
+                // Prime the scanner
+                nextToken(parser, context);
+                const statements = [];
+                while (parser.token !== 131072 /* EndOfSource */) {
+                    statements.push((parser.token & 4194304 /* StringLiteral */) === 4194304 /* StringLiteral */ ?
+                        parseDirective(parser, context) :
+                        parseModuleItem(parser, context));
+                }
+                return statements;
+            }
+            /**
+             * Parse module item
+             *
+             * @see [Link](https://tc39.github.io/ecma262/#prod-ModuleItem)
+             *
+             * @param parser  Parser object
+             * @param context Context masks
+             */
+            function parseModuleItem(parser, context) {
+                switch (parser.token) {
+                    // @decorator
+                    case 8388706 /* At */:
+                    //  return parseDecorators(parser, context);
+                    // ExportDeclaration
+                    case 8272 /* ExportKeyword */:
+                        return parseExportDeclaration(parser, context);
+                    // ImportDeclaration
+                    case 8278 /* ImportKeyword */:
+                        // 'Dynamic Import' or meta property disallowed here
+                        if (!(context & 8 /* OptionsNext */ && lookahead(parser, context, nextTokenIsLeftParenOrPeriod))) {
+                            return parseImportDeclaration(parser, context);
+                        }
+                    // falls through
+                    default:
+                        return parseStatementListItem(parser, context);
+                }
+            }
+            /**
+             * Parse export declaration
+             *
+             * @see [Link](https://tc39.github.io/ecma262/#prod-ExportDeclaration)
+             *
+             * @param parser  Parser object
+             * @param context Context masks
+             */
+            function parseExportDeclaration(parser, context) {
+                const specifiers = [];
+                let source = null;
+                let declaration = null;
+                expect(parser, context, 8272 /* ExportKeyword */);
+                switch (parser.token) {
+                    // export * FromClause ;
+                    case 301992496 /* Multiply */:
+                        return parseExportAllDeclaration(parser, context);
+                    case 8269 /* DefaultKeyword */:
+                        return parseExportDefault(parser, context);
+                    case 33554441 /* LeftBrace */:
+                        {
+                            // export ExportClause FromClause ;
+                            // export ExportClause ;
+                            expect(parser, context, 33554441 /* LeftBrace */);
+                            let hasReservedWord = false;
+                            while (parser.token !== 33685516 /* RightBrace */) {
+                                if (parser.token & 8192 /* Reserved */) {
+                                    hasReservedWord = true;
+                                }
+                                specifiers.push(parseNamedExportDeclaration(parser, context));
+                                if (parser.token !== 33685516 /* RightBrace */)
+                                    expect(parser, context, 33554447 /* Comma */);
+                            }
+                            expect(parser, context, 33685516 /* RightBrace */);
+                            if (parser.token === 4210 /* FromKeyword */) {
+                                source = parseModuleSpecifier(parser, context);
+                                //  The left hand side can't be a keyword where there is no
+                                // 'from' keyword since it references a local binding.
+                            }
+                            else if (hasReservedWord)
+                                recordErrors(parser, context, 0 /* Unexpected */);
+                            consumeSemicolon(parser, context);
+                            break;
+                        }
+                    // export ClassDeclaration
+                    case 8266 /* ClassKeyword */:
+                        declaration = (parseClassDeclaration(parser, context));
+                        break;
+                    // export LexicalDeclaration
+                    case 16453 /* LetKeyword */:
+                        declaration = parseVariableStatement(parser, context, 4 /* Let */, 8 /* Export */);
+                        break;
+                    case 8262 /* ConstKeyword */:
+                        declaration = parseVariableStatement(parser, context, 8 /* Const */, 8 /* Export */);
+                        break;
+                    // export VariableDeclaration
+                    case 8260 /* VarKeyword */:
+                        declaration = parseVariableStatement(parser, context, 8 /* Const */, 8 /* Export */);
+                        break;
+                    // export HoistableDeclaration
+                    case 8276 /* FunctionKeyword */:
+                        declaration = parseFunctionDeclaration(parser, context);
+                        break;
+                    // export HoistableDeclaration
+                    case 4205 /* AsyncKeyword */:
+                        if (lookahead(parser, context, nextTokenIsFuncKeywordOnSameLine, false)) {
+                            declaration = parseFunctionDeclaration(parser, context, 8 /* Async */);
+                            break;
+                        }
+                    // Falls through
+                    default:
+                        recordErrors(parser, context, 1 /* UnexpectedToken */, tokenDesc(parser.token));
+                }
+                return {
+                    type: 'ExportNamedDeclaration',
+                    source,
+                    specifiers,
+                    declaration,
+                };
+            }
+            /**
+             * Parse export all declaration
+             *
+             * @param parser  Parser object
+             * @param context Context masks
+             */
+            function parseExportAllDeclaration(parser, context) {
+                expect(parser, context, 301992496 /* Multiply */);
+                const source = parseModuleSpecifier(parser, context);
+                consumeSemicolon(parser, context);
+                return {
+                    type: 'ExportAllDeclaration',
+                    source,
+                };
+            }
+            /**
+             * Parse named export declaration
+             *
+             * @param parser  Parser object
+             * @param context Context masks
+             */
+            function parseNamedExportDeclaration(parser, context) {
+                // ExportSpecifier :
+                // IdentifierName
+                // IdentifierName as IdentifierName
+                const local = parseIdentifierName(parser, context, parser.token);
+                const exported = consume(parser, context, 4204 /* AsKeyword */)
+                    ? parseIdentifierName(parser, context, parser.token)
+                    : local;
+                return {
+                    type: 'ExportSpecifier',
+                    local,
+                    exported,
+                };
+            }
+            /**
+             * Parse export default
+             *
+             * @see [Link](https://tc39.github.io/ecma262/#prod-HoistableDeclaration)
+             * @see [Link](https://tc39.github.io/ecma262/#prod-ClassDeclaration)
+             * @see [Link](https://tc39.github.io/ecma262/#prod-HoistableDeclaration)
+             *
+             * @param parser  Parser object
+             * @param context Context masks
+             * @param pos Location
+             */
+            function parseExportDefault(parser, context) {
+                expect(parser, context, 8269 /* DefaultKeyword */);
+                let declaration;
+                switch (parser.token) {
+                    // export default HoistableDeclaration[Default]
+                    case 8276 /* FunctionKeyword */:
+                        declaration = parseFunctionDeclaration(parser, context | 131072 /* RequireIdentifier */);
+                        break;
+                    // export default ClassDeclaration[Default]
+                    // export default  @decl ClassDeclaration[Default]
+                    case 8388706 /* At */:
+                    case 8266 /* ClassKeyword */:
+                        declaration = parseClassDeclaration(parser, context | 131072 /* RequireIdentifier */);
+                        break;
+                    // export default HoistableDeclaration[Default]
+                    case 4205 /* AsyncKeyword */:
+                        declaration = parseAsyncFunctionOrAssignmentExpression(parser, context | 131072 /* RequireIdentifier */);
+                        break;
+                    default:
+                        // export default [lookahead ∉ {function, class}] AssignmentExpression[In] ;
+                        declaration = parseAssignmentExpression(parser, context);
+                        consumeSemicolon(parser, context);
+                }
+                return {
+                    type: 'ExportDefaultDeclaration',
+                    declaration,
+                };
+            }
+            /**
+             * Parse import declaration
+             *
+             * @see [Link](https://tc39.github.io/ecma262/#prod-ImportDeclaration)
+             *
+             * @param parser  Parser object
+             * @param context Context masks
+             */
+            function parseImportDeclaration(parser, context) {
+                expect(parser, context, 8278 /* ImportKeyword */);
+                let source;
+                let specifiers = [];
+                // 'import' ModuleSpecifier ';'
+                if ((parser.token & 8388608 /* Identifier */) === 8388608 /* Identifier */) {
+                    specifiers.push(parseImportDefaultSpecifier(parser, context));
+                    if (consume(parser, context, 33554447 /* Comma */)) {
+                        if (parser.token === 301992496 /* Multiply */) {
+                            parseNameSpaceImport(parser, context, specifiers);
+                        }
+                        else if (parser.token === 33554441 /* LeftBrace */) {
+                            parseNamedImports(parser, context, specifiers);
+                        }
+                        else
+                            recordErrors(parser, context, 1 /* UnexpectedToken */, tokenDesc(parser.token));
+                    }
+                    source = parseModuleSpecifier(parser, context);
+                    // 'import' ModuleSpecifier ';'
+                }
+                else if ((parser.token & 4194304 /* StringLiteral */) === 4194304 /* StringLiteral */) {
+                    source = parseLiteral(parser, context);
+                }
+                else {
+                    if (parser.token === 301992496 /* Multiply */) {
+                        parseNameSpaceImport(parser, context, specifiers);
+                    }
+                    else if (parser.token === 33554441 /* LeftBrace */) {
+                        parseNamedImports(parser, context, specifiers);
+                    }
+                    else
+                        recordErrors(parser, context, 1 /* UnexpectedToken */, tokenDesc(parser.token));
+                    source = parseModuleSpecifier(parser, context);
+                }
+                consumeSemicolon(parser, context);
+                return {
+                    type: 'ImportDeclaration',
+                    specifiers,
+                    source,
+                };
+            }
+            /**
+             * Parse named imports
+             *
+             * @see [Link](https://tc39.github.io/ecma262/#prod-NamedImports)
+             *
+             * @param parser  Parser object
+             * @param context Context masks
+             */
+            function parseNamedImports(parser, context, specifiers) {
+                expect(parser, context, 33554441 /* LeftBrace */);
+                while (parser.token !== 33685516 /* RightBrace */) {
+                    specifiers.push(parseImportSpecifier(parser, context));
+                    if (parser.token !== 33685516 /* RightBrace */)
+                        expect(parser, context, 33554447 /* Comma */);
+                }
+                expect(parser, context, 33685516 /* RightBrace */);
+            }
+            /**
+             * Parse import specifier
+             *
+             * @see [Link](https://tc39.github.io/ecma262/#prod-ImportSpecifier)
+             *
+             * @param parser  Parser object
+             * @param context Context masks
+             */
+            function parseImportSpecifier(parser, context) {
+                const { token } = parser;
+                const imported = parseIdentifierName(parser, context, parser.token);
+                let local;
+                if (consume(parser, context, 4204 /* AsKeyword */)) {
+                    local = parseBindingIdentifier(parser, context);
+                }
+                else {
+                    // An import name that is a keyword is a syntax error if it is not followed
+                    // by the keyword 'as'.
+                    if ((token & 8192 /* Reserved */) === 8192 /* Reserved */)
+                        recordErrors(parser, context, 0 /* Unexpected */);
+                    //if ((token & Token.Is, Token.IsEvalOrArguments)) tolerant(parser, context, Errors.StrictEvalArguments);
+                    local = imported;
+                }
+                return {
+                    type: 'ImportSpecifier',
+                    local,
+                    imported,
+                };
+            }
+            /**
+             * Parse binding identifier
+             *
+             * @see [Link](https://tc39.github.io/ecma262/#prod-NameSpaceImport)
+             *
+             * @param parser  Parser object
+             * @param context Context masks
+             */
+            function parseNameSpaceImport(parser, context, specifiers) {
+                // NameSpaceImport:
+                //  * as ImportedBinding
+                expect(parser, context, 301992496 /* Multiply */);
+                expect(parser, context, 4204 /* AsKeyword */, 0 /* Unexpected */);
+                const local = parseBindingIdentifier(parser, context);
+                specifiers.push({
+                    type: 'ImportNamespaceSpecifier',
+                    local,
+                });
+            }
+            /**
+             * Parse module specifier
+             *
+             * @see [Link](https://tc39.github.io/ecma262/#prod-ModuleSpecifier)
+             *
+             * @param parser  Parser object
+             * @param context Context masks
+             */
+            function parseModuleSpecifier(parser, context) {
+                // ModuleSpecifier :
+                //   StringLiteral
+                expect(parser, context, 4210 /* FromKeyword */);
+                if ((parser.token & 4194304 /* StringLiteral */) !== 4194304 /* StringLiteral */) {
+                    recordErrors(parser, context, 1 /* UnexpectedToken */, tokenDesc(parser.token));
+                }
+                return parseLiteral(parser, context);
+            }
+            /**
+             * Parse import default specifier
+             *
+             * @param parser  Parser object
+             * @param context Context masks
+             */
+            function parseImportDefaultSpecifier(parser, context) {
+                return {
+                    type: 'ImportDefaultSpecifier',
+                    local: parseIdentifier(parser, context),
+                };
+            }
+            /**
+             * Parses either async function or assignment expression
+             *
+             * @see [Link](https://tc39.github.io/ecma262/#prod-AssignmentExpression)
+             * @see [Link](https://tc39.github.io/ecma262/#prod-AsyncFunctionDeclaration)
+             * @see [Link](https://tc39.github.io/ecma262/#prod-AsyncGeneratorDeclaration)
+             *
+             * @param parser  Parser object
+             * @param context Context masks
+             */
+            function parseAsyncFunctionOrAssignmentExpression(parser, context) {
+                return lookahead(parser, context, nextTokenIsFuncKeywordOnSameLine, false) ?
+                    parseFunctionDeclaration(parser, context | 131072 /* RequireIdentifier */, 8 /* Async */) :
+                    parseAssignmentExpression(parser, context);
             }
 
             /**
@@ -3872,9 +4249,8 @@ System.register([], function (exports, module) {
                 }
                 // Create the parser object
                 const parser = createParserObject(source, errCallback);
-                const body = parseStatementList(parser, context); /*context & Context.Module ?
-                parseModuleItemList(parser, context) :
-            */
+                const body = (context & 65536 /* Module */) === 65536 /* Module */ ?
+                    parseModuleItemList(parser, context) : parseStatementList(parser, context);
                 return {
                     type: 'Program',
                     sourceType: context & 65536 /* Module */ ? 'module' : 'script',

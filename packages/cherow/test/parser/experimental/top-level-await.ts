@@ -1,9 +1,17 @@
 import * as t from 'assert';
-import { pass } from '../../test-utils';
+import { pass, fail } from '../../test-utils';
 import { Context } from '../../../src/common';
 
 describe('Experimental - Top Level Await', () => {
-    
+
+    fail('function a() { return await 1 }', Context.Empty, {
+        source: 'function a() { return await 1 }',
+    });
+
+   /* fail('function a() { return await 1 }', Context.OptionsExperimental, {
+        source: 'function a() { return await 1 }',
+    });*/
+
      // Should pass and not fail in editor mode
       pass('function a() { return await 1 }', Context.OptionsExperimental | Context.OptionsEditorMode, {
         source: 'function a() { return await 1 }',

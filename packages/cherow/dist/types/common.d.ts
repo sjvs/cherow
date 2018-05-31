@@ -1,5 +1,6 @@
 import { Token } from './token';
 import { Parser } from './types';
+import * as ESTree from './estree';
 import { Errors } from './errors';
 export declare const enum Context {
     Empty = 0,
@@ -125,6 +126,13 @@ export declare function lookahead<T>(parser: Parser, context: Context, callback:
  */
 export declare function nextTokenIsFuncKeywordOnSameLine(parser: Parser, context: Context): boolean;
 /**
+* Validates if the next token in the stream is a left paren or a period
+*
+* @param parser Parser object
+* @param context  Context masks
+*/
+export declare function nextTokenIsLeftParenOrPeriod(parser: Parser, context: Context): boolean;
+/**
 * Validates if the next token in the stream is left parenthesis.
 *
 * @param parser Parser object
@@ -194,3 +202,13 @@ export declare function validateBreakStatement(parser: Parser, context: Context,
  */
 export declare function getLabel(parser: Parser, label: string, iterationStatement?: boolean, crossBoundary?: boolean): LabelState;
 export declare function isStartOfExpression(parser: Parser): boolean;
+/**
+ * Parse identifier name
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#prod-IdentifierName)
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ * @param t token
+ */
+export declare function parseIdentifierName(parser: Parser, context: Context, t: Token): ESTree.Identifier;

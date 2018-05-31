@@ -366,11 +366,12 @@ function parseLetOrExpressionStatement(
 export function parseVariableStatement(
     parser: Parser,
     context: Context,
-    type: BindingType
+    type: BindingType,
+    origin: BindingOrigin = BindingOrigin.Statement
 ): ESTree.VariableDeclaration {
     const { token } = parser;
     nextToken(parser, context);
-    const declarations = parseVariableDeclarationList(parser, context, type, BindingOrigin.Statement);
+    const declarations = parseVariableDeclarationList(parser, context, type, origin);
     consumeSemicolon(parser, context);
     return {
         type: 'VariableDeclaration',

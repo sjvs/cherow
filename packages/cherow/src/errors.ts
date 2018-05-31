@@ -36,7 +36,8 @@ export const enum Errors {
     StaticPrototype,
     IllegalUseStrict,
     StrictEvalArguments,
-    UnexpectedStrictReserved
+    UnexpectedStrictReserved,
+    UnexpectedKeyword
 }
 /*@internal*/
 export const errorMessages: {
@@ -76,6 +77,7 @@ export const errorMessages: {
     [Errors.IllegalUseStrict]: 'Illegal \'use strict\' directive in function with non-simple parameter list',
     [Errors.StrictEvalArguments]: 'Unexpected eval or arguments in strict mode',
     [Errors.UnexpectedStrictReserved]: 'Unexpected strict mode reserved word',
+    [Errors.UnexpectedKeyword]: 'Unexpected keyword \'%0\'',
 };
 
 export function constructError(index: number, line: number, column: number, description: string): void {

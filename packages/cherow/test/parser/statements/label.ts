@@ -3,6 +3,10 @@ import { pass } from '../../test-utils';
 import { Context } from '../../../src/common';
 
 describe('Statements - Label', () => {
+
+    describe('Failure', () => {
+        
+    });
     
     // Only allowed in sloppy mode (AnnexB)
     pass('label: function() {}', Context.Empty, {

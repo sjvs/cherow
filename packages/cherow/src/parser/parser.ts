@@ -3,6 +3,7 @@ import { Context, Flags, LabelState } from '../common';
 import { Parser, ErrorCallBack, Options } from '../types';
 import * as ESTree from '../estree';
 import { parseStatementList } from './statements';
+import { parseModuleItemList } from './module';
 
 /**
  * Creates the parser object
@@ -108,9 +109,9 @@ export function parseSource(
 
     // Create the parser object
     const parser = createParserObject(source, errCallback);
-    const body = parseStatementList(parser, context); /*context & Context.Module ?
-    parseModuleItemList(parser, context) :
-*/
+    const body = (context & Context.Module) === Context.Module ?
+    parseModuleItemList(parser, context) : parseStatementList(parser, context);
+
     return {
         type: 'Program',
         sourceType: context & Context.Module ? 'module' : 'script',
