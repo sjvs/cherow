@@ -24,7 +24,7 @@ table[Chars.LineSeparator] =
     table[Chars.ParagraphSeparator] =
     table[Chars.LineFeed] =
     table[Chars.CarriageReturn] = (parser: Parser, context: Context, first: number) => {
-        let c = context;
+        const c = context;
         advanceNewline(parser, first);
         parser.flags |= Flags.NewLine;
         return Token.WhiteSpace;
@@ -217,7 +217,6 @@ table[Chars.Period] = (parser: Parser) => {
     return Token.Period;
 };
 
-
 // `1`...`9`
 for (let i = Chars.One; i <= Chars.Nine; i++) {
     table[i] = scanNumeric;
@@ -261,7 +260,7 @@ table[Chars.LessThan] = (parser: Parser, context: Context) => {
                         if (next === Chars.Asterisk || next === Chars.Slash) break;
                     }
 
-                    parser.index++;parser.column++;
+                    parser.index++; parser.column++;
                     return Token.JSXClose;
                 }
 

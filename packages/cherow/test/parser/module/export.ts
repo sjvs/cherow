@@ -25,7 +25,8 @@ describe('Module - Export', () => {
         'export }',
         'var foo, bar; export { foo bar };',
         'export { , };',
-      //  'export default;',
+        'export default from;',
+        'export default;',
         'export default var x = 7;',
         'export default let x = 7;',
         'export default const x = 7;',
@@ -41,10 +42,10 @@ describe('Module - Export', () => {
         'export class {}',
         'export class extends C {}',
         'export default (function * yield() {})',
-        // 'export default (async function await() {})',
-        // 'export default (async function *await() {})',
-//             'export default async function await() {}',
-//          'export async function await() {}',
+        'export default (async function await() {})',
+        'export default (async function *await() {})',
+        'export default async function await() {}',
+        'export async function await() {}',
         'export async function() {}',
         'export async',
         'export async\nfunction async() { await 1; }',
@@ -143,7 +144,7 @@ describe('Module - Export', () => {
             'export var foo = 1;',
             'var a; export { a as b, a as c };',
             'var a; export { a as await };',
-//            'var a; export { a as enum };',
+            'var a; export { a as enum };',
             'export {thing}; import thing from \'a.js\';',
             'export {thing}; import {thing} from \'a.js\';',
             'export {thing}; import * as thing from \'a.js\';',
@@ -199,7 +200,7 @@ describe('Module - Export', () => {
             'function* g() { }; export default g',
             'class c { }; export default c',
             'var _ = { method: function() { return \'method_result\'; }, method2: function() { return \'method2_result\'; } }; export default _',
-        ]
+        ];
 
         for (const arg of programs) {
 
@@ -209,18 +210,18 @@ describe('Module - Export', () => {
                 });
             });
         }
-     
+
         pass('export * from "foo"', Context.Strict | Context.Module, {
             source: `export * from "foo"`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportAllDeclaration",
-                        "source": {
-                            "type": "Literal",
-                            "value": "foo"
+                        type: 'ExportAllDeclaration',
+                        source: {
+                            type: 'Literal',
+                            value: 'foo'
                         }
                     }
                 ]
@@ -230,14 +231,14 @@ describe('Module - Export', () => {
         pass('export {}', Context.Strict | Context.Module, {
             source: `export {}`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [],
-                        "declaration": null
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [],
+                        declaration: null
                     }
                 ]
             }
@@ -246,26 +247,26 @@ describe('Module - Export', () => {
         pass('export {x}', Context.Strict | Context.Module, {
             source: `export {x}`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [
                             {
-                                "type": "ExportSpecifier",
-                                "local": {
-                                    "type": "Identifier",
-                                    "name": "x"
+                                type: 'ExportSpecifier',
+                                local: {
+                                    type: 'Identifier',
+                                    name: 'x'
                                 },
-                                "exported": {
-                                    "type": "Identifier",
-                                    "name": "x"
+                                exported: {
+                                    type: 'Identifier',
+                                    name: 'x'
                                 }
                             }
                         ],
-                        "declaration": null
+                        declaration: null
                     }
                 ]
             }
@@ -274,26 +275,26 @@ describe('Module - Export', () => {
         pass('export {x as a}', Context.Strict | Context.Module, {
             source: `export {x as a}`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [
                             {
-                                "type": "ExportSpecifier",
-                                "local": {
-                                    "type": "Identifier",
-                                    "name": "x"
+                                type: 'ExportSpecifier',
+                                local: {
+                                    type: 'Identifier',
+                                    name: 'x'
                                 },
-                                "exported": {
-                                    "type": "Identifier",
-                                    "name": "a"
+                                exported: {
+                                    type: 'Identifier',
+                                    name: 'a'
                                 }
                             }
                         ],
-                        "declaration": null
+                        declaration: null
                     }
                 ]
             }
@@ -302,26 +303,26 @@ describe('Module - Export', () => {
         pass('export {x,}', Context.Strict | Context.Module, {
             source: `export {x,}`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [
                             {
-                                "type": "ExportSpecifier",
-                                "local": {
-                                    "type": "Identifier",
-                                    "name": "x"
+                                type: 'ExportSpecifier',
+                                local: {
+                                    type: 'Identifier',
+                                    name: 'x'
                                 },
-                                "exported": {
-                                    "type": "Identifier",
-                                    "name": "x"
+                                exported: {
+                                    type: 'Identifier',
+                                    name: 'x'
                                 }
                             }
                         ],
-                        "declaration": null
+                        declaration: null
                     }
                 ]
             }
@@ -330,29 +331,29 @@ describe('Module - Export', () => {
         pass('export {x} from "foo"', Context.Strict | Context.Module, {
             source: `export {x} from "foo"`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": {
-                            "type": "Literal",
-                            "value": "foo"
+                        type: 'ExportNamedDeclaration',
+                        source: {
+                            type: 'Literal',
+                            value: 'foo'
                         },
-                        "specifiers": [
+                        specifiers: [
                             {
-                                "type": "ExportSpecifier",
-                                "local": {
-                                    "type": "Identifier",
-                                    "name": "x"
+                                type: 'ExportSpecifier',
+                                local: {
+                                    type: 'Identifier',
+                                    name: 'x'
                                 },
-                                "exported": {
-                                    "type": "Identifier",
-                                    "name": "x"
+                                exported: {
+                                    type: 'Identifier',
+                                    name: 'x'
                                 }
                             }
                         ],
-                        "declaration": null
+                        declaration: null
                     }
                 ]
             }
@@ -361,29 +362,29 @@ describe('Module - Export', () => {
         pass('export {x as a} from "foo"', Context.Strict | Context.Module, {
             source: `export {x as a} from "foo"`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": {
-                            "type": "Literal",
-                            "value": "foo"
+                        type: 'ExportNamedDeclaration',
+                        source: {
+                            type: 'Literal',
+                            value: 'foo'
                         },
-                        "specifiers": [
+                        specifiers: [
                             {
-                                "type": "ExportSpecifier",
-                                "local": {
-                                    "type": "Identifier",
-                                    "name": "x"
+                                type: 'ExportSpecifier',
+                                local: {
+                                    type: 'Identifier',
+                                    name: 'x'
                                 },
-                                "exported": {
-                                    "type": "Identifier",
-                                    "name": "a"
+                                exported: {
+                                    type: 'Identifier',
+                                    name: 'a'
                                 }
                             }
                         ],
-                        "declaration": null
+                        declaration: null
                     }
                 ]
             }
@@ -392,29 +393,29 @@ describe('Module - Export', () => {
         pass('export {x,} from "foo"', Context.Strict | Context.Module, {
             source: `export {x,} from "foo"`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": {
-                            "type": "Literal",
-                            "value": "foo"
+                        type: 'ExportNamedDeclaration',
+                        source: {
+                            type: 'Literal',
+                            value: 'foo'
                         },
-                        "specifiers": [
+                        specifiers: [
                             {
-                                "type": "ExportSpecifier",
-                                "local": {
-                                    "type": "Identifier",
-                                    "name": "x"
+                                type: 'ExportSpecifier',
+                                local: {
+                                    type: 'Identifier',
+                                    name: 'x'
                                 },
-                                "exported": {
-                                    "type": "Identifier",
-                                    "name": "x"
+                                exported: {
+                                    type: 'Identifier',
+                                    name: 'x'
                                 }
                             }
                         ],
-                        "declaration": null
+                        declaration: null
                     }
                 ]
             }
@@ -423,26 +424,26 @@ describe('Module - Export', () => {
         pass('export {x as a,}', Context.Strict | Context.Module, {
             source: `export {x as a,}`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [
                             {
-                                "type": "ExportSpecifier",
-                                "local": {
-                                    "type": "Identifier",
-                                    "name": "x"
+                                type: 'ExportSpecifier',
+                                local: {
+                                    type: 'Identifier',
+                                    name: 'x'
                                 },
-                                "exported": {
-                                    "type": "Identifier",
-                                    "name": "a"
+                                exported: {
+                                    type: 'Identifier',
+                                    name: 'a'
                                 }
                             }
                         ],
-                        "declaration": null
+                        declaration: null
                     }
                 ]
             }
@@ -451,37 +452,37 @@ describe('Module - Export', () => {
         pass('export {x, y}', Context.Strict | Context.Module, {
             source: `export {x, y}`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [
                             {
-                                "type": "ExportSpecifier",
-                                "local": {
-                                    "type": "Identifier",
-                                    "name": "x"
+                                type: 'ExportSpecifier',
+                                local: {
+                                    type: 'Identifier',
+                                    name: 'x'
                                 },
-                                "exported": {
-                                    "type": "Identifier",
-                                    "name": "x"
+                                exported: {
+                                    type: 'Identifier',
+                                    name: 'x'
                                 }
                             },
                             {
-                                "type": "ExportSpecifier",
-                                "local": {
-                                    "type": "Identifier",
-                                    "name": "y"
+                                type: 'ExportSpecifier',
+                                local: {
+                                    type: 'Identifier',
+                                    name: 'y'
                                 },
-                                "exported": {
-                                    "type": "Identifier",
-                                    "name": "y"
+                                exported: {
+                                    type: 'Identifier',
+                                    name: 'y'
                                 }
                             }
                         ],
-                        "declaration": null
+                        declaration: null
                     }
                 ]
             }
@@ -490,37 +491,37 @@ describe('Module - Export', () => {
         pass('export {x as a, y as b}', Context.Strict | Context.Module, {
             source: `export {x as a, y as b}`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [
                             {
-                                "type": "ExportSpecifier",
-                                "local": {
-                                    "type": "Identifier",
-                                    "name": "x"
+                                type: 'ExportSpecifier',
+                                local: {
+                                    type: 'Identifier',
+                                    name: 'x'
                                 },
-                                "exported": {
-                                    "type": "Identifier",
-                                    "name": "a"
+                                exported: {
+                                    type: 'Identifier',
+                                    name: 'a'
                                 }
                             },
                             {
-                                "type": "ExportSpecifier",
-                                "local": {
-                                    "type": "Identifier",
-                                    "name": "y"
+                                type: 'ExportSpecifier',
+                                local: {
+                                    type: 'Identifier',
+                                    name: 'y'
                                 },
-                                "exported": {
-                                    "type": "Identifier",
-                                    "name": "b"
+                                exported: {
+                                    type: 'Identifier',
+                                    name: 'b'
                                 }
                             }
                         ],
-                        "declaration": null
+                        declaration: null
                     }
                 ]
             }
@@ -529,37 +530,37 @@ describe('Module - Export', () => {
         pass('export {x, y,}', Context.Strict | Context.Module, {
             source: `export {x, y,}`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [
                             {
-                                "type": "ExportSpecifier",
-                                "local": {
-                                    "type": "Identifier",
-                                    "name": "x"
+                                type: 'ExportSpecifier',
+                                local: {
+                                    type: 'Identifier',
+                                    name: 'x'
                                 },
-                                "exported": {
-                                    "type": "Identifier",
-                                    "name": "x"
+                                exported: {
+                                    type: 'Identifier',
+                                    name: 'x'
                                 }
                             },
                             {
-                                "type": "ExportSpecifier",
-                                "local": {
-                                    "type": "Identifier",
-                                    "name": "y"
+                                type: 'ExportSpecifier',
+                                local: {
+                                    type: 'Identifier',
+                                    name: 'y'
                                 },
-                                "exported": {
-                                    "type": "Identifier",
-                                    "name": "y"
+                                exported: {
+                                    type: 'Identifier',
+                                    name: 'y'
                                 }
                             }
                         ],
-                        "declaration": null
+                        declaration: null
                     }
                 ]
             }
@@ -568,37 +569,37 @@ describe('Module - Export', () => {
         pass('export {x as a, y as b,}', Context.Strict | Context.Module, {
             source: `export {x as a, y as b,}`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [
                             {
-                                "type": "ExportSpecifier",
-                                "local": {
-                                    "type": "Identifier",
-                                    "name": "x"
+                                type: 'ExportSpecifier',
+                                local: {
+                                    type: 'Identifier',
+                                    name: 'x'
                                 },
-                                "exported": {
-                                    "type": "Identifier",
-                                    "name": "a"
+                                exported: {
+                                    type: 'Identifier',
+                                    name: 'a'
                                 }
                             },
                             {
-                                "type": "ExportSpecifier",
-                                "local": {
-                                    "type": "Identifier",
-                                    "name": "y"
+                                type: 'ExportSpecifier',
+                                local: {
+                                    type: 'Identifier',
+                                    name: 'y'
                                 },
-                                "exported": {
-                                    "type": "Identifier",
-                                    "name": "b"
+                                exported: {
+                                    type: 'Identifier',
+                                    name: 'b'
                                 }
                             }
                         ],
-                        "declaration": null
+                        declaration: null
                     }
                 ]
             }
@@ -607,23 +608,23 @@ describe('Module - Export', () => {
         pass('export var x', Context.Strict | Context.Module, {
             source: `export var x`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [],
-                        "declaration": {
-                            "type": "VariableDeclaration",
-                            "kind": "var",
-                            "declarations": [
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [],
+                        declaration: {
+                            type: 'VariableDeclaration',
+                            kind: 'var',
+                            declarations: [
                                 {
-                                    "type": "VariableDeclarator",
-                                    "init": null,
-                                    "id": {
-                                        "type": "Identifier",
-                                        "name": "x"
+                                    type: 'VariableDeclarator',
+                                    init: null,
+                                    id: {
+                                        type: 'Identifier',
+                                        name: 'x'
                                     }
                                 }
                             ]
@@ -636,31 +637,31 @@ describe('Module - Export', () => {
         pass('export var x, y', Context.Strict | Context.Module, {
             source: `export var x, y`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [],
-                        "declaration": {
-                            "type": "VariableDeclaration",
-                            "kind": "var",
-                            "declarations": [
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [],
+                        declaration: {
+                            type: 'VariableDeclaration',
+                            kind: 'var',
+                            declarations: [
                                 {
-                                    "type": "VariableDeclarator",
-                                    "init": null,
-                                    "id": {
-                                        "type": "Identifier",
-                                        "name": "x"
+                                    type: 'VariableDeclarator',
+                                    init: null,
+                                    id: {
+                                        type: 'Identifier',
+                                        name: 'x'
                                     }
                                 },
                                 {
-                                    "type": "VariableDeclarator",
-                                    "init": null,
-                                    "id": {
-                                        "type": "Identifier",
-                                        "name": "y"
+                                    type: 'VariableDeclarator',
+                                    init: null,
+                                    id: {
+                                        type: 'Identifier',
+                                        name: 'y'
                                     }
                                 }
                             ]
@@ -673,37 +674,37 @@ describe('Module - Export', () => {
         pass('export var x = 10, y = 20', Context.Strict | Context.Module, {
             source: `export var x = 10, y = 20`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [],
-                        "declaration": {
-                            "type": "VariableDeclaration",
-                            "kind": "var",
-                            "declarations": [
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [],
+                        declaration: {
+                            type: 'VariableDeclaration',
+                            kind: 'var',
+                            declarations: [
                                 {
-                                    "type": "VariableDeclarator",
-                                    "init": {
-                                        "type": "Literal",
-                                        "value": 10
+                                    type: 'VariableDeclarator',
+                                    init: {
+                                        type: 'Literal',
+                                        value: 10
                                     },
-                                    "id": {
-                                        "type": "Identifier",
-                                        "name": "x"
+                                    id: {
+                                        type: 'Identifier',
+                                        name: 'x'
                                     }
                                 },
                                 {
-                                    "type": "VariableDeclarator",
-                                    "init": {
-                                        "type": "Literal",
-                                        "value": 20
+                                    type: 'VariableDeclarator',
+                                    init: {
+                                        type: 'Literal',
+                                        value: 20
                                     },
-                                    "id": {
-                                        "type": "Identifier",
-                                        "name": "y"
+                                    id: {
+                                        type: 'Identifier',
+                                        name: 'y'
                                     }
                                 }
                             ]
@@ -716,23 +717,23 @@ describe('Module - Export', () => {
         pass('export let x', Context.Strict | Context.Module, {
             source: `export let x`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [],
-                        "declaration": {
-                            "type": "VariableDeclaration",
-                            "kind": "let",
-                            "declarations": [
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [],
+                        declaration: {
+                            type: 'VariableDeclaration',
+                            kind: 'let',
+                            declarations: [
                                 {
-                                    "type": "VariableDeclarator",
-                                    "init": null,
-                                    "id": {
-                                        "type": "Identifier",
-                                        "name": "x"
+                                    type: 'VariableDeclarator',
+                                    init: null,
+                                    id: {
+                                        type: 'Identifier',
+                                        name: 'x'
                                     }
                                 }
                             ]
@@ -745,31 +746,31 @@ describe('Module - Export', () => {
         pass('export let x, y', Context.Strict | Context.Module, {
             source: `export let x, y`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [],
-                        "declaration": {
-                            "type": "VariableDeclaration",
-                            "kind": "let",
-                            "declarations": [
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [],
+                        declaration: {
+                            type: 'VariableDeclaration',
+                            kind: 'let',
+                            declarations: [
                                 {
-                                    "type": "VariableDeclarator",
-                                    "init": null,
-                                    "id": {
-                                        "type": "Identifier",
-                                        "name": "x"
+                                    type: 'VariableDeclarator',
+                                    init: null,
+                                    id: {
+                                        type: 'Identifier',
+                                        name: 'x'
                                     }
                                 },
                                 {
-                                    "type": "VariableDeclarator",
-                                    "init": null,
-                                    "id": {
-                                        "type": "Identifier",
-                                        "name": "y"
+                                    type: 'VariableDeclarator',
+                                    init: null,
+                                    id: {
+                                        type: 'Identifier',
+                                        name: 'y'
                                     }
                                 }
                             ]
@@ -782,66 +783,66 @@ describe('Module - Export', () => {
         pass('export const x', Context.Strict | Context.Module, {
             source: `export const x`,
             expected: {
-                  "body": [
+                  body: [
                     {
-                      "declaration": {
-                        "declarations": [
+                      declaration: {
+                        declarations: [
                           {
-                            "id": {
-                              "name": "x",
-                              "type": "Identifier",
+                            id: {
+                              name: 'x',
+                              type: 'Identifier',
                             },
-                            "init": null,
-                            "type": "VariableDeclarator"
+                            init: null,
+                            type: 'VariableDeclarator'
                           },
                         ],
-                        "kind": "const",
-                        "type": "VariableDeclaration",
+                        kind: 'const',
+                        type: 'VariableDeclaration',
                       },
-                      "source": null,
-                      "specifiers": [],
-                      "type": "ExportNamedDeclaration",
+                      source: null,
+                      specifiers: [],
+                      type: 'ExportNamedDeclaration',
                     },
                   ],
-                  "sourceType": "module",
-                  "type": "Program"
+                  sourceType: 'module',
+                  type: 'Program'
                 }
         });
 
         pass('export const x, y', Context.Strict | Context.Module, {
             source: `export const x, y`,
             expected: {
-                  "body": [
+                  body: [
                     {
-                      "declaration": {
-                       "declarations": [
+                      declaration: {
+                       declarations: [
                           {
-                            "id": {
-                              "name": "x",
-                              "type": "Identifier",
+                            id: {
+                              name: 'x',
+                              type: 'Identifier',
                             },
-                            "init": null,
-                            "type": "VariableDeclarator",
+                            init: null,
+                            type: 'VariableDeclarator',
                           },
                           {
-                            "id": {
-                              "name": "y",
-                             "type": "Identifier",
+                            id: {
+                              name: 'y',
+                             type: 'Identifier',
                             },
-                            "init": null,
-                            "type": "VariableDeclarator",
+                            init: null,
+                            type: 'VariableDeclarator',
                           },
                         ],
-                        "kind": "const",
-                        "type": "VariableDeclaration",
+                        kind: 'const',
+                        type: 'VariableDeclaration',
                       },
-                      "source": null,
-                      "specifiers": [],
-                      "type": "ExportNamedDeclaration",
+                      source: null,
+                      specifiers: [],
+                      type: 'ExportNamedDeclaration',
                     },
                   ],
-                  "sourceType": "module",
-                  "type": "Program"
+                  sourceType: 'module',
+                  type: 'Program'
                 }
         });
 
@@ -849,26 +850,26 @@ describe('Module - Export', () => {
         pass('export async function *ariya() {}', Context.Strict | Context.Module, {
             source: `export async function *ariya() {}`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [],
-                        "declaration": {
-                            "type": "FunctionDeclaration",
-                            "params": [],
-                            "body": {
-                                "type": "BlockStatement",
-                                "body": []
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [],
+                        declaration: {
+                            type: 'FunctionDeclaration',
+                            params: [],
+                            body: {
+                                type: 'BlockStatement',
+                                body: []
                             },
-                            "async": true,
-                            "generator": true,
-                            "expression": false,
-                            "id": {
-                                "type": "Identifier",
-                                "name": "ariya"
+                            async: true,
+                            generator: true,
+                            expression: false,
+                            id: {
+                                type: 'Identifier',
+                                name: 'ariya'
                             }
                         }
                     }
@@ -879,26 +880,26 @@ describe('Module - Export', () => {
         pass('export function f(){}', Context.Strict | Context.Module, {
             source: `export function f(){}`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [],
-                        "declaration": {
-                            "type": "FunctionDeclaration",
-                            "params": [],
-                            "body": {
-                                "type": "BlockStatement",
-                                "body": []
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [],
+                        declaration: {
+                            type: 'FunctionDeclaration',
+                            params: [],
+                            body: {
+                                type: 'BlockStatement',
+                                body: []
                             },
-                            "async": false,
-                            "generator": false,
-                            "expression": false,
-                            "id": {
-                                "type": "Identifier",
-                                "name": "f"
+                            async: false,
+                            generator: false,
+                            expression: false,
+                            id: {
+                                type: 'Identifier',
+                                name: 'f'
                             }
                         }
                     }
@@ -909,26 +910,26 @@ describe('Module - Export', () => {
         pass('export async function f(){}', Context.Strict | Context.Module, {
             source: `export async function f(){}`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [],
-                        "declaration": {
-                            "type": "FunctionDeclaration",
-                            "params": [],
-                            "body": {
-                                "type": "BlockStatement",
-                                "body": []
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [],
+                        declaration: {
+                            type: 'FunctionDeclaration',
+                            params: [],
+                            body: {
+                                type: 'BlockStatement',
+                                body: []
                             },
-                            "async": true,
-                            "generator": false,
-                            "expression": false,
-                            "id": {
-                                "type": "Identifier",
-                                "name": "f"
+                            async: true,
+                            generator: false,
+                            expression: false,
+                            id: {
+                                type: 'Identifier',
+                                name: 'f'
                             }
                         }
                     }
@@ -939,26 +940,26 @@ describe('Module - Export', () => {
         pass('export function* f(){}', Context.Strict | Context.Module, {
             source: `export function* f(){}`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [],
-                        "declaration": {
-                            "type": "FunctionDeclaration",
-                            "params": [],
-                            "body": {
-                                "type": "BlockStatement",
-                                "body": []
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [],
+                        declaration: {
+                            type: 'FunctionDeclaration',
+                            params: [],
+                            body: {
+                                type: 'BlockStatement',
+                                body: []
                             },
-                            "async": false,
-                            "generator": true,
-                            "expression": false,
-                            "id": {
-                                "type": "Identifier",
-                                "name": "f"
+                            async: false,
+                            generator: true,
+                            expression: false,
+                            id: {
+                                type: 'Identifier',
+                                name: 'f'
                             }
                         }
                     }
@@ -969,24 +970,24 @@ describe('Module - Export', () => {
         pass('export default function* f(){}', Context.Strict | Context.Module, {
             source: `export default function* f(){}`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportDefaultDeclaration",
-                        "declaration": {
-                            "type": "FunctionDeclaration",
-                            "params": [],
-                            "body": {
-                                "type": "BlockStatement",
-                                "body": []
+                        type: 'ExportDefaultDeclaration',
+                        declaration: {
+                            type: 'FunctionDeclaration',
+                            params: [],
+                            body: {
+                                type: 'BlockStatement',
+                                body: []
                             },
-                            "async": false,
-                            "generator": true,
-                            "expression": false,
-                            "id": {
-                                "type": "Identifier",
-                                "name": "f"
+                            async: false,
+                            generator: true,
+                            expression: false,
+                            id: {
+                                type: 'Identifier',
+                                name: 'f'
                             }
                         }
                     }
@@ -997,22 +998,22 @@ describe('Module - Export', () => {
         pass('export default function(){}', Context.Strict | Context.Module, {
             source: `export default function(){}`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportDefaultDeclaration",
-                        "declaration": {
-                            "type": "FunctionDeclaration",
-                            "params": [],
-                            "body": {
-                                "type": "BlockStatement",
-                                "body": []
+                        type: 'ExportDefaultDeclaration',
+                        declaration: {
+                            type: 'FunctionDeclaration',
+                            params: [],
+                            body: {
+                                type: 'BlockStatement',
+                                body: []
                             },
-                            "async": false,
-                            "generator": false,
-                            "expression": false,
-                            "id": null
+                            async: false,
+                            generator: false,
+                            expression: false,
+                            id: null
                         }
                     }
                 ]
@@ -1022,23 +1023,23 @@ describe('Module - Export', () => {
         pass('export class x {}', Context.Strict | Context.Module, {
             source: `export class x {}`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportNamedDeclaration",
-                        "source": null,
-                        "specifiers": [],
-                        "declaration": {
-                            "type": "ClassDeclaration",
-                            "id": {
-                                "type": "Identifier",
-                                "name": "x"
+                        type: 'ExportNamedDeclaration',
+                        source: null,
+                        specifiers: [],
+                        declaration: {
+                            type: 'ClassDeclaration',
+                            id: {
+                                type: 'Identifier',
+                                name: 'x'
                             },
-                            "superClass": null,
-                            "body": {
-                                "type": "ClassBody",
-                                "body": []
+                            superClass: null,
+                            body: {
+                                type: 'ClassBody',
+                                body: []
                             }
                         }
                     }
@@ -1049,18 +1050,18 @@ describe('Module - Export', () => {
         pass('export default class {}', Context.Strict | Context.Module, {
             source: `export default class {}`,
             expected: {
-                "type": "Program",
-                "sourceType": "module",
-                "body": [
+                type: 'Program',
+                sourceType: 'module',
+                body: [
                     {
-                        "type": "ExportDefaultDeclaration",
-                        "declaration": {
-                            "type": "ClassDeclaration",
-                            "id": null,
-                            "superClass": null,
-                            "body": {
-                                "type": "ClassBody",
-                                "body": []
+                        type: 'ExportDefaultDeclaration',
+                        declaration: {
+                            type: 'ClassDeclaration',
+                            id: null,
+                            superClass: null,
+                            body: {
+                                type: 'ClassBody',
+                                body: []
                             }
                         }
                     }

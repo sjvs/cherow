@@ -122,7 +122,7 @@ export function convertToken(parser: Parser, token: Token): any {
         if ((token & Token.RegularExpression) === Token.RegularExpression) type = 'Null';
         else if (token === Token.NullKeyword) type = 'Null';
         else if (token === Token.FalseKeyword || token === Token.TrueKeyword) {
-            type = 'Boolean'
+            type = 'Boolean';
         }
     }
     const t: any = { type, value };

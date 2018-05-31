@@ -22,8 +22,8 @@ import {
     swapContext,
     nextTokenIsFuncKeywordOnSameLine,
     ModifierState,
-    getLabel, 
-    addLabel, 
+    getLabel,
+    addLabel,
     LabelState,
     validateContinueLabel,
     validateBreakStatement
@@ -32,7 +32,7 @@ import {
 export const enum LabelledFunctionState {
     Allow,
     Disallow,
-};
+}
 
 /**
  * Parse statement list
@@ -125,8 +125,6 @@ export function parseStatement(
             return parseBreakStatement(parser, context);
         case Token.ContinueKeyword:
             return parseContinueStatement(parser, context);
-        case Token.DebuggerKeyword:
-            return parseDebuggerStatement(parser, context);
         case Token.WithKeyword:
             return parseWithStatement(parser, context);
         case Token.ThrowKeyword:
@@ -413,7 +411,7 @@ export function parseForStatement(parser: Parser, context: Context): any {
 
         if (bindingType & BindingType.Variable) {
             nextToken(parser, context);
-            declarations = parseVariableDeclarationList(parser, context | Context.DisallowIn, bindingType, BindingOrigin.ForStatement)
+            declarations = parseVariableDeclarationList(parser, context | Context.DisallowIn, bindingType, BindingOrigin.ForStatement);
             init = {
                 type: 'VariableDeclaration',
                 kind: tokenDesc(token) as 'var' | 'let' | 'const',
@@ -506,7 +504,7 @@ function parseSwitchStatement(parser: Parser, context: Context): ESTree.SwitchSt
         type: 'SwitchStatement',
         discriminant,
         cases
-    }
+    };
 }
 
 /**
@@ -632,11 +630,11 @@ export function parseContinueStatement(parser: Parser, context: Context): ESTree
     if (!(parser.flags & Flags.NewLine) && parser.token & (Token.Identifier | Token.Keyword)) {
         const { tokenValue  } = parser;
         label = parseIdentifier(parser, context);
-        validateContinueLabel(parser, context, tokenValue)
+        validateContinueLabel(parser, context, tokenValue);
     }
     consumeSemicolon(parser, context);
     if (label === null && (parser.iterationStatement & LabelState.Empty) !== LabelState.Empty) {
-        recordErrors(parser, context, Errors.IllegalContinue)
+        recordErrors(parser, context, Errors.IllegalContinue);
     }
     return {
         type: 'ContinueStatement',
@@ -658,10 +656,10 @@ export function parseBreakStatement(parser: Parser, context: Context): ESTree.Br
     if (!(parser.flags & Flags.NewLine) && parser.token & (Token.Identifier | Token.Keyword)) {
         const { tokenValue  } = parser;
         label = parseIdentifier(parser, context);
-        validateBreakStatement(parser, context, tokenValue)
+        validateBreakStatement(parser, context, tokenValue);
     } else if ((parser.iterationStatement & LabelState.Empty) !== LabelState.Empty &&
         (parser.switchStatement & LabelState.Empty) !== LabelState.Empty) {
-        recordErrors(parser, context, Errors.IllegalBreak)
+        recordErrors(parser, context, Errors.IllegalBreak);
     }
     consumeSemicolon(parser, context);
     return {

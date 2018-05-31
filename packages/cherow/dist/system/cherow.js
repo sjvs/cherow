@@ -99,7 +99,7 @@ System.register([], function (exports, module) {
                 const: { value: 8262 /* ConstKeyword */ },
                 constructor: { value: 4207 /* ConstructorKeyword */ },
                 debugger: { value: 8268 /* DebuggerKeyword */ },
-                enum: { value: 2097276 /* EnumKeyword */ },
+                enum: { value: 8316 /* EnumKeyword */ },
                 eval: { value: 8388705 /* Eval */ },
                 export: { value: 8272 /* ExportKeyword */ },
                 extends: { value: 8273 /* ExtendsKeyword */ },
@@ -678,7 +678,7 @@ System.register([], function (exports, module) {
                 skipDigits(parser);
             }
             function parseLeadingZero(parser, context) {
-                let index = parser.index + 1;
+                const index = parser.index + 1;
                 if (index < parser.source.length) {
                     const next = parser.source.charCodeAt(index);
                     if (next >= 48 /* Zero */ && next <= 55 /* Seven */) {
@@ -1456,7 +1456,7 @@ System.register([], function (exports, module) {
                     return 0 /* Empty */;
                 let stopAtTheBorder = false;
                 for (let i = parser.labelDepth - 1; i >= 0; i--) {
-                    let labelSet = parser.labelSetStack[i];
+                    const labelSet = parser.labelSetStack[i];
                     if (labelSet === parser.functionBoundaryStack) {
                         if (crossBoundary) {
                             break;
@@ -1626,7 +1626,14 @@ System.register([], function (exports, module) {
              */
             function parseBindingIdentifier(parser, context, kind = 1 /* Var */) {
                 const { token: t } = parser;
-                if ((t & 4096 /* Contextual */) === 4096 /* Contextual */ && t === 4205 /* AsyncKeyword */) ;
+                if ((t & 4096 /* Contextual */) === 4096 /* Contextual */) {
+                    if (parser.token === 4206 /* AwaitKeyword */) {
+                        if ((context & 32768 /* Strict */) === 32768 /* Strict */)
+                            recordErrors(parser, context, 0 /* Unexpected */);
+                        if ((context & 524288 /* Async */) === 524288 /* Async */)
+                            recordErrors(parser, context, 0 /* Unexpected */);
+                    }
+                }
                 else if (t === 8388705 /* Eval */ || t === 8388704 /* Arguments */) {
                     if ((context & 32768 /* Strict */) === 32768 /* Strict */)
                         recordErrors(parser, context, 0 /* Unexpected */);
@@ -1825,7 +1832,7 @@ System.register([], function (exports, module) {
                 const { token } = parser;
                 let key = null;
                 let value;
-                let computed = parser.token === 33554448 /* LeftBracket */;
+                const computed = parser.token === 33554448 /* LeftBracket */;
                 let shorthand = false;
                 // single name binding
                 if (token & (8388608 /* Identifier */ | 8192 /* Reserved */ | 16384 /* FutureReserved */)) {
@@ -1869,7 +1876,7 @@ System.register([], function (exports, module) {
              * @param origin Binding origin
              */
             function parseDelimitedBindingList(parser, context, type, origin, args = []) {
-                let isBinding$$1 = parser.token === 33554441 /* LeftBrace */ || parser.token === 33554448 /* LeftBracket */;
+                const isBinding$$1 = parser.token === 33554441 /* LeftBrace */ || parser.token === 33554448 /* LeftBracket */;
                 while (parser.token !== 33554445 /* RightParen */) {
                     args.push(parseBindingList(parser, context, type, origin));
                     if (!consume(parser, context, 33554447 /* Comma */))
@@ -1966,7 +1973,7 @@ System.register([], function (exports, module) {
                     return parseYieldExpression(parser, context);
                 const isAsync = token === 4205 /* AsyncKeyword */ /*&& !(parser.flags & Flags.NewLine)*/ &&
                     lookahead(parser, context, nextTokenIsLeftParenOrKeyword);
-                let isParenthesized = parser.token === 33554440 /* LeftParen */;
+                const isParenthesized = parser.token === 33554440 /* LeftParen */;
                 let left = parseConditionalExpression(parser, context);
                 if (isAsync && (parser.token & 8388608 /* Identifier */) === 8388608 /* Identifier */ && lookahead(parser, context, nextTokenIsArrow)) {
                     left = [parseIdentifier(parser, context)];
@@ -2492,7 +2499,7 @@ System.register([], function (exports, module) {
                     case 33554448 /* LeftBracket */:
                         return parseArrayLiteral(parser, context);
                     default:
-                        nextToken(parser, context);
+                        recordErrors(parser, context, 1 /* UnexpectedToken */, tokenDesc(nextToken(parser, context)));
                 }
             }
             /**
@@ -2768,8 +2775,8 @@ System.register([], function (exports, module) {
                 const body = [];
                 expect(parser, context, 33554441 /* LeftBrace */);
                 if (parser.token !== 33685516 /* RightBrace */) {
-                    // Note: A separate "while" loop is used to avoid unseting the 
-                    // mutual flags within the iteration loop itself. 
+                    // Note: A separate "while" loop is used to avoid unseting the
+                    // mutual flags within the iteration loop itself.
                     while (parser.token === 4194304 /* StringLiteral */) {
                         const { tokenRaw, tokenValue } = parser;
                         body.push(parseDirective(parser, context));
@@ -3835,11 +3842,11 @@ System.register([], function (exports, module) {
                 // ExportDeclaration:
                 // export * FromClause;
                 // export ExportClause FromClause;
-                //    export VariableStatement
-                //    export Declaration
-                // export default HoistableDeclaration
-                // export default ClassDeclaration
-                // export default AssignmentExpression
+                // export VariableStatement
+                // export Declaration
+                // export HoistableDeclaration
+                // export ClassDeclaration
+                // export AssignmentExpression
                 const specifiers = [];
                 let source = null;
                 let declaration = null;
@@ -4011,7 +4018,7 @@ System.register([], function (exports, module) {
             function parseImportDeclaration(parser, context) {
                 expect(parser, context, 8278 /* ImportKeyword */);
                 let source;
-                let specifiers = [];
+                const specifiers = [];
                 // 'import' ModuleSpecifier ';'
                 if ((parser.token & 8388608 /* Identifier */) === 8388608 /* Identifier */) {
                     specifiers.push(parseImportDefaultSpecifier(parser, context));
@@ -4086,7 +4093,6 @@ System.register([], function (exports, module) {
                     // by the keyword 'as'.
                     if ((token & 8192 /* Reserved */) === 8192 /* Reserved */)
                         recordErrors(parser, context, 0 /* Unexpected */);
-                    //if ((token & Token.Is, Token.IsEvalOrArguments)) tolerant(parser, context, Errors.StrictEvalArguments);
                     local = imported;
                 }
                 return {

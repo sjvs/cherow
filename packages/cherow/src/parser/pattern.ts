@@ -39,7 +39,12 @@ export function parseBindingIdentifier(
 ): ESTree.Identifier {
     const { token: t } = parser;
 
-    if ((t & Token.Contextual) === Token.Contextual && t === Token.AsyncKeyword) {
+    if ((t & Token.Contextual) === Token.Contextual) {
+        if (parser.token === Token.AwaitKeyword) {
+            if ((context & Context.Strict) === Context.Strict) recordErrors(parser, context, Errors.Unexpected);
+            if ((context & Context.Async) === Context.Async) recordErrors(parser, context, Errors.Unexpected);
+        }
+        if (t === Token.AsyncKeyword) {}
         if (kind === BindingKind.Var) {}
     } else if (t === Token.Eval || t === Token.Arguments) {
         if ((context & Context.Strict) === Context.Strict) recordErrors(parser, context, Errors.Unexpected);
@@ -68,9 +73,8 @@ export function parseBindingIdentifier(
 export function parseBindingIdentifierOrPattern(
     parser: Parser,
     context: Context,
-    type ? : BindingType
+    type ?: BindingType
 ): any {
-    let left: any;
     if (parser.token === Token.LeftBrace) {
         return parserObjectAssignmentPattern(parser, context, type as BindingType);
     } else if (parser.token === Token.LeftBracket) {
@@ -92,7 +96,7 @@ export function parseAssignmentRestElement(
     context: Context,
     type: BindingType,
     endToken: Token = Token.RightBracket): ESTree.RestElement {
-    let t = type; // TODO
+    const t = type; // TODO
     expect(parser, context, Token.Ellipsis);
     const argument = parseBindingIdentifierOrPattern(parser, context);
     if (parser.token === Token.Assign) recordErrors(parser, context, Errors.ElementAfterRest);
@@ -111,7 +115,7 @@ export function parseAssignmentRestElement(
  * @param Parser object
  * @param Context masks
  */
-function parseArrayAssignmentPattern(parser: Parser, context: Context, type: BindingType) {
+function parseArrayAssignmentPattern(parser: Parser, context: Context, type: BindingType): any {
     // ArrayAssignmentPattern[Yield] :
     //   [ Elisionopt AssignmentRestElement[?Yield]opt ]
     //   [ AssignmentElementList[?Yield] ]
@@ -261,7 +265,7 @@ function parseAssignmentProperty(parser: Parser, context: Context, type: Binding
     const { token } = parser;
     let key: ESTree.Literal | ESTree.Identifier | ESTree.Expression | null = null;
     let value;
-    let computed = parser.token === Token.LeftBracket;
+    const computed = parser.token === Token.LeftBracket;
     let shorthand = false;
     // single name binding
     if (token & (Token.Identifier | Token.Reserved | Token.FutureReserved)) {
@@ -311,8 +315,8 @@ export function parseDelimitedBindingList(
     origin: BindingOrigin,
     args: any[] = []) {
     let elementCount = 0;
-    let inited = false;
-    let isBinding = parser.token === Token.LeftBrace || parser.token === Token.LeftBracket;
+    const inited = false;
+    const isBinding = parser.token === Token.LeftBrace || parser.token === Token.LeftBracket;
     while (parser.token !== Token.RightParen) {
         ++elementCount;
         args.push(parseBindingList(parser, context, type, origin));

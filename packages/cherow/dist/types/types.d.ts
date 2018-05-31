@@ -46,10 +46,10 @@ export interface Parser {
     onError?: ErrorCallBack;
     functionBoundaryStack: any;
     labelSet: any;
-    labelSetStack: Array<{
+    labelSetStack: {
         [key: string]: boolean;
-    }>;
-    iterationStack: Array<boolean | LabelState>;
+    }[];
+    iterationStack: (boolean | LabelState)[];
     switchStatement: LabelState;
     iterationStatement: LabelState;
     labelDepth: number;

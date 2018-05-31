@@ -194,9 +194,9 @@ export const enum Token {
 
     /* Numbers */
     BigInt             = 123 | NumericLiteral,
-    
+
     /* Enum */
-    EnumKeyword        = 124 | NumericLiteral,
+    EnumKeyword        = 124 | Reserved,
 }
 
 // Note: this *must* be kept in sync with the enum's order.
@@ -238,13 +238,13 @@ const KeywordDescTable = [
 
      /* Eval & arguments */
      'arguments', 'eval',
-     
+
      /* Decorators */
      'at',
- 
+
      /* Private names or shebang comment start */
      '#',
- 
+
     /* Strict mode reserved words */
     'implements', 'interface', 'package', 'private', 'protected', 'public', 'static', 'yield',
 

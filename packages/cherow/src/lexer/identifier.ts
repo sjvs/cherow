@@ -19,7 +19,7 @@ export function scanIdentifier(parser: Parser): Token {
   const ret = parser.source.slice(parser.startIndex, parser.index);
   const len = ret.length;
   parser.tokenValue = ret;
-  
+
   // Keywords are between 2 and 11 characters long and start with a lowercase letter
   // https://tc39.github.io/ecma262/#sec-keywords
   if (len >= 2 && len <= 11) {
@@ -28,6 +28,6 @@ export function scanIdentifier(parser: Parser): Token {
           return token;
       }
   }
-  
+
   return Token.Identifier;
 }

@@ -81,11 +81,11 @@ export function parseExportDeclaration(parser: Parser, context: Context): any {
     // ExportDeclaration:
     // export * FromClause;
     // export ExportClause FromClause;
-    //    export VariableStatement
-    //    export Declaration
-    // export default HoistableDeclaration
-    // export default ClassDeclaration
-    // export default AssignmentExpression
+    // export VariableStatement
+    // export Declaration
+    // export HoistableDeclaration
+    // export ClassDeclaration
+    // export AssignmentExpression
     const specifiers: ESTree.ExportSpecifier[] = [];
 
     let source: ESTree.Literal | null = null;
@@ -264,6 +264,7 @@ function parseExportDefault(parser: Parser, context: Context): ESTree.ExportDefa
         default:
             // export default [lookahead ∉ {function, class}] AssignmentExpression[In] ;
             declaration = parseAssignmentExpression(parser, context);
+
             consumeSemicolon(parser, context);
     }
 
@@ -285,7 +286,7 @@ export function parseImportDeclaration(parser: Parser, context: Context): ESTree
     expect(parser, context, Token.ImportKeyword);
 
     let source: ESTree.Literal;
-    let specifiers: ESTree.Specifiers[] = [];
+    const specifiers: ESTree.Specifiers[] = [];
 
     // 'import' ModuleSpecifier ';'
     if ((parser.token & Token.Identifier) === Token.Identifier) {
@@ -359,7 +360,7 @@ function parseImportSpecifier(parser: Parser, context: Context): ESTree.ImportSp
     const {
         token
     } = parser;
-    const imported = parseIdentifierName(parser, context, parser.token)
+    const imported = parseIdentifierName(parser, context, parser.token);
 
     let local: ESTree.Identifier;
 
@@ -369,7 +370,6 @@ function parseImportSpecifier(parser: Parser, context: Context): ESTree.ImportSp
         // An import name that is a keyword is a syntax error if it is not followed
         // by the keyword 'as'.
         if ((token & Token.Reserved) === Token.Reserved) recordErrors(parser, context, Errors.Unexpected);
-        //if ((token & Token.Is, Token.IsEvalOrArguments)) tolerant(parser, context, Errors.StrictEvalArguments);
         local = imported;
     }
 

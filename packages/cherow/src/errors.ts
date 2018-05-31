@@ -84,9 +84,7 @@ export const errorMessages: {
     [Errors.AsAfterImportStart]: 'Missing keyword \'as\' after import *',
     [Errors.MissingFromClause]: 'Expected keyword \'%0\'',
     [Errors.UnexpectedReserved]: 'Unexpected reserved word',
-    
-    
-    
+
 };
 
 export function constructError(index: number, line: number, column: number, description: string): void {
@@ -108,4 +106,3 @@ export function recordErrors(parser: Parser, context: Context, type: Errors, ...
     if (context & Context.OptionsEditorMode && parser.onError) parser.onError(message, line, column);
     else throw error;
 }
-

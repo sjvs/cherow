@@ -156,7 +156,7 @@ export function expect(parser: Parser, context: Context, token: Token, errMsg = 
         recordErrors(parser, context, errMsg, tokenDesc(parser.token));
         return false;
     }
-        nextToken(parser, context);
+    nextToken(parser, context);
     return true;
   }
 
@@ -188,9 +188,9 @@ export function consumeSemicolon(parser: Parser, context: Context): void | boole
   * @param callback Callback function to be invoked
   * @param isLookahead  If set to false, the parser will not rewind
   */
- export function lookahead<T>(
-     parser: Parser, 
-     context: Context, 
+export function lookahead<T>(
+     parser: Parser,
+     context: Context,
      callback: (parser: Parser, context: Context) => T,
      isLookahead: boolean = true): T {
     const {
@@ -204,8 +204,8 @@ export function consumeSemicolon(parser: Parser, context: Context): void | boole
         token,
         tokenRegExp,
       } = parser;
-      const result = callback(parser, context);
-      if (!result || isLookahead) {
+    const result = callback(parser, context);
+    if (!result || isLookahead) {
       parser.index = index;
       parser.token = token;
       parser.tokenValue = tokenValue;
@@ -218,7 +218,7 @@ export function consumeSemicolon(parser: Parser, context: Context): void | boole
       parser.tokenRegExp = tokenRegExp;
       parser.tokenRegExp = tokenRegExp;
     }
-      return result;
+    return result;
 }
 /**
  * Validates if the next token in the stream is a function keyword on the same line.
@@ -230,7 +230,7 @@ export function nextTokenIsFuncKeywordOnSameLine(parser: Parser, context: Contex
     nextToken(parser, context);
     return !(parser.flags & Flags.NewLine) && parser.token === Token.FunctionKeyword;
   }
-  
+
   /**
  * Validates if the next token in the stream is a left paren or a period
  *
@@ -241,7 +241,7 @@ export function nextTokenIsLeftParenOrPeriod(parser: Parser, context: Context): 
     nextToken(parser, context);
     return parser.token === Token.LeftParen || parser.token === Token.Period;
   }
-  
+
   /**
  * Validates if the next token in the stream is left parenthesis.
  *
@@ -251,17 +251,17 @@ export function nextTokenIsLeftParenOrPeriod(parser: Parser, context: Context): 
 export function nextTokenIsLeftParenOrKeyword(parser: Parser, context: Context): boolean {
     nextToken(parser, context);
 
-    return (parser.token & Token.Identifier) === Token.Identifier || 
+    return (parser.token & Token.Identifier) === Token.Identifier ||
             parser.token === Token.Keyword ||
             parser.token === Token.LeftParen;
   }
 
-  export function nextTokenIsLeftParen(parser: Parser, context: Context): boolean {
+export function nextTokenIsLeftParen(parser: Parser, context: Context): boolean {
     nextToken(parser, context);
     return parser.token === Token.LeftParen;
   }
 
-  export function nextTokenIsPeriod(parser: Parser, context: Context): boolean {
+export function nextTokenIsPeriod(parser: Parser, context: Context): boolean {
     nextToken(parser, context);
     return parser.token === Token.Period;
   }
@@ -337,7 +337,7 @@ export function reinterpret(parser: Parser, context: Context, node: any): void {
 
 /**
  * Returns true if start of an iteration statement
- * 
+ *
  * @param parser Parser object
  */
 function isIterationStatement(parser: Parser): boolean {
@@ -346,7 +346,7 @@ function isIterationStatement(parser: Parser): boolean {
 
 /**
  * Add label to the stack
- * 
+ *
  * @param parser Parser object
  * @param label Label to be added
  */
@@ -360,8 +360,8 @@ export function addLabel(parser: Parser, label: string): void {
 }
 
 /**
- * Add function 
- * 
+ * Add function
+ *
  * @param parser Parser object
  * @param label Label to be added
  */
@@ -373,7 +373,7 @@ export function addCrossingBoundary(parser: Parser): void {
 
 /**
  * Validates continue statement
- * 
+ *
  * @param parser Parser object
  * @param label Label
  */
@@ -381,7 +381,7 @@ export function validateContinueLabel(parser: Parser, context: Context, label: s
     const state = getLabel(parser, label, true);
     if ((state & LabelState.Iteration) !== LabelState.Iteration) {
         if (state & LabelState.CrossingBoundary) {
-            recordErrors(parser, context, Errors.InvalidNestedStatement)
+            recordErrors(parser, context, Errors.InvalidNestedStatement);
         } else {
             recordErrors(parser, context, Errors.UnknownLabel, label as string);
         }
@@ -390,7 +390,7 @@ export function validateContinueLabel(parser: Parser, context: Context, label: s
 
 /**
  * Validates break statement
- * 
+ *
  * @param parser Parser object
  * @param label Label
  */
@@ -401,7 +401,7 @@ export function validateBreakStatement(parser: Parser, context: Context, label: 
 
 /**
  * Add label
- * 
+ *
  * @param parser Parser object
  * @param label Label to be added
  */
@@ -419,7 +419,7 @@ export function getLabel(
 
     let stopAtTheBorder = false;
     for (let i = parser.labelDepth - 1; i >= 0; i--) {
-        let labelSet = parser.labelSetStack[i];
+        const labelSet = parser.labelSetStack[i];
         if (labelSet === parser.functionBoundaryStack) {
             if (crossBoundary) {
                 break;

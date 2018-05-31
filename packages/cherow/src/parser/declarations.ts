@@ -3,7 +3,7 @@ import { Parser } from '../types';
 import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
 import { parseClassBodyAndElementList, parsePropertyName, parseIdentifier, parseLeftHandSideExpression, parseAssignmentExpression, parseFormalListAndBody } from './expressions';
-import { Context, Flags, BindingType, BindingOrigin, ModifierState, expect,consume, swapContext, setContext } from '../common';
+import { Context, Flags, BindingType, BindingOrigin, ModifierState, expect, consume, swapContext, setContext } from '../common';
 import { parseDelimitedBindingList, parseBindingIdentifier } from './pattern';
 import { recordErrors, Errors } from '../errors';
 

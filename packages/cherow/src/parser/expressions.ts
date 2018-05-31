@@ -84,7 +84,7 @@ export function parseAssignmentExpression(parser: Parser, context: Context): any
 
     const isAsync = token === Token.AsyncKeyword /*&& !(parser.flags & Flags.NewLine)*/ &&
         lookahead(parser, context, nextTokenIsLeftParenOrKeyword);
-    let isParenthesized = parser.token === Token.LeftParen;
+    const isParenthesized = parser.token === Token.LeftParen;
     let left: any = parseConditionalExpression(parser, context);
 
     if (isAsync && (parser.token & Token.Identifier) === Token.Identifier && lookahead(parser, context, nextTokenIsArrow)) {
@@ -184,7 +184,7 @@ function parseBinaryExpression(
 
     // Shift-reduce parser for the binary operator part of the JS expression
     // syntax.
-    
+
     const bit = (context & Context.DisallowIn) === Context.DisallowIn;
     while ((parser.token & Token.IsBinaryOp) === Token.IsBinaryOp) {
         const t: Token = parser.token;
@@ -258,9 +258,9 @@ function parseUnaryExpression(parser: Parser, context: Context): any {
             prefix: true,
         };
     } else if (parser.token === Token.AwaitKeyword
-    && ((context & Context.Async) === Context.Async || 
+    && ((context & Context.Async) === Context.Async ||
        (context & Context.InFunctionBody) !== Context.InFunctionBody && (context & Context.OptionsExperimental) === Context.OptionsExperimental)
-    
+
     ) {
         return parseAwaitExpression(parser, context);
     }
@@ -327,7 +327,7 @@ export function parseLeftHandSideExpression(parser: Parser, context: Context): a
                 {
                     expect(parser, context, Token.LeftBracket);
                     const property = parseExpression(parser, context);
-                    expect(parser, context, Token.RightBracket)
+                    expect(parser, context, Token.RightBracket);
                     expr = {
                         type: 'MemberExpression',
                         object: expr,
@@ -391,7 +391,7 @@ export function parseNewOrMemberExpression(parser: Parser, context: Context): an
         if (parser.token === Token.SuperKeyword) {
             result = parseSuperProperty(parser, context);
         } else if (parser.token === Token.ImportKeyword && lookahead(parser, context, nextTokenIsLeftParen)) {
-            recordErrors(parser, context, Errors.Unexpected)
+            recordErrors(parser, context, Errors.Unexpected);
         } else if (consume(parser, context, Token.Period)) {
             result = parseNewTargetExpression(parser, context, id);
             return parseMemberExpressionContinuation(parser, context, result);
@@ -426,7 +426,7 @@ function parseImportExpressions(parser: Parser, context: Context): ESTree.Expres
     // Import.meta - Stage 3 proposal
     if (consume(parser, context, Token.Period)) {
         if (!(context & Context.Module) || parser.tokenValue !== 'meta') {
-            recordErrors(parser, context, Errors.Unexpected)
+            recordErrors(parser, context, Errors.Unexpected);
         }
         return parseMetaProperty(parser, context, id);
     }
@@ -495,7 +495,7 @@ function parseMemberExpressionContinuation(parser: Parser, context: Context, exp
                 {
                     expect(parser, context, Token.LeftBracket);
                     const property = parseExpression(parser, context);
-                    expect(parser, context, Token.RightBracket)
+                    expect(parser, context, Token.RightBracket);
                     expr = {
                         type: 'MemberExpression',
                         object: expr,
@@ -645,7 +645,7 @@ export function parsePrimaryExpression(parser: Parser, context: Context): any {
         case Token.LeftBracket:
             return parseArrayLiteral(parser, context);
         default:
-            nextToken(parser, context);
+            recordErrors(parser, context, Errors.UnexpectedToken, tokenDesc(nextToken(parser, context)));
     }
 }
 
@@ -731,7 +731,7 @@ function parseThisExpression(parser: Parser, context: Context): ESTree.ThisExpre
          type: 'ThisExpression',
      };
  }
- 
+
 /**
  * Parse arrow function
  *
@@ -904,7 +904,7 @@ export function parseFunctionExpression(
  * @param parser Parser object
  * @param context Context masks
  */
-export function parseFormalListAndBody(parser: Parser, context: Context) {
+export function parseFormalListAndBody(parser: Parser, context: Context): any {
     const params = parseFormalParameters(parser, context);
     const body = parseFunctionBody(parser, context | Context.InFunctionBody);
     return {
@@ -922,7 +922,7 @@ export function parseFormalListAndBody(parser: Parser, context: Context) {
  * @param Context masks
  * @param Optional objectstate. Default to none
  */
-function parseFormalParameters(parser: Parser, context: Context) {
+function parseFormalParameters(parser: Parser, context: Context): any {
     context = context | Context.InParameter;
     parser.flags = swapFlags(parser.flags, Flags.SimpleParameterList);
     expect(parser, context, Token.LeftParen);
@@ -948,8 +948,8 @@ function parseFunctionBody(parser: Parser, context: Context): ESTree.BlockStatem
 
     if (parser.token !== Token.RightBrace) {
 
-        // Note: A separate "while" loop is used to avoid unseting the 
-        // mutual flags within the iteration loop itself. 
+        // Note: A separate "while" loop is used to avoid unseting the
+        // mutual flags within the iteration loop itself.
         while (parser.token === Token.StringLiteral) {
             const { tokenRaw, tokenValue } = parser;
             body.push(parseDirective(parser, context));
@@ -969,11 +969,11 @@ function parseFunctionBody(parser: Parser, context: Context): ESTree.BlockStatem
 
         const previousSwitchStatement = parser.switchStatement;
         const previousIterationStatement = parser.iterationStatement;
- 
+
         if ((parser.switchStatement & LabelState.Iteration) === LabelState.Iteration) {
             parser.switchStatement = LabelState.CrossingBoundary;
         }
- 
+
         if ((parser.iterationStatement & LabelState.Iteration) === LabelState.Iteration) {
             parser.iterationStatement = LabelState.CrossingBoundary;
         }

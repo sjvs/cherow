@@ -82,8 +82,8 @@ export interface Parser {
     onError?: ErrorCallBack;
     functionBoundaryStack: any;
     labelSet: any;
-    labelSetStack: Array<{[key: string]: boolean}>;
-    iterationStack: Array<boolean | LabelState>;
+    labelSetStack: {[key: string]: boolean}[];
+    iterationStack: (boolean | LabelState)[];
     switchStatement: LabelState;
     iterationStatement: LabelState;
     labelDepth: number;

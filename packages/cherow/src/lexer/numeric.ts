@@ -7,7 +7,7 @@ import { Errors, recordErrors } from '../errors';
 
 /**
  *  Scans numeric literal
- * 
+ *
  * @param parser Parser object
  * @param context Context masks
  */
@@ -28,7 +28,7 @@ export function scanNumeric(parser: Parser): Token {
 
 /**
  * Scans floating number
- * 
+ *
  * @param parser Parser object
  * @param context Context masks
  */
@@ -49,7 +49,7 @@ export function parseFractionalNumber(parser: Parser): Token {
 
 /**
  * Skips digits
- * 
+ *
  * @param parser Parser object
  */
 function skipDigits(parser: Parser): number {
@@ -63,7 +63,7 @@ function skipDigits(parser: Parser): number {
 
 /**
  * Scans signed integer
- * 
+ *
  * @param parser Parser object
  */
 function scanSignedInteger(parser: Parser): void {
@@ -76,7 +76,7 @@ function scanSignedInteger(parser: Parser): void {
 }
 
 export function parseLeadingZero(parser: Parser, context: Context): Token {
-    let index = parser.index + 1;
+    const index = parser.index + 1;
     if (index < parser.source.length) {
         const next = parser.source.charCodeAt(index);
         if (next >= Chars.Zero && next <= Chars.Seven) {
