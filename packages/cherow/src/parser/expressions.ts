@@ -257,7 +257,11 @@ function parseUnaryExpression(parser: Parser, context: Context): any {
             argument,
             prefix: true,
         };
-    } else if (context & Context.Async && parser.token === Token.AwaitKeyword) {
+    } else if (parser.token === Token.AwaitKeyword
+    && ((context & Context.Async) === Context.Async || 
+       (context & Context.InFunctionBody) !== Context.InFunctionBody && (context & Context.OptionsExperimental) === Context.OptionsExperimental)
+    
+    ) {
         return parseAwaitExpression(parser, context);
     }
 

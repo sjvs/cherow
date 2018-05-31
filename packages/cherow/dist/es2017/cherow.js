@@ -1924,7 +1924,7 @@ function parseAssignmentExpression(parser, context) {
     //   YieldExpression
     //   LeftHandSideExpression AssignmentOperator AssignmentExpression
     const { token } = parser;
-    if (token === 16491 /* YieldKeyword */ && context & 2097152 /* Yield */)
+    if (token === 16491 /* YieldKeyword */ && context & 16777216 /* Yield */)
         return parseYieldExpression(parser, context);
     const isAsync = token === 4205 /* AsyncKeyword */ /*&& !(parser.flags & Flags.NewLine)*/ &&
         lookahead(parser, context, nextTokenIsLeftParenOrKeyword);
@@ -2018,7 +2018,7 @@ function parseConditionalExpression(parser, context) {
 function parseBinaryExpression(parser, context, minPrec, left = parseUnaryExpression(parser, context)) {
     // Shift-reduce parser for the binary operator part of the JS expression
     // syntax.
-    const bit = (context & 131072 /* DisallowIn */) === 131072 /* DisallowIn */;
+    const bit = (context & 1048576 /* DisallowIn */) === 1048576 /* DisallowIn */;
     while ((parser.token & 268435456 /* IsBinaryOp */) === 268435456 /* IsBinaryOp */) {
         const t = parser.token;
         const prec = t & 3840 /* Precedence */;
@@ -2050,7 +2050,7 @@ function parseBinaryExpression(parser, context, minPrec, left = parseUnaryExpres
  * @param pos Location info
  */
 function parseAwaitExpression(parser, context) {
-    if (context & 262144 /* InParameter */)
+    if (context & 2097152 /* InParameter */)
         recordErrors(parser, context, 0 /* Unexpected */);
     expect(parser, context, 4206 /* AwaitKeyword */);
     return {
@@ -2090,7 +2090,9 @@ function parseUnaryExpression(parser, context) {
             prefix: true,
         };
     }
-    else if (context & 65536 /* Async */ && parser.token === 4206 /* AwaitKeyword */) {
+    else if (parser.token === 4206 /* AwaitKeyword */
+        && ((context & 524288 /* Async */) === 524288 /* Async */ ||
+            (context & 262144 /* InFunctionBody */) !== 262144 /* InFunctionBody */ && (context & 4096 /* OptionsExperimental */) === 4096 /* OptionsExperimental */)) {
         return parseAwaitExpression(parser, context);
     }
     return parseUpdateExpression(parser, context);
@@ -2229,7 +2231,7 @@ function parseNewOrMemberExpression(parser, context) {
     return parseMemberExpression(parser, context);
 }
 function parseNewTargetExpression(parser, context, id) {
-    if ((context & 4194304 /* NewTarget */) === 4194304 /* NewTarget */ && parser.tokenValue === 'target') {
+    if ((context & 33554432 /* NewTarget */) === 33554432 /* NewTarget */ && parser.tokenValue === 'target') {
         return parseMetaProperty(parser, context, id);
     }
     recordErrors(parser, context, 28 /* UnexpectedNewTarget */);
@@ -2245,7 +2247,7 @@ function parseImportExpressions(parser, context) {
     const id = parseIdentifier(parser, context);
     // Import.meta - Stage 3 proposal
     if (consume(parser, context, 33554442 /* Period */)) {
-        if (!(context & 8192 /* Module */) || parser.tokenValue !== 'meta') {
+        if (!(context & 65536 /* Module */) || parser.tokenValue !== 'meta') {
             recordErrors(parser, context, 0 /* Unexpected */);
         }
         return parseMetaProperty(parser, context, id);
@@ -2355,12 +2357,12 @@ function parseSuperProperty(parser, context) {
     switch (parser.token) {
         case 33554440 /* LeftParen */:
             // The super property has to be within a class constructor
-            if (!(context & 67108864 /* AllowSuperProperty */))
+            if (!(context & 536870912 /* AllowSuperProperty */))
                 recordErrors(parser, context, 0 /* Unexpected */);
             break;
         case 33554448 /* LeftBracket */:
         case 33554442 /* Period */:
-            if (!(context & 524288 /* Method */))
+            if (!(context & 4194304 /* Method */))
                 recordErrors(parser, context, 0 /* Unexpected */);
             break;
         default:
@@ -2440,7 +2442,7 @@ function parsePrimaryExpression(parser, context) {
         case 8283 /* ThisKeyword */:
             return parseThisExpression(parser, context);
         case 8276 /* FunctionKeyword */:
-            return parseFunctionExpression(parser, context & ~65536 /* Async */);
+            return parseFunctionExpression(parser, context & ~524288 /* Async */);
         case 4205 /* AsyncKeyword */:
             return parseAsyncFunctionExpressionOrAsyncIdentifier(parser, context);
         case 33554441 /* LeftBrace */:
@@ -2547,7 +2549,7 @@ function parseArrowFunction(parser, context, state, params) {
     let body;
     const expression = parser.token !== 33554441 /* LeftBrace */;
     if (!expression) {
-        body = parseFunctionBody(parser, context | 32768 /* InFunctionBody */);
+        body = parseFunctionBody(parser, context | 262144 /* InFunctionBody */);
     }
     else {
         body = parseAssignmentExpression(parser, context);
@@ -2613,7 +2615,7 @@ function parseArrayLiteral(parser, context) {
     //
     //
     expect(parser, context, 33554448 /* LeftBracket */);
-    context = setContext(context, 131072 /* DisallowIn */ | 33554432 /* Asi */);
+    context = setContext(context, 1048576 /* DisallowIn */ | 268435456 /* Asi */);
     const elements = [];
     while (parser.token !== 33554449 /* RightBracket */) {
         if (consume(parser, context, 33554447 /* Comma */)) {
@@ -2692,7 +2694,7 @@ function parseFunctionExpression(parser, context, state = 0 /* None */) {
  */
 function parseFormalListAndBody(parser, context) {
     const params = parseFormalParameters(parser, context);
-    const body = parseFunctionBody(parser, context | 32768 /* InFunctionBody */);
+    const body = parseFunctionBody(parser, context | 262144 /* InFunctionBody */);
     return {
         params,
         body
@@ -2708,7 +2710,7 @@ function parseFormalListAndBody(parser, context) {
  * @param Optional objectstate. Default to none
  */
 function parseFormalParameters(parser, context) {
-    context = context | 262144 /* InParameter */;
+    context = context | 2097152 /* InParameter */;
     parser.flags = swapFlags(parser.flags, 16 /* SimpleParameterList */);
     expect(parser, context, 33554440 /* LeftParen */);
     const args = [];
@@ -2743,7 +2745,7 @@ function parseFunctionBody(parser, context) {
                 else if (parser.flags & 64 /* StrictEvalArguments */) {
                     recordErrors(parser, context, 32 /* StrictEvalArguments */);
                 }
-                context |= 4096 /* Strict */;
+                context |= 32768 /* Strict */;
             }
         }
         parser.flags = swapFlags(parser.flags, 128 /* StrictReserved */ | 64 /* StrictEvalArguments */);
@@ -2811,7 +2813,7 @@ function parseComputedPropertyName(parser, context) {
  * @param context Context masks
  */
 function parseClassExpression(parser, context) {
-    context = context | 4096 /* Strict */;
+    context = context | 32768 /* Strict */;
     expect(parser, context, 8266 /* ClassKeyword */);
     let id = null;
     if ((parser.token & 8388608 /* Identifier */) === 8388608 /* Identifier */ || parser.token & 8417280 /* Keyword */ && parser.token !== 8273 /* ExtendsKeyword */) {
@@ -2819,7 +2821,7 @@ function parseClassExpression(parser, context) {
     }
     let superClass = null;
     if (consume(parser, context, 8273 /* ExtendsKeyword */)) {
-        superClass = parseLeftHandSideExpression(parser, context | 4096 /* Strict */);
+        superClass = parseLeftHandSideExpression(parser, context | 32768 /* Strict */);
     }
     const body = parseClassBodyAndElementList(parser, context);
     return {
@@ -2840,7 +2842,7 @@ function parseClassExpression(parser, context) {
  * @param context Context masks
  */
 function parseClassBodyAndElementList(parser, context) {
-    context = setContext(context, 8388608 /* TaggedTemplate */);
+    context = setContext(context, 67108864 /* TaggedTemplate */);
     expect(parser, context, 33554441 /* LeftBrace */);
     const body = [];
     while (parser.token !== 33685516 /* RightBrace */) {
@@ -2877,7 +2879,7 @@ function parseClassElement(parser, context) {
             recordErrors(parser, context, 29 /* InvalidConstructor */);
         }
         else if (state & 16 /* Heritage */)
-            context |= 67108864 /* AllowSuperProperty */;
+            context |= 536870912 /* AllowSuperProperty */;
         state |= 32 /* Constructor */;
     }
     if (parser.token !== 33554440 /* LeftParen */) {
@@ -2961,7 +2963,7 @@ function parseMethod(parser, context, state) {
 function parseObjectLiteral(parser, context) {
     expect(parser, context, 33554441 /* LeftBrace */);
     const properties = [];
-    context = setContext(context, 131072 /* DisallowIn */ | 33554432 /* Asi */);
+    context = setContext(context, 1048576 /* DisallowIn */ | 268435456 /* Asi */);
     while (parser.token !== 33685516 /* RightBrace */) {
         properties.push(parser.token === 33554443 /* Ellipsis */ ?
             parseSpreadProperties(parser, context) :
