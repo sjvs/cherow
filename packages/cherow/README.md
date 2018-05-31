@@ -2,20 +2,25 @@
 
 **Work in progress**
 
-This is an experimental branch with focus on adding a "editor mode" for Cherow. It will replace current tolerant mode,
-and will recover from all errors. Incremental parsing is a TODO.
+This will be the v. 2.0 version of the Cherow parser.
 
-Doing this would require a refactoring both of parser and the lexer.
+## New features
 
-**Note:** This is a different approach than Acorn loose, and for *panic mode* it will not create any AST nodes, but
-the scanner will be primed until statement level are reached.
+- Editor mode
+- Tokenizing
+- Web compat
+
+## Improvements
+
+- Performance
+- Souce code size
 
 
-## API
+## API Changes
 
 ```js
 
- cherow.parse('1_2__', (err: string, line: number, column: number) => {
+ cherow.parse('1_2__', { edit: true }, (err: string, line: number, column: number) => {
        console.log( `Line ${line}, column ${column}: ${err}`);
  });
 

@@ -1202,16 +1202,16 @@ function setContext(context, mask) {
     return (context | mask) ^ mask;
 }
 function swapContext(context, state) {
-    context = setContext(context, 2097152 /* Yield */);
-    context = setContext(context, 65536 /* Async */);
-    context = setContext(context, 262144 /* InParameter */);
+    context = setContext(context, 16777216 /* Yield */);
+    context = setContext(context, 524288 /* Async */);
+    context = setContext(context, 2097152 /* InParameter */);
     if (state & 1 /* Generator */)
-        context = context | 2097152 /* Yield */;
+        context = context | 16777216 /* Yield */;
     if (state & 8 /* Async */)
-        context = context | 65536 /* Async */;
+        context = context | 524288 /* Async */;
     // `new.target` disallowed for arrows in global scope
     if (!(state & 4 /* Arrow */))
-        context = context | 4194304 /* NewTarget */;
+        context = context | 33554432 /* NewTarget */;
     return context;
 }
 function nextToken(parser, context) {
@@ -3749,35 +3749,54 @@ function parseDirective(parser, context) {
     };
 }
 
+/**
+ * Creates the parser object
+ *
+ * @param source The source coode to parser
+ * @param sourceFile Optional source file info to be attached in every node
+ */
 function createParserObject(source, errCallback) {
     return {
+        // The source code to parse
         source: source,
+        // Source length
         length: source.length,
-        flags: 4 /* Assignable */,
-        token: 131072 /* EndOfSource */,
-        nextToken: 131072 /* EndOfSource */,
-        lastToken: 131072 /* EndOfSource */,
-        startIndex: 0,
-        lastIndex: 0,
-        startColumn: 0,
-        lastColumn: 0,
-        startLine: 1,
-        lastLine: 0,
+        // Current position
         index: 0,
+        // Current line
         line: 1,
+        // Current column
         column: 0,
+        // Start position  before current token
+        startIndex: 0,
+        // Start position column before current token
+        startColumn: 0,
+        // Start position line before current token
+        startLine: 1,
+        // End position after parsing after current token
+        lastIndex: 0,
+        // End column position after current token
+        lastColumn: 0,
+        // End line position after current token
+        lastLine: 0,
+        // Mutable parser flags. Allows destructuring by default
+        flags: 4 /* Assignable */,
+        // Tokenizing
         tokens: [],
-        tokenValue: undefined,
-        tokenRaw: '',
-        tokenRegExp: undefined,
-        onError: errCallback,
-        functionBoundaryStack: undefined,
+        // Label tracking
         labelSet: undefined,
         labelSetStack: [],
         iterationStack: [],
         labelDepth: 0,
         switchStatement: 0 /* Empty */,
-        iterationStatement: 0 /* Empty */
+        iterationStatement: 0 /* Empty */,
+        functionBoundaryStack: undefined,
+        // Misc
+        token: 131072 /* EndOfSource */,
+        tokenValue: undefined,
+        tokenRaw: '',
+        tokenRegExp: undefined,
+        onError: errCallback,
     };
 }
 /**
@@ -3787,23 +3806,56 @@ function createParserObject(source, errCallback) {
  * @param options The parser options
  * @param context Context masks
  */
-function parseSource(source, options, /*@internal*/ context, errCallback) {
-    if (!!options) {
+function parseSource(source, options, 
+/*@internal*/
+context, errCallback) {
+    let sourceFile = '';
+    if (options !== undefined) {
         // The flag to enable module syntax support
         if (options.module)
-            context |= 8192 /* Module */;
+            context |= 65536 /* Module */;
         // The flag to enable stage 3 support (ESNext)
         if (options.next)
             context |= 8 /* OptionsNext */;
-        // The flag to enable tokenizing
-        if (options.tokenize)
-            context |= 1 /* OptionsTokenize */;
         // The flag to enable React JSX parsing
         if (options.jsx)
             context |= 2 /* OptionsJSX */;
+        // The flag to enable start and end offsets to each node
+        if (options.ranges)
+            context |= 128 /* OptionsRanges */;
+        // The flag to enable line/column location information to each node
+        if (options.loc)
+            context |= 64 /* OptionsLoc */;
         // The flag to attach raw property to each literal node
         if (options.raw)
             context |= 4 /* OptionsRaw */;
+        // Attach raw property to each identifier node
+        if (options.rawIdentifier)
+            context |= 8192 /* OptionsRawidentifiers */;
+        // The flag to allow return in the global scope
+        if (options.globalReturn)
+            context |= 512 /* OptionsGlobalReturn */;
+        // The flag to allow to skip shebang - '#'
+        if (options.skipShebang)
+            context |= 2048 /* OptionsShebang */;
+        // Set to true to record the source file in every node's loc object when the loc option is set.
+        if (!!options.source)
+            sourceFile = options.source;
+        // Create a top-level comments array containing all comments
+        if (!!options.comments)
+            context |= 1024 /* OptionsComments */;
+        // The flag to enable implied strict mode
+        if (options.impliedStrict)
+            context |= 32768 /* Strict */;
+        // The flag to enable experimental features
+        if (options.experimental)
+            context |= 4096 /* OptionsExperimental */;
+        // The flag to set to bypass methods in Node
+        if (options.node)
+            context |= 16384 /* OptionsNode */;
+        // The flag to enable tokenizing
+        if (options.tokenize)
+            context |= 1 /* OptionsTokenize */;
         // The flag to enable web compat (annexB)
         if (options.webcompat)
             context |= 16 /* OptionsWebCompat */;
@@ -3811,11 +3863,14 @@ function parseSource(source, options, /*@internal*/ context, errCallback) {
         if (options.edit)
             context |= 32 /* OptionsEditorMode */;
     }
+    // Create the parser object
     const parser = createParserObject(source, errCallback);
-    const body = parseStatementList(parser, context);
+    const body = parseStatementList(parser, context); /*context & Context.Module ?
+    parseModuleItemList(parser, context) :
+*/
     return {
         type: 'Program',
-        sourceType: context & 8192 /* Module */ ? 'module' : 'script',
+        sourceType: context & 65536 /* Module */ ? 'module' : 'script',
         body: body,
     };
 }
@@ -3829,9 +3884,9 @@ function parseSource(source, options, /*@internal*/ context, errCallback) {
  * @param options parser options
  */
 function parse(source, options, errCallback) {
-    return options && options.module
-        ? parseModule(source, options, errCallback)
-        : parseScript(source, options, errCallback);
+    return options && options.module ?
+        parseModule(source, options, errCallback) :
+        parseScript(source, options, errCallback);
 }
 /**
  * Parse script code
@@ -3853,7 +3908,7 @@ function parseScript(source, options, errCallback) {
  * @param options parser options
  */
 function parseModule(source, options, errCallback) {
-    return parseSource(source, options, 4096 /* Strict */ | 8192 /* Module */, errCallback);
+    return parseSource(source, options, 32768 /* Strict */ | 65536 /* Module */, errCallback);
 }
 
 const version = '1.6.5';

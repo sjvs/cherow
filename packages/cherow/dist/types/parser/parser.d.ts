@@ -1,7 +1,13 @@
 import { Context } from '../common';
-import { Parser } from '../types';
+import { Parser, ErrorCallBack, Options } from '../types';
 import * as ESTree from '../estree';
-export declare function createParserObject(source: string, errCallback?: any): Parser;
+/**
+ * Creates the parser object
+ *
+ * @param source The source coode to parser
+ * @param sourceFile Optional source file info to be attached in every node
+ */
+export declare function createParserObject(source: string, errCallback?: ErrorCallBack): Parser;
 /**
  * Creating the parser
  *
@@ -9,7 +15,7 @@ export declare function createParserObject(source: string, errCallback?: any): P
  * @param options The parser options
  * @param context Context masks
  */
-export declare function parseSource(source: string, options: any, context: Context, errCallback?: any): ESTree.Program;
+export declare function parseSource(source: string, options: Options | void, context: Context, errCallback?: any): ESTree.Program;
 /**
  * Parse either script code or module code
  *
@@ -19,7 +25,7 @@ export declare function parseSource(source: string, options: any, context: Conte
  * @param source source code to parse
  * @param options parser options
  */
-export declare function parse(source: string, options?: any, errCallback?: any): ESTree.Program;
+export declare function parse(source: string, options?: Options, errCallback?: ErrorCallBack): ESTree.Program;
 /**
  * Parse script code
  *
@@ -28,7 +34,7 @@ export declare function parse(source: string, options?: any, errCallback?: any):
  * @param source source code to parse
  * @param options parser options
  */
-export declare function parseScript(source: string, options?: any, errCallback?: any): ESTree.Program;
+export declare function parseScript(source: string, options?: Options, errCallback?: ErrorCallBack): ESTree.Program;
 /**
  * Parse module code
  *
@@ -37,4 +43,4 @@ export declare function parseScript(source: string, options?: any, errCallback?:
  * @param source source code to parse
  * @param options parser options
  */
-export declare function parseModule(source: string, options?: any, errCallback?: any): ESTree.Program;
+export declare function parseModule(source: string, options?: Options, errCallback?: ErrorCallBack): ESTree.Program;
