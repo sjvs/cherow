@@ -4,35 +4,35 @@ import { Context } from '../../../src/common';
 
 describe('Statements - While', () => {
 
-       pass('while (foo) function () {};', Context.Empty, {
+       pass('while (foo) function () {};', Context.OptionsEditorMode, {
             source: 'while (foo) function () {};',
             expected: {
-                  "body": [
-                    {
+                "body": [
+                 {
+                    "body": {
+                      "async": false,
                       "body": {
-                        "expression": {
-                          "async": false,
-                          "body": {
-                            "body": [],
-                            "type": "BlockStatement",
-                          },
-                          "expression": false,
-                          "generator": false,
-                          "id": null,
-                          "params": [],
-                          "type": "FunctionExpression",
-                        },
-                        "type": "ExpressionStatement",
+                        "body": [],
+                        "type": "BlockStatement",
                       },
-                      "test": {
-                        "name": "foo",
-                        "type": "Identifier",
-                      },
-                      "type": "WhileStatement",
+                      "expression": false,
+                      "generator": false,
+                      "id": null,
+                      "params": [],
+                      "type": "FunctionDeclaration",
                     },
-                 ],
-                  "sourceType": "script",
-                  "type": "Program"
-                }
+                    "test": {
+                      "name": "foo",
+                      "type": "Identifier",
+                   },
+                    "type": "WhileStatement",
+                  },
+                  {
+                    "type": "EmptyStatement",
+                  },
+                ],
+                "sourceType": "script",
+                "type": "Program"
+              }
        });
 });

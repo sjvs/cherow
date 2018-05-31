@@ -33,7 +33,9 @@ export const enum Errors {
     IllegalReturn,
     UnexpectedNewTarget,
     InvalidConstructor,
-    StaticPrototype
+    StaticPrototype,
+    IllegalUseStrict,
+    StrictEvalArguments
 }
 /*@internal*/
 export const errorMessages: {
@@ -70,6 +72,8 @@ export const errorMessages: {
     [Errors.UnexpectedNewTarget]: 'new.target expression is not allowed here',
     [Errors.InvalidConstructor]: 'Class constructor may not be a \'%0\'',
     [Errors.StaticPrototype]: 'Classes may not have a static property named \'prototype\'',
+    [Errors.IllegalUseStrict]: 'Illegal \'use strict\' directive in function with non-simple parameter list',
+    [Errors.StrictEvalArguments]: 'Unexpected eval or arguments in strict mode',
 };
 
 export function constructError(index: number, line: number, column: number, description: string): void {
@@ -84,11 +88,11 @@ export function constructError(index: number, line: number, column: number, desc
     return error;
 }
 
-export function recordErrors(parser: Parser, type: Errors, ...params: string[]) {
+export function recordErrors(parser: Parser, context: Context, type: Errors, ...params: string[]) {
     const { index, line, column } = parser;
     const message = errorMessages[type].replace(/%(\d+)/g, (_: string, i: number) => params[i]);
     const error = constructError(index, line, column, message);
-    if (parser.onError) parser.onError(message, line, column);
-  //  throw error;
+    if (context & Context.OptionsEditorMode && parser.onError) parser.onError(message, line, column);
+    else throw error;
 }
 

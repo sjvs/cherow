@@ -23,7 +23,7 @@ export function parseClassDeclaration(parser: Parser, context: Context): any {
     let id: ESTree.Identifier | null = null;
     if ((parser.token & Token.Identifier) === Token.Identifier || parser.token & Token.Keyword && parser.token !== Token.ExtendsKeyword) {
         id = parseBindingIdentifier(parser, context);
-    } else if (!(context & Context.RequireIdentifier)) recordErrors(parser, Errors.UnNamedFunctionDecl);
+    } else if (!(context & Context.RequireIdentifier)) recordErrors(parser, context, Errors.UnNamedFunctionDecl);
     let superClass: ESTree.Expression | null = null;
     if (consume(parser, context, Token.ExtendsKeyword)) {
         superClass = parseLeftHandSideExpression(parser, context | Context.Strict);
@@ -57,12 +57,9 @@ export function parseFunctionDeclaration(
     let id: ESTree.Identifier | null = null;
     if (parser.token !== Token.LeftParen) {
         id = parseBindingIdentifier(parser, context);
-    } else if (!(context & Context.RequireIdentifier)) recordErrors(parser, Errors.UnNamedFunctionDecl);
+    } else if (!(context & Context.RequireIdentifier)) recordErrors(parser, context, Errors.UnNamedFunctionDecl);
     context = swapContext(context, state);
-    const {
-        params,
-        body
-    } = parseFormalListAndBody(parser, context);
+    const { params, body } = parseFormalListAndBody(parser, context | Context.InFunctionBody);
     return {
         type: 'FunctionDeclaration',
         body,

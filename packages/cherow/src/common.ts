@@ -45,6 +45,8 @@ export const enum Flags {
     Bindable             = 1 << 3,
     SimpleParameterList  = 1 << 4,
     HasConstructor       = 1 << 5,
+    StrictEvalArguments  = 1 << 6,
+    StrictFunctionName   = 1 << 7,
 }
 
 /* Binding origin */
@@ -117,6 +119,10 @@ export function setGrammar(flags: Flags, mask: Flags): Context {
     return (flags | flags) ^ mask;
 }
 
+export function swapFlags(flags: Flags, mask: Flags): Flags {
+    return (flags | mask) ^ mask;
+}
+
 export function setContext(context: Context, mask: Context): Context {
     return (context | mask) ^ mask;
 }
@@ -142,7 +148,7 @@ export function nextToken(parser: Parser, context: Context): Token {
 
 export function expect(parser: Parser, context: Context, token: Token, errMsg = Errors.UnexpectedToken): boolean {
     if (parser.token !== token) {
-        recordErrors(parser, errMsg, tokenDesc(parser.token));
+        recordErrors(parser, context, errMsg, tokenDesc(parser.token));
         return false;
     }
         nextToken(parser, context);
@@ -166,7 +172,7 @@ export function consume(parser: Parser, context: Context, token: Token): boolean
 export function consumeSemicolon(parser: Parser, context: Context): void | boolean {
     return (parser.token & Token.ASI) === Token.ASI || parser.flags & Flags.NewLine
       ? consume(parser, context, Token.Semicolon)
-      : recordErrors(parser, Errors.Unexpected);
+      : recordErrors(parser, context, Errors.Unexpected);
   }
 
  /**
@@ -286,14 +292,14 @@ export function isBinding(parser: Parser): boolean {
  * @param context Context masks
  * @param node AST node
  */
-export function reinterpret(parser: Parser, node: any): void {
+export function reinterpret(parser: Parser, context: Context, node: any): void {
     switch (node.type) {
         case 'ArrayExpression':
             node.type = 'ArrayPattern';
             for (let i = 0; i < node.elements.length; ++i) {
                 // skip holes in pattern
                 if (node.elements[i] !== null) {
-                    reinterpret(parser, node.elements[i]);
+                    reinterpret(parser, context, node.elements[i]);
                 }
             }
             return;
@@ -301,12 +307,12 @@ export function reinterpret(parser: Parser, node: any): void {
         case 'ObjectExpression':
             node.type = 'ObjectPattern';
             for (let i = 0; i < node.properties.length; i++) {
-                reinterpret(parser, node.properties[i].value);
+                reinterpret(parser, context, node.properties[i].value);
             }
             return;
         case 'AssignmentExpression':
             node.type = 'AssignmentPattern';
-            if (node.operator !== '=') recordErrors(parser, Errors.InvalidLHSDefaultValue);
+          //  if (node.operator !== '=') recordErrors(parser, context, Errors.InvalidLHSDefaultValue);
             delete node.operator;
             return;
         default: // ignore
@@ -355,13 +361,13 @@ export function addCrossingBoundary(parser: Parser): void {
  * @param parser Parser object
  * @param label Label
  */
-export function validateContinueLabel(parser: Parser, label: string): void {
+export function validateContinueLabel(parser: Parser, context: Context, label: string): void {
     const state = getLabel(parser, label, true);
     if ((state & LabelState.Iteration) !== LabelState.Iteration) {
         if (state & LabelState.CrossingBoundary) {
-            recordErrors(parser, Errors.InvalidNestedStatement)
+            recordErrors(parser, context, Errors.InvalidNestedStatement)
         } else {
-            recordErrors(parser, Errors.UnknownLabel, label as string);
+            recordErrors(parser, context, Errors.UnknownLabel, label as string);
         }
     }
 }
@@ -372,9 +378,9 @@ export function validateContinueLabel(parser: Parser, label: string): void {
  * @param parser Parser object
  * @param label Label
  */
-export function validateBreakStatement(parser: Parser, label: any): void {
+export function validateBreakStatement(parser: Parser, context: Context, label: any): void {
     const state = getLabel(parser, label);
-    if ((state & LabelState.Iteration) !== LabelState.Iteration) recordErrors(parser, Errors.UnknownLabel, label);
+    if ((state & LabelState.Iteration) !== LabelState.Iteration) recordErrors(parser, context, Errors.UnknownLabel, label);
 }
 
 /**

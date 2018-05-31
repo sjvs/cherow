@@ -7,7 +7,7 @@ describe('Expressions - New target', () => {
     describe('Editor mode', () => {
 
         // Arrow in global scope
-        pass('() => {new.target }', Context.Empty, {
+     /*   pass('() => {new.target }', Context.OptionsEditorMode, {
             source: `() => {new.target }`,
             expected: {
                   "body": [
@@ -43,7 +43,7 @@ describe('Expressions - New target', () => {
                   "type": "Program"
                 }
         });
-    });
+    });*/
 
     describe('Pass', () => {
 
@@ -101,8 +101,6 @@ describe('Expressions - New target', () => {
                     }
                 ]
             }           
-        },  (msg: string) => {
-            t.equal(msg, 'new.target expression is not allowed here');
         });
     });
 });

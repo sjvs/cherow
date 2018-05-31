@@ -29,24 +29,24 @@ import { reporters } from 'mocha';
  * @param context Context masks
  */
 export function parseBindingIdentifier(
-    parser: Parser, 
-    context: Context, 
+    parser: Parser,
+    context: Context,
     kind: BindingKind = BindingKind.Var
 ): ESTree.Identifier {
     const { token: t } = parser;
 
-    if (context & Context.Strict) {
-
-    } else if ((t & Token.Contextual) && t === Token.AsyncKeyword) {
+    if ((t & Token.Contextual) === Token.Contextual && t === Token.AsyncKeyword) {
         if (kind === BindingKind.Var) {}
     } else if (t === Token.Eval || t === Token.Arguments) {
-        if ((context & Context.Strict) === Context.Strict) recordErrors(parser, Errors.Unexpected);
+        if ((context & Context.Strict) === Context.Strict) recordErrors(parser, context, Errors.Unexpected);
+        parser.flags |= Flags.StrictEvalArguments;
     } else if ((t & Token.FutureReserved) === Token.FutureReserved) {
-        if ((context & Context.Strict) === Context.Strict) recordErrors(parser, Errors.Unexpected);
+        if ((context & Context.Strict) === Context.Strict) recordErrors(parser, context, Errors.Unexpected);
+        parser.flags |= Flags.StrictFunctionName;
     } else if ((t & Token.Reserved) === Token.Reserved) {
-        if ((context & Context.Strict) === Context.Strict) recordErrors(parser, Errors.Unexpected);
+        recordErrors(parser, context, Errors.Unexpected);
     }
-   
+
     const name = parser.tokenValue;
     nextToken(parser, context);
     return {
@@ -66,15 +66,12 @@ export function parseBindingIdentifierOrPattern(
     type?: BindingType
 ): any {
     let left: any;
-    if (parser.token === Token.Identifier) {
-        return parseBindingIdentifier(parser, context);
-    }
     if (parser.token === Token.LeftBrace) {
         return parserObjectAssignmentPattern(parser, context, type as BindingType);
-    }
-    if (parser.token === Token.LeftBracket) {
+    } else if (parser.token === Token.LeftBracket) {
         return parseArrayAssignmentPattern(parser, context, type as BindingType);
     }
+    return parseBindingIdentifier(parser, context);
 }
 
 /**
@@ -85,11 +82,16 @@ export function parseBindingIdentifierOrPattern(
  * @param parser  Parser object
  * @param context Context masks
  */
-export function parseAssignmentRestElement(parser: Parser, context: Context): ESTree.RestElement {
+export function parseAssignmentRestElement(
+    parser: Parser,
+    context: Context,
+    type: BindingType,
+    endToken: Token = Token.RightBracket): ESTree.RestElement {
+    let t = type; // TODO
     expect(parser, context, Token.Ellipsis);
     const argument = parseBindingIdentifierOrPattern(parser, context);
-    if (parser.token === Token.Assign) recordErrors(parser, Errors.ElementAfterRest);
-    if (parser.token === Token.Comma) recordErrors(parser, Errors.ElementAfterRest);
+    if (parser.token === Token.Assign) recordErrors(parser, context, Errors.ElementAfterRest);
+    if (parser.token !== endToken) recordErrors(parser, context, Errors.ElementAfterRest);
     return {
         type: 'RestElement',
         argument,
@@ -133,7 +135,7 @@ function parseArrayAssignmentPattern(parser: Parser, context: Context, type: Bin
             elements.push(null);
         } else {
             if (parser.token === Token.Ellipsis) {
-                elements.push(parseAssignmentRestElement(parser, context));
+                elements.push(parseAssignmentRestElement(parser, context, type));
                 break;
             } else {
                 elements.push(parseBindingInitializer(parser, context, type));
@@ -281,7 +283,7 @@ function parseAssignmentProperty(parser: Parser, context: Context, type: Binding
     };
 }
 
-/** 
+/**
  * Parses a delimited binding list
  *
  * @see [Link](https://tc39.github.io/ecma262/#prod-BindingList)
@@ -290,7 +292,7 @@ function parseAssignmentProperty(parser: Parser, context: Context, type: Binding
  * @see [Link](https://tc39.github.io/ecma262/#prod-VariableDeclaration)
  * @see [Link](https://tc39.github.io/ecma262/#sec-for-statement)
  * @see [Link](https://tc39.github.io/ecma262/#sec-for-in-and-for-of-statements)
- * 
+ *
  * @param parser Parser object
  * @param context Context masks
  * @param type Binding type
@@ -324,7 +326,7 @@ export function parseDelimitedBindingList(
     return args;
 }
 
-/** 
+/**
  * Parse binding list elements
  *
  * @param parser Parser object
@@ -349,7 +351,7 @@ function parseBindingList(
             } else if (origin & (BindingOrigin.FunctionArgs | BindingOrigin.CatchClause)) {
                 // TODO
             } else {
-                recordErrors(parser, Errors.DeclarationMissingInitializer);
+                recordErrors(parser, context, Errors.DeclarationMissingInitializer);
             }
         }
     } else if (parser.token === Token.LeftBracket) {
@@ -360,12 +362,14 @@ function parseBindingList(
             } else if (origin & (BindingOrigin.FunctionArgs | BindingOrigin.CatchClause)) {
                 // TODO
             } else {
-                recordErrors(parser, Errors.DeclarationMissingInitializer);
+                recordErrors(parser, context, Errors.DeclarationMissingInitializer);
             }
         }
     } else if (parser.token === Token.Ellipsis) {
-            // TODO
-    } else if (parser.token === Token.RightParen) {}
+       return parseAssignmentRestElement(parser, context, type, Token.RightParen);
+    } else if (parser.token === Token.RightParen) {
+        recordErrors(parser, context, Errors.UnexpectedToken, 'trailing comma');
+    }
 
     if (consume(parser, context, Token.Assign)) {
         return type & BindingType.Variable ?

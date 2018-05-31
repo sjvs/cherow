@@ -39,6 +39,8 @@ export declare const enum Flags {
     Bindable = 8,
     SimpleParameterList = 16,
     HasConstructor = 32,
+    StrictEvalArguments = 64,
+    StrictFunctionName = 128,
 }
 export declare const enum BindingOrigin {
     Empty = 0,
@@ -49,7 +51,6 @@ export declare const enum BindingOrigin {
     Import = 16,
     Statement = 32,
 }
-/** Binding state */
 export declare const enum BindingType {
     Empty = 0,
     Args = 1,
@@ -58,6 +59,12 @@ export declare const enum BindingType {
     Const = 8,
     Class = 16,
     Variable = 14,
+}
+export declare const enum BindingKind {
+    Class = 0,
+    Var = 1,
+    Let = 2,
+    Const = 3,
 }
 export declare const enum Recovery {
     Empty = 0,
@@ -83,6 +90,7 @@ export declare const enum ModifierState {
     Static = 1024,
 }
 export declare function setGrammar(flags: Flags, mask: Flags): Context;
+export declare function swapFlags(flags: Flags, mask: Flags): Flags;
 export declare function setContext(context: Context, mask: Context): Context;
 export declare function swapContext(context: Context, state: ModifierState): Context;
 export declare function nextToken(parser: Parser, context: Context): Token;
@@ -146,7 +154,7 @@ export declare function isBinding(parser: Parser): boolean;
  * @param context Context masks
  * @param node AST node
  */
-export declare function reinterpret(parser: Parser, node: any): void;
+export declare function reinterpret(parser: Parser, context: Context, node: any): void;
 /**
  * Add label to the stack
  *
@@ -167,14 +175,14 @@ export declare function addCrossingBoundary(parser: Parser): void;
  * @param parser Parser object
  * @param label Label
  */
-export declare function validateContinueLabel(parser: Parser, label: string): void;
+export declare function validateContinueLabel(parser: Parser, context: Context, label: string): void;
 /**
  * Validates break statement
  *
  * @param parser Parser object
  * @param label Label
  */
-export declare function validateBreakStatement(parser: Parser, label: any): void;
+export declare function validateBreakStatement(parser: Parser, context: Context, label: any): void;
 /**
  * Add label
  *

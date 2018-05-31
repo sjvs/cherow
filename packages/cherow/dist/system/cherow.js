@@ -161,6 +161,8 @@ System.register([], function (exports, module) {
                 [28 /* UnexpectedNewTarget */]: 'new.target expression is not allowed here',
                 [29 /* InvalidConstructor */]: 'Class constructor may not be a \'%0\'',
                 [30 /* StaticPrototype */]: 'Classes may not have a static property named \'prototype\'',
+                [31 /* IllegalUseStrict */]: 'Illegal \'use strict\' directive in function with non-simple parameter list',
+                [32 /* StrictEvalArguments */]: 'Unexpected eval or arguments in strict mode',
             };
             function constructError(index, line, column, description) {
                 const error = new SyntaxError(`Line ${line}, column ${column}: ${description}`);
@@ -170,13 +172,14 @@ System.register([], function (exports, module) {
                 error.description = description;
                 return error;
             }
-            function recordErrors(parser, type, ...params) {
+            function recordErrors(parser, context, type, ...params) {
                 const { index, line, column } = parser;
                 const message = errorMessages[type].replace(/%(\d+)/g, (_, i) => params[i]);
                 const error = constructError(index, line, column, message);
-                if (parser.onError)
+                if (context & 32 /* OptionsEditorMode */ && parser.onError)
                     parser.onError(message, line, column);
-                //  throw error;
+                else
+                    throw error;
             }
 
             function consumeOpt(parser, code) {
@@ -223,7 +226,7 @@ System.register([], function (exports, module) {
                 if (ch > 0xffff)
                     parser.index++;
                 if (parser.index >= parser.length)
-                    recordErrors(parser, 0 /* Unexpected */);
+                    recordErrors(parser, 0 /* Empty */, 0 /* Unexpected */);
                 return nextUnicodeChar(parser);
             }
             function nextUnicodeChar(parser) {
@@ -416,12 +419,12 @@ System.register([], function (exports, module) {
                                 // recovers from invalid escapes
                                 else if (code !== -1 /* Empty */) {
                                     ret = undefined;
-                                    recordStringErrors(parser, code);
+                                    recordStringErrors(parser, context, code);
                                     ch = scanBadString(parser, quote, ch);
                                     break loop;
                                 }
                                 else
-                                    return recordStringErrors(parser, code);
+                                    return recordStringErrors(parser, context, code);
                                 index = parser.index + 1;
                                 column = parser.column + 1;
                             }
@@ -439,7 +442,7 @@ System.register([], function (exports, module) {
                     }
                 }
                 // Unterminated string literal
-                recordErrors(parser, 3 /* UnterminatedString */);
+                recordErrors(parser, context, 3 /* UnterminatedString */);
                 return 65536 /* Invalid */;
             }
             /**
@@ -461,10 +464,10 @@ System.register([], function (exports, module) {
              * @param parser Parser object
              * @param context Context masks
              */
-            function recordStringErrors(parser, code) {
+            function recordStringErrors(parser, context, code) {
                 if (code === -1 /* Empty */)
                     return;
-                recordErrors(parser, 3 /* UnterminatedString */);
+                recordErrors(parser, context, 3 /* UnterminatedString */);
                 return 65536 /* Invalid */;
             }
             const table = new Array(128).fill(nextUnicodeChar);
@@ -680,21 +683,21 @@ System.register([], function (exports, module) {
                         case 120 /* LowerX */:
                         case 88 /* UpperX */:
                             parser.index++;
-                            return scanHexDigits(parser);
+                            return scanHexDigits(parser, context);
                         case 98 /* LowerB */:
                         case 66 /* UpperB */:
                             parser.index++;
-                            return scanBinaryDigits(parser);
+                            return scanBinaryDigits(parser, context);
                         case 111 /* LowerO */:
                         case 79 /* UpperO */:
                             parser.index++;
-                            return scanOctalDigits(parser);
+                            return scanOctalDigits(parser, context);
                         default:
                     }
                 }
                 return scanNumeric(parser);
             }
-            function scanOctalDigits(parser) {
+            function scanOctalDigits(parser, context) {
                 parser.index++;
                 parser.column++;
                 let value = 0;
@@ -711,19 +714,19 @@ System.register([], function (exports, module) {
                     digits++;
                 }
                 if (digits === 0) {
-                    recordErrors(parser, 2 /* InvalidOrUnexpectedToken */);
+                    recordErrors(parser, context, 2 /* InvalidOrUnexpectedToken */);
                 }
                 parser.tokenValue = value;
                 if (consumeOpt(parser, 110 /* LowerN */))
                     return 2097275 /* BigInt */;
                 return 2097152 /* NumericLiteral */;
             }
-            function scanHexDigits(parser) {
+            function scanHexDigits(parser, context) {
                 parser.index++;
                 parser.column++;
                 let value = toHex(parser.source.charCodeAt(parser.index));
                 if (value < 0)
-                    recordErrors(parser, 0 /* Unexpected */);
+                    recordErrors(parser, context, 0 /* Unexpected */);
                 parser.index++;
                 parser.column++;
                 while (parser.index < parser.length) {
@@ -747,7 +750,7 @@ System.register([], function (exports, module) {
              * @param parser Parser object
              * @param context Context masks
              */
-            function scanBinaryDigits(parser) {
+            function scanBinaryDigits(parser, context) {
                 parser.index++;
                 parser.column++;
                 let value = 0;
@@ -760,7 +763,7 @@ System.register([], function (exports, module) {
                     digits++;
                 }
                 if (digits === 0)
-                    recordErrors(parser, 2 /* InvalidOrUnexpectedToken */);
+                    recordErrors(parser, context, 2 /* InvalidOrUnexpectedToken */);
                 parser.tokenValue = value;
                 if (consumeOpt(parser, 110 /* LowerN */))
                     return 2097275 /* BigInt */;
@@ -774,7 +777,7 @@ System.register([], function (exports, module) {
              */
             function scanImplicitOctalDigits(parser, context) {
                 if (context & 4096 /* Strict */)
-                    recordErrors(parser, 0 /* Unexpected */);
+                    recordErrors(parser, context, 0 /* Unexpected */);
                 let next = parser.source.charCodeAt(parser.index);
                 let value = 0;
                 let index = parser.index;
@@ -795,7 +798,7 @@ System.register([], function (exports, module) {
                     digits++;
                 }
                 if (digits === 0)
-                    recordErrors(parser, 0 /* Unexpected */);
+                    recordErrors(parser, context, 0 /* Unexpected */);
                 parser.tokenValue = value;
                 parser.index = index;
                 parser.column = column;
@@ -1196,6 +1199,9 @@ System.register([], function (exports, module) {
                 return 131072 /* EndOfSource */;
             }
 
+            function swapFlags(flags, mask) {
+                return (flags | mask) ^ mask;
+            }
             function setContext(context, mask) {
                 return (context | mask) ^ mask;
             }
@@ -1221,7 +1227,7 @@ System.register([], function (exports, module) {
             }
             function expect(parser, context, token, errMsg = 1 /* UnexpectedToken */) {
                 if (parser.token !== token) {
-                    recordErrors(parser, errMsg, tokenDesc(parser.token));
+                    recordErrors(parser, context, errMsg, tokenDesc(parser.token));
                     return false;
                 }
                 nextToken(parser, context);
@@ -1244,7 +1250,7 @@ System.register([], function (exports, module) {
             function consumeSemicolon(parser, context) {
                 return (parser.token & 131072 /* ASI */) === 131072 /* ASI */ || parser.flags & 1 /* NewLine */
                     ? consume(parser, context, 33685518 /* Semicolon */)
-                    : recordErrors(parser, 0 /* Unexpected */);
+                    : recordErrors(parser, context, 0 /* Unexpected */);
             }
             /**
              * Does a lookahead
@@ -1334,27 +1340,26 @@ System.register([], function (exports, module) {
              * @param context Context masks
              * @param node AST node
              */
-            function reinterpret(parser, node) {
+            function reinterpret(parser, context, node) {
                 switch (node.type) {
                     case 'ArrayExpression':
                         node.type = 'ArrayPattern';
                         for (let i = 0; i < node.elements.length; ++i) {
                             // skip holes in pattern
                             if (node.elements[i] !== null) {
-                                reinterpret(parser, node.elements[i]);
+                                reinterpret(parser, context, node.elements[i]);
                             }
                         }
                         return;
                     case 'ObjectExpression':
                         node.type = 'ObjectPattern';
                         for (let i = 0; i < node.properties.length; i++) {
-                            reinterpret(parser, node.properties[i].value);
+                            reinterpret(parser, context, node.properties[i].value);
                         }
                         return;
                     case 'AssignmentExpression':
                         node.type = 'AssignmentPattern';
-                        if (node.operator !== '=')
-                            recordErrors(parser, 14 /* InvalidLHSDefaultValue */);
+                        //  if (node.operator !== '=') recordErrors(parser, context, Errors.InvalidLHSDefaultValue);
                         delete node.operator;
                         return;
                     default: // ignore
@@ -1400,14 +1405,14 @@ System.register([], function (exports, module) {
              * @param parser Parser object
              * @param label Label
              */
-            function validateContinueLabel(parser, label) {
+            function validateContinueLabel(parser, context, label) {
                 const state = getLabel(parser, label, true);
                 if ((state & 1 /* Iteration */) !== 1 /* Iteration */) {
                     if (state & 2 /* CrossingBoundary */) {
-                        recordErrors(parser, 23 /* InvalidNestedStatement */);
+                        recordErrors(parser, context, 23 /* InvalidNestedStatement */);
                     }
                     else {
-                        recordErrors(parser, 21 /* UnknownLabel */, label);
+                        recordErrors(parser, context, 21 /* UnknownLabel */, label);
                     }
                 }
             }
@@ -1417,10 +1422,10 @@ System.register([], function (exports, module) {
              * @param parser Parser object
              * @param label Label
              */
-            function validateBreakStatement(parser, label) {
+            function validateBreakStatement(parser, context, label) {
                 const state = getLabel(parser, label);
                 if ((state & 1 /* Iteration */) !== 1 /* Iteration */)
-                    recordErrors(parser, 21 /* UnknownLabel */, label);
+                    recordErrors(parser, context, 21 /* UnknownLabel */, label);
             }
             /**
              * Add label
@@ -1510,7 +1515,7 @@ System.register([], function (exports, module) {
                     id = parseBindingIdentifier(parser, context);
                 }
                 else if (!(context & 16384 /* RequireIdentifier */))
-                    recordErrors(parser, 18 /* UnNamedFunctionDecl */);
+                    recordErrors(parser, context, 18 /* UnNamedFunctionDecl */);
                 let superClass = null;
                 if (consume(parser, context, 8273 /* ExtendsKeyword */)) {
                     superClass = parseLeftHandSideExpression(parser, context | 4096 /* Strict */);
@@ -1533,21 +1538,22 @@ System.register([], function (exports, module) {
              */
             function parseFunctionDeclaration(parser, context, state = 0 /* None */) {
                 expect(parser, context, 8276 /* FunctionKeyword */);
-                const isGenerator = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ : 0 /* None */;
+                if (consume(parser, context, 301992496 /* Multiply */))
+                    state |= 1 /* Generator */;
                 let id = null;
                 if (parser.token !== 33554440 /* LeftParen */) {
                     id = parseBindingIdentifier(parser, context);
                 }
                 else if (!(context & 16384 /* RequireIdentifier */))
-                    recordErrors(parser, 18 /* UnNamedFunctionDecl */);
-                context = swapContext(context, state | isGenerator);
-                const { params, body } = parseFormalListAndBody(parser, context);
+                    recordErrors(parser, context, 18 /* UnNamedFunctionDecl */);
+                context = swapContext(context, state);
+                const { params, body } = parseFormalListAndBody(parser, context | 32768 /* InFunctionBody */);
                 return {
                     type: 'FunctionDeclaration',
                     body,
                     params,
                     async: !!(state & 8 /* Async */),
-                    generator: !!(isGenerator & 1 /* Generator */),
+                    generator: !!(state & 1 /* Generator */),
                     expression: false,
                     id
                 };
@@ -1588,24 +1594,22 @@ System.register([], function (exports, module) {
              * @param parser  Parser object
              * @param context Context masks
              */
-            function parseBindingIdentifier(parser, context, kind = 'var') {
+            function parseBindingIdentifier(parser, context, kind = 1 /* Var */) {
                 const { token: t } = parser;
-                if (context & 4096 /* Strict */) {
-                    if ((t & 16384 /* FutureReserved */) === 16384 /* FutureReserved */)
-                        recordErrors(parser, 0 /* Unexpected */);
-                    if (t === 8388705 /* Eval */ || t === 8388704 /* Arguments */)
-                        recordErrors(parser, 0 /* Unexpected */);
-                    if (t === 16491 /* YieldKeyword */)
-                        recordErrors(parser, 0 /* Unexpected */);
+                if ((t & 4096 /* Contextual */) === 4096 /* Contextual */ && t === 4205 /* AsyncKeyword */) ;
+                else if (t === 8388705 /* Eval */ || t === 8388704 /* Arguments */) {
+                    if ((context & 4096 /* Strict */) === 4096 /* Strict */)
+                        recordErrors(parser, context, 0 /* Unexpected */);
+                    parser.flags |= 64 /* StrictEvalArguments */;
                 }
-                // Reserved 
-                if ((t & 8192 /* Reserved */) === 8192 /* Reserved */)
-                    recordErrors(parser, 0 /* Unexpected */);
-                if (t === 4206 /* AwaitKeyword */ && context & (4096 /* Strict */ | 65536 /* Async */)) {
-                    recordErrors(parser, 0 /* Unexpected */);
+                else if ((t & 16384 /* FutureReserved */) === 16384 /* FutureReserved */) {
+                    if ((context & 4096 /* Strict */) === 4096 /* Strict */)
+                        recordErrors(parser, context, 0 /* Unexpected */);
+                    parser.flags |= 128 /* StrictFunctionName */;
                 }
-                if (t === 8388705 /* Eval */ || t === 8388704 /* Arguments */ && kind === 'let' || kind === 'const')
-                    recordErrors(parser, 0 /* Unexpected */);
+                else if ((t & 8192 /* Reserved */) === 8192 /* Reserved */) {
+                    recordErrors(parser, context, 0 /* Unexpected */);
+                }
                 const name = parser.tokenValue;
                 nextToken(parser, context);
                 return {
@@ -1620,15 +1624,13 @@ System.register([], function (exports, module) {
              * @param context Context masks
              */
             function parseBindingIdentifierOrPattern(parser, context, type) {
-                if (parser.token === 8388608 /* Identifier */) {
-                    return parseBindingIdentifier(parser, context);
-                }
                 if (parser.token === 33554441 /* LeftBrace */) {
                     return parserObjectAssignmentPattern(parser, context, type);
                 }
-                if (parser.token === 33554448 /* LeftBracket */) {
+                else if (parser.token === 33554448 /* LeftBracket */) {
                     return parseArrayAssignmentPattern(parser, context, type);
                 }
+                return parseBindingIdentifier(parser, context);
             }
             /**
              * Parse assignment rest element
@@ -1638,13 +1640,13 @@ System.register([], function (exports, module) {
              * @param parser  Parser object
              * @param context Context masks
              */
-            function parseAssignmentRestElement(parser, context) {
+            function parseAssignmentRestElement(parser, context, type, endToken = 33554449 /* RightBracket */) {
                 expect(parser, context, 33554443 /* Ellipsis */);
                 const argument = parseBindingIdentifierOrPattern(parser, context);
                 if (parser.token === 167772186 /* Assign */)
-                    recordErrors(parser, 10 /* ElementAfterRest */);
-                if (parser.token === 33554447 /* Comma */)
-                    recordErrors(parser, 10 /* ElementAfterRest */);
+                    recordErrors(parser, context, 10 /* ElementAfterRest */);
+                if (parser.token !== endToken)
+                    recordErrors(parser, context, 10 /* ElementAfterRest */);
                 return {
                     type: 'RestElement',
                     argument,
@@ -1688,7 +1690,7 @@ System.register([], function (exports, module) {
                     }
                     else {
                         if (parser.token === 33554443 /* Ellipsis */) {
-                            elements.push(parseAssignmentRestElement(parser, context));
+                            elements.push(parseAssignmentRestElement(parser, context, type));
                             break;
                         }
                         else {
@@ -1864,7 +1866,7 @@ System.register([], function (exports, module) {
                         if (origin & 1 /* ForStatement */ && isInOrOf(parser)) ;
                         else if (origin & (2 /* FunctionArgs */ | 4 /* CatchClause */)) ;
                         else {
-                            recordErrors(parser, 9 /* DeclarationMissingInitializer */);
+                            recordErrors(parser, context, 9 /* DeclarationMissingInitializer */);
                         }
                     }
                 }
@@ -1874,12 +1876,16 @@ System.register([], function (exports, module) {
                         if (origin & 1 /* ForStatement */ && isInOrOf(parser)) ;
                         else if (origin & (2 /* FunctionArgs */ | 4 /* CatchClause */)) ;
                         else {
-                            recordErrors(parser, 9 /* DeclarationMissingInitializer */);
+                            recordErrors(parser, context, 9 /* DeclarationMissingInitializer */);
                         }
                     }
                 }
-                else if (parser.token === 33554443 /* Ellipsis */) ;
-                else if (parser.token === 33554445 /* RightParen */) ;
+                else if (parser.token === 33554443 /* Ellipsis */) {
+                    return parseAssignmentRestElement(parser, context, type, 33554445 /* RightParen */);
+                }
+                else if (parser.token === 33554445 /* RightParen */) {
+                    recordErrors(parser, context, 1 /* UnexpectedToken */, 'trailing comma');
+                }
                 if (consume(parser, context, 167772186 /* Assign */)) {
                     return type & 14 /* Variable */ ?
                         parseVariableDeclaration(left, parseAssignmentExpression(parser, context))
@@ -1947,11 +1953,10 @@ System.register([], function (exports, module) {
                     return parseArrowFunction(parser, context, isAsync ? 8 /* Async */ | 4 /* Arrow */ : 4 /* Arrow */, left);
                 }
                 if ((parser.token & 134217728 /* IsAssignOp */) === 134217728 /* IsAssignOp */) {
-                    if ((parser.flags & 4 /* Assignable */) !== 4 /* Assignable */)
-                        recordErrors(parser, 14 /* InvalidLHSDefaultValue */);
+                    //     if ((parser.flags & Flags.Assignable) !== Flags.Assignable) recordErrors(parser, context, Errors.InvalidLHSDefaultValue);
                     if (parser.token === 167772186 /* Assign */) {
                         if (left.type === 'ArrayExpression' || left.type === 'ObjectExpression')
-                            reinterpret(parser, left);
+                            reinterpret(parser, context, left);
                     }
                     const operator = parser.token;
                     nextToken(parser, context);
@@ -2060,7 +2065,7 @@ System.register([], function (exports, module) {
              */
             function parseAwaitExpression(parser, context) {
                 if (context & 262144 /* InParameter */)
-                    recordErrors(parser, 0 /* Unexpected */);
+                    recordErrors(parser, context, 0 /* Unexpected */);
                 expect(parser, context, 4206 /* AwaitKeyword */);
                 return {
                     type: 'AwaitExpression',
@@ -2220,7 +2225,7 @@ System.register([], function (exports, module) {
                         result = parseSuperProperty(parser, context);
                     }
                     else if (parser.token === 8278 /* ImportKeyword */ && lookahead(parser, context, nextTokenIsLeftParen)) {
-                        recordErrors(parser, 0 /* Unexpected */);
+                        recordErrors(parser, context, 0 /* Unexpected */);
                     }
                     else if (consume(parser, context, 33554442 /* Period */)) {
                         result = parseNewTargetExpression(parser, context, id);
@@ -2241,7 +2246,7 @@ System.register([], function (exports, module) {
                 if ((context & 4194304 /* NewTarget */) === 4194304 /* NewTarget */ && parser.tokenValue === 'target') {
                     return parseMetaProperty(parser, context, id);
                 }
-                recordErrors(parser, 28 /* UnexpectedNewTarget */);
+                recordErrors(parser, context, 28 /* UnexpectedNewTarget */);
             }
             /**
              * Parse Import() expressions. (Stage 3 proposal)
@@ -2255,7 +2260,7 @@ System.register([], function (exports, module) {
                 // Import.meta - Stage 3 proposal
                 if (consume(parser, context, 33554442 /* Period */)) {
                     if (!(context & 8192 /* Module */) || parser.tokenValue !== 'meta') {
-                        recordErrors(parser, 0 /* Unexpected */);
+                        recordErrors(parser, context, 0 /* Unexpected */);
                     }
                     return parseMetaProperty(parser, context, id);
                 }
@@ -2365,15 +2370,15 @@ System.register([], function (exports, module) {
                     case 33554440 /* LeftParen */:
                         // The super property has to be within a class constructor
                         if (!(context & 67108864 /* AllowSuperProperty */))
-                            recordErrors(parser, 0 /* Unexpected */);
+                            recordErrors(parser, context, 0 /* Unexpected */);
                         break;
                     case 33554448 /* LeftBracket */:
                     case 33554442 /* Period */:
                         if (!(context & 524288 /* Method */))
-                            recordErrors(parser, 0 /* Unexpected */);
+                            recordErrors(parser, context, 0 /* Unexpected */);
                         break;
                     default:
-                        recordErrors(parser, 0 /* Unexpected */);
+                        recordErrors(parser, context, 0 /* Unexpected */);
                 }
                 return {
                     type: 'Super',
@@ -2432,6 +2437,8 @@ System.register([], function (exports, module) {
                     case 16453 /* LetKeyword */:
                     case 16491 /* YieldKeyword */:
                     case 4206 /* AwaitKeyword */:
+                    case 8388704 /* Arguments */:
+                    case 8388705 /* Eval */:
                     case 8388608 /* Identifier */:
                         return parseIdentifier(parser, context);
                     case 4194304 /* StringLiteral */:
@@ -2550,11 +2557,11 @@ System.register([], function (exports, module) {
                 expect(parser, context, 33554439 /* Arrow */);
                 context = swapContext(context, state);
                 for (const i in params)
-                    reinterpret(parser, params[i]);
+                    reinterpret(parser, context, params[i]);
                 let body;
                 const expression = parser.token !== 33554441 /* LeftBrace */;
                 if (!expression) {
-                    body = parseFunctionBody(parser, context);
+                    body = parseFunctionBody(parser, context | 32768 /* InFunctionBody */);
                 }
                 else {
                     body = parseAssignmentExpression(parser, context);
@@ -2670,19 +2677,20 @@ System.register([], function (exports, module) {
              */
             function parseFunctionExpression(parser, context, state = 0 /* None */) {
                 expect(parser, context, 8276 /* FunctionKeyword */);
-                const isGenerator = consume(parser, context, 301992496 /* Multiply */) ? 1 /* Generator */ : 0 /* None */;
+                if (consume(parser, context, 301992496 /* Multiply */))
+                    state |= 1 /* Generator */;
                 let id = null;
                 if (parser.token & 8417280 /* Keyword */) {
                     id = parseBindingIdentifier(parser, context);
                 }
-                context = swapContext(context, state | isGenerator);
+                context = swapContext(context, state);
                 const { params, body } = parseFormalListAndBody(parser, context);
                 return {
                     type: 'FunctionExpression',
                     body,
                     params,
                     async: !!(state & 8 /* Async */),
-                    generator: !!(isGenerator & 1 /* Generator */),
+                    generator: !!(state & 1 /* Generator */),
                     expression: false,
                     id
                 };
@@ -2698,7 +2706,7 @@ System.register([], function (exports, module) {
              */
             function parseFormalListAndBody(parser, context) {
                 const params = parseFormalParameters(parser, context);
-                const body = parseFunctionBody(parser, context);
+                const body = parseFunctionBody(parser, context | 32768 /* InFunctionBody */);
                 return {
                     params,
                     body
@@ -2715,6 +2723,7 @@ System.register([], function (exports, module) {
              */
             function parseFormalParameters(parser, context) {
                 context = context | 262144 /* InParameter */;
+                parser.flags &= ~16 /* SimpleParameterList */;
                 expect(parser, context, 33554440 /* LeftParen */);
                 const args = [];
                 parseDelimitedBindingList(parser, context, 1 /* Args */, 2 /* FunctionArgs */, args);
@@ -2741,6 +2750,20 @@ System.register([], function (exports, module) {
                     parser.iterationStatement = 2 /* CrossingBoundary */;
                 }
                 addCrossingBoundary(parser);
+                while (parser.token === 4194304 /* StringLiteral */) {
+                    const { tokenRaw, tokenValue } = parser;
+                    body.push(parseDirective(parser, context));
+                    if (tokenRaw.length === /* length of prologue*/ 12 && tokenValue === 'use strict') {
+                        if (parser.flags & 16 /* SimpleParameterList */) {
+                            recordErrors(parser, context, 31 /* IllegalUseStrict */);
+                        }
+                        else if (parser.flags & 64 /* StrictEvalArguments */) {
+                            recordErrors(parser, context, 32 /* StrictEvalArguments */);
+                        }
+                        context |= 4096 /* Strict */;
+                    }
+                }
+                parser.flags = swapFlags(parser.flags, 128 /* StrictFunctionName */ | 64 /* StrictEvalArguments */);
                 while (parser.token !== 33685516 /* RightBrace */) {
                     body.push(parseStatementListItem(parser, context));
                 }
@@ -2858,7 +2881,7 @@ System.register([], function (exports, module) {
                 let key = parsePropertyName(parser, context);
                 if (parser.tokenValue === 'constructor') {
                     if (state & 1 /* Generator */) {
-                        recordErrors(parser, 29 /* InvalidConstructor */);
+                        recordErrors(parser, context, 29 /* InvalidConstructor */);
                     }
                     else if (state & 16 /* Heritage */)
                         context |= 67108864 /* AllowSuperProperty */;
@@ -2869,7 +2892,7 @@ System.register([], function (exports, module) {
                         isStatic = true;
                         token = parser.token;
                         if (parser.tokenValue === 'prototype')
-                            recordErrors(parser, 30 /* StaticPrototype */);
+                            recordErrors(parser, context, 30 /* StaticPrototype */);
                         key = parsePropertyName(parser, context);
                     }
                     if (token === 4205 /* AsyncKeyword */ && !(parser.flags & 1 /* NewLine */)) {
@@ -2894,7 +2917,7 @@ System.register([], function (exports, module) {
                 if (parser.token === 33554440 /* LeftParen */) {
                     if (token !== 33554448 /* LeftBracket */ && state & 32 /* Constructor */) {
                         if (parser.flags & 32 /* HasConstructor */) {
-                            recordErrors(parser, 0 /* Unexpected */);
+                            recordErrors(parser, context, 0 /* Unexpected */);
                         }
                         else
                             parser.flags |= 32 /* HasConstructor */;
@@ -2994,7 +3017,7 @@ System.register([], function (exports, module) {
                     if (parser.token & (8388608 /* Identifier */ | 4194304 /* StringLiteral */ | 4096 /* Contextual */ | 2097152 /* NumericLiteral */) ||
                         parser.token === 301992496 /* Multiply */ || parser.token === 33554448 /* LeftBracket */) {
                         if (state & 1 /* Generator */)
-                            recordErrors(parser, 0 /* Unexpected */);
+                            recordErrors(parser, context, 0 /* Unexpected */);
                         state = state | 8 /* Async */;
                         if (consume(parser, context, 301992496 /* Multiply */))
                             state = state | 1 /* Generator */;
@@ -3006,7 +3029,7 @@ System.register([], function (exports, module) {
                     if (parser.token & (8388608 /* Identifier */ | 4194304 /* StringLiteral */ | 4096 /* Contextual */ | 2097152 /* NumericLiteral */) ||
                         parser.token === 301992496 /* Multiply */ || parser.token === 33554448 /* LeftBracket */) {
                         if (state & 1 /* Generator */)
-                            recordErrors(parser, 0 /* Unexpected */);
+                            recordErrors(parser, context, 0 /* Unexpected */);
                         if (consume(parser, context, 301992496 /* Multiply */))
                             state = state | 1 /* Generator */;
                         state = state & ~64 /* Method */ | (token === 4208 /* GetKeyword */ ? 256 /* Getter */ : 512 /* Setter */);
@@ -3019,7 +3042,7 @@ System.register([], function (exports, module) {
                 }
                 else {
                     if (state & (1 /* Generator */ | 8 /* Async */)) {
-                        recordErrors(parser, 0 /* Unexpected */);
+                        recordErrors(parser, context, 0 /* Unexpected */);
                     }
                     state = state & ~64 /* Method */;
                     if (parser.token === 33554450 /* Colon */) {
@@ -3162,16 +3185,16 @@ System.register([], function (exports, module) {
                         if (lookahead(parser, context, nextTokenIsFuncKeywordOnSameLine, /* isLookaHead */ false)) {
                             if (context & 32 /* OptionsEditorMode */)
                                 return parseFunctionDeclaration(parser, context, 8 /* Async */);
-                            recordErrors(parser, 20 /* AsyncFunctionInSingleStatementContext */);
+                            recordErrors(parser, context, 20 /* AsyncFunctionInSingleStatementContext */);
                         }
                         return parseExpressionOrLabelledStatement(parser, context, label);
                     case 8276 /* FunctionKeyword */:
                         // A function declaration has to be parsed out for 'editor mode'
                         if (context & 32 /* OptionsEditorMode */)
                             return parseFunctionDeclaration(parser, context | 16384 /* RequireIdentifier */);
-                        recordErrors(parser, context & 4096 /* Strict */ ? 16 /* StrictFunction */ : 17 /* SloppyFunction */);
+                        recordErrors(parser, context, context & 4096 /* Strict */ ? 16 /* StrictFunction */ : 17 /* SloppyFunction */);
                     case 8266 /* ClassKeyword */:
-                        recordErrors(parser, 0 /* Unexpected */);
+                        recordErrors(parser, context, 0 /* Unexpected */);
                     default:
                         return parseExpressionOrLabelledStatement(parser, context, label);
                 }
@@ -3222,7 +3245,7 @@ System.register([], function (exports, module) {
              */
             function parseReturnStatement(parser, context) {
                 if (!(context & (512 /* OptionsGlobalReturn */ | 32768 /* InFunctionBody */))) {
-                    recordErrors(parser, 27 /* IllegalReturn */);
+                    recordErrors(parser, context, 27 /* IllegalReturn */);
                 }
                 expect(parser, context, 8280 /* ReturnKeyword */);
                 const argument = (parser.token & 131072 /* ASI */) !== 131072 /* ASI */ && !(parser.flags & 1 /* NewLine */) ?
@@ -3262,7 +3285,7 @@ System.register([], function (exports, module) {
                 const handler = parser.token === 8265 /* CatchKeyword */ ? parseCatchBlock(parser, context) : null;
                 const finalizer = consume(parser, context, 8274 /* FinallyKeyword */) ? parseBlockStatement(parser, context) : null;
                 if (!handler && !finalizer)
-                    recordErrors(parser, 11 /* NoCatchOrFinally */);
+                    recordErrors(parser, context, 11 /* NoCatchOrFinally */);
                 return {
                     type: 'TryStatement',
                     block,
@@ -3283,12 +3306,12 @@ System.register([], function (exports, module) {
                 let param = null;
                 if (consume(parser, context, 33554440 /* LeftParen */)) {
                     if (parser.token === 33554445 /* RightParen */) {
-                        recordErrors(parser, 12 /* NoCatchClause */);
+                        recordErrors(parser, context, 12 /* NoCatchClause */);
                     }
                     else {
                         param = parseBindingIdentifierOrPattern(parser, context);
                         if (parser.token === 167772186 /* Assign */)
-                            recordErrors(parser, 12 /* NoCatchClause */);
+                            recordErrors(parser, context, 12 /* NoCatchClause */);
                     }
                     expect(parser, context, 33554445 /* RightParen */);
                 }
@@ -3310,7 +3333,7 @@ System.register([], function (exports, module) {
             function parseThrowStatement(parser, context) {
                 expect(parser, context, 8284 /* ThrowKeyword */);
                 if (parser.flags & 1 /* NewLine */)
-                    recordErrors(parser, 26 /* NewlineAfterThrow */);
+                    recordErrors(parser, context, 26 /* NewlineAfterThrow */);
                 const argument = parseExpression(parser, context);
                 consumeSemicolon(parser, context);
                 return {
@@ -3333,7 +3356,7 @@ System.register([], function (exports, module) {
                 if (token & (8388608 /* Identifier */ | 8417280 /* Keyword */) && parser.token === 33554450 /* Colon */) {
                     expect(parser, context, 33554450 /* Colon */);
                     if (getLabel(parser, tokenValue, false, true)) {
-                        recordErrors(parser, 22 /* LabelRedeclaration */, tokenValue);
+                        recordErrors(parser, context, 22 /* LabelRedeclaration */, tokenValue);
                     }
                     addLabel(parser, tokenValue);
                     let body = null;
@@ -3435,7 +3458,7 @@ System.register([], function (exports, module) {
                 if (forAwait ? expect(parser, context, 4211 /* OfKeyword */) : consume(parser, context, 4211 /* OfKeyword */)) {
                     type = 'ForOfStatement';
                     if (init)
-                        reinterpret(parser, init);
+                        reinterpret(parser, context, init);
                     else
                         init = declarations;
                     right = parseExpression(parser, context);
@@ -3443,7 +3466,7 @@ System.register([], function (exports, module) {
                 else if (consume(parser, context, 301999918 /* InKeyword */)) {
                     type = 'ForInStatement';
                     if (init)
-                        reinterpret(parser, init);
+                        reinterpret(parser, context, init);
                     else
                         init = declarations;
                     right = parseAssignmentExpression(parser, context);
@@ -3511,7 +3534,7 @@ System.register([], function (exports, module) {
                     else {
                         expect(parser, context, 8269 /* DefaultKeyword */);
                         if (seenDefault)
-                            recordErrors(parser, 0 /* Unexpected */);
+                            recordErrors(parser, context, 0 /* Unexpected */);
                         seenDefault = true;
                     }
                     cases.push(parseCaseOrDefaultClauses(parser, context, test));
@@ -3637,11 +3660,11 @@ System.register([], function (exports, module) {
                 if (!(parser.flags & 1 /* NewLine */) && parser.token & (8388608 /* Identifier */ | 8417280 /* Keyword */)) {
                     const { tokenValue } = parser;
                     label = parseIdentifier(parser, context);
-                    validateContinueLabel(parser, tokenValue);
+                    validateContinueLabel(parser, context, tokenValue);
                 }
                 consumeSemicolon(parser, context);
                 if (label === null && (parser.iterationStatement & 0 /* Empty */) !== 0 /* Empty */) {
-                    recordErrors(parser, 24 /* IllegalContinue */);
+                    recordErrors(parser, context, 24 /* IllegalContinue */);
                 }
                 return {
                     type: 'ContinueStatement',
@@ -3662,11 +3685,11 @@ System.register([], function (exports, module) {
                 if (!(parser.flags & 1 /* NewLine */) && parser.token & (8388608 /* Identifier */ | 8417280 /* Keyword */)) {
                     const { tokenValue } = parser;
                     label = parseIdentifier(parser, context);
-                    validateBreakStatement(parser, tokenValue);
+                    validateBreakStatement(parser, context, tokenValue);
                 }
                 else if ((parser.iterationStatement & 0 /* Empty */) !== 0 /* Empty */ &&
                     (parser.switchStatement & 0 /* Empty */) !== 0 /* Empty */) {
-                    recordErrors(parser, 25 /* IllegalBreak */);
+                    recordErrors(parser, context, 25 /* IllegalBreak */);
                 }
                 consumeSemicolon(parser, context);
                 return {
@@ -3684,7 +3707,7 @@ System.register([], function (exports, module) {
              */
             function parseWithStatement(parser, context) {
                 if (context & 4096 /* Strict */)
-                    recordErrors(parser, 19 /* StrictModeWith */);
+                    recordErrors(parser, context, 19 /* StrictModeWith */);
                 expect(parser, context, 8287 /* WithKeyword */);
                 expect(parser, context, 33554440 /* LeftParen */);
                 const object = parseExpression(parser, context);

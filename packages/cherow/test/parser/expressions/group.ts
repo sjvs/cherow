@@ -180,38 +180,6 @@ describe('Expressions - Group', () => {
             }
         });
 
-        pass('(super.a) = 1;', Context.Empty, {
-            source: `(super.a) = 1;`,
-            expected: {
-                  "body": [
-                    {
-                      "expression": {
-                        "left": {
-                          "computed": false,
-                          "object": {
-                            "type": "Super",
-                          },
-                          "property": {
-                            "name": "a",
-                            "type": "Identifier",
-                          },
-                          "type": "MemberExpression",
-                        },
-                        "operator": "=",
-                        "right": {
-                          "type": "Literal",
-                          "value": 1,
-                        },
-                        "type": "AssignmentExpression"
-                      },
-                      "type": "ExpressionStatement"
-                    },
-                  ],
-                  "sourceType": "script",
-                  "type": "Program"
-                }
-        });
-
         pass('(this[b]) = 1;', Context.Empty, {
             source: `(this[b]) = 1;`,
             expected: {

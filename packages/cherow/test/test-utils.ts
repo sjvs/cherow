@@ -19,7 +19,7 @@ export const pass = (name: string, context: Context, opts: Opts, errCallback?: a
 
 export const fail = (name: string, context: Context, opts: Opts) => {
     it(name, () => {
-        t.throws(SyntaxError, () => {
+        t.throws(() => {
             parseSource(opts.source, undefined, context);
         });
     });

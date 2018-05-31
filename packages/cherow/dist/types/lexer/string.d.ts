@@ -17,4 +17,4 @@ export declare function scanStringLiteral(parser: Parser, context: Context, quot
  * @param parser Parser object
  * @param context Context masks
  */
-export declare function recordStringErrors(parser: Parser, code: any): any;
+export declare function recordStringErrors(parser: Parser, context: Context, code: any): any;

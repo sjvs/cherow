@@ -64,7 +64,7 @@ export function skipToNewline(parser: Parser): boolean {
 export function readNext(parser: Parser, ch: any): number {
     parser.index++; parser.column++;
     if (ch > 0xffff) parser.index++;
-    if (parser.index >= parser.length) recordErrors(parser, Errors.Unexpected);
+    if (parser.index >= parser.length) recordErrors(parser, Context.Empty, Errors.Unexpected);
     return nextUnicodeChar(parser);
 }
 

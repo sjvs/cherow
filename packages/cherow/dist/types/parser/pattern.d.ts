@@ -1,6 +1,7 @@
 import { Parser } from '../types';
+import { Token } from '../token';
 import * as ESTree from '../estree';
-import { Context, BindingType, BindingOrigin } from '../common';
+import { Context, BindingType, BindingOrigin, BindingKind } from '../common';
 /**
  * Parse binding identifier
  *
@@ -9,7 +10,7 @@ import { Context, BindingType, BindingOrigin } from '../common';
  * @param parser  Parser object
  * @param context Context masks
  */
-export declare function parseBindingIdentifier(parser: Parser, context: Context, kind?: 'let' | 'const' | 'var'): ESTree.Identifier;
+export declare function parseBindingIdentifier(parser: Parser, context: Context, kind?: BindingKind): ESTree.Identifier;
 /**
  * Parses either a binding identifier or binding pattern
  *
@@ -25,7 +26,7 @@ export declare function parseBindingIdentifierOrPattern(parser: Parser, context:
  * @param parser  Parser object
  * @param context Context masks
  */
-export declare function parseAssignmentRestElement(parser: Parser, context: Context): ESTree.RestElement;
+export declare function parseAssignmentRestElement(parser: Parser, context: Context, type: BindingType, endToken?: Token): ESTree.RestElement;
 /** Parse assignment pattern
  *
  * @see [Link](https://tc39.github.io/ecma262/#prod-AssignmentPattern)

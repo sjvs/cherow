@@ -6,7 +6,7 @@ describe('Statements - Continue', () => {
 
     describe('Statements - Editor mode', () => {
 
-      pass('continue;', Context.Empty, {
+      pass('continue;', Context.OptionsEditorMode, {
         source: `continue`,
         expected: {
               "body": [
@@ -22,7 +22,7 @@ describe('Statements - Continue', () => {
          t.equal(msg, 'Illegal continue statement: no surrounding iteration statement');
     });
 
-      pass('while ( false ) Label: continue Label;', Context.Empty, {
+      pass('while ( false ) Label: continue Label;', Context.OptionsEditorMode, {
         source: `while ( foo ) Label: continue Label;`,
         expected: {
               "body": [
@@ -55,7 +55,7 @@ describe('Statements - Continue', () => {
         
     });
   
-      pass('while ( false ) Label: continue Label;', Context.Empty, {
+      pass('while ( false ) Label: continue Label;', Context.OptionsEditorMode, {
         source: `while ( foo ) Label: continue Label;`,
         expected: {
               "body": [
@@ -88,7 +88,7 @@ describe('Statements - Continue', () => {
         
     });
 
-    pass('do {  test262: {  continue test262; } } while (a)', Context.Empty, {
+    pass('do {  test262: {  continue test262; } } while (a)', Context.OptionsEditorMode, {
         source: `do {  test262: {  continue test262; } } while (a)`,
         expected: {
               "body": [
@@ -131,7 +131,7 @@ describe('Statements - Continue', () => {
         t.equal(msg, "Undefined label 'test262'")
     });
 
-    pass('do {  test262: {  continue test262; } } while (a)', Context.Empty, {
+    pass('do {  test262: {  continue test262; } } while (a)', Context.OptionsEditorMode, {
         source: `do {  test262: {  continue test262; } } while (a)`,
         expected: {
               "body": [
@@ -174,7 +174,7 @@ describe('Statements - Continue', () => {
         t.equal(msg, "Undefined label 'test262'")
     });
 
-    pass('ice: while(true) { continue fapper; }', Context.Empty, {
+    pass('ice: while(true) { continue fapper; }', Context.OptionsEditorMode, {
         source: `ice: while(a) { continue fapper; }`,
         expected: {
               "body": [
@@ -212,7 +212,7 @@ describe('Statements - Continue', () => {
         t.equal(msg, 'Undefined label \'fapper\'')
     });
 
-    pass('loop1: while (true) { loop2: function a() { continue loop2; } }', Context.Empty, {
+    pass('loop1: while (true) { loop2: function a() { continue loop2; } }', Context.OptionsEditorMode, {
         source: `loop1: while (a) { loop2: function a() { continue loop2; } }`,
         expected: {
               "body": [
@@ -273,7 +273,7 @@ describe('Statements - Continue', () => {
         t.equal(msg, 'Undefined label \'loop2\'')
     });
 
-    pass('loop1: while (a) { loop1: function a() { continue loop1; } }', Context.Empty, {
+    pass('loop1: while (a) { loop1: function a() { continue loop1; } }', Context.OptionsEditorMode, {
         source: `loop1: while (a) { loop1: function a() { continue loop1; } }`,
         expected: {
               "body": [
@@ -334,7 +334,7 @@ describe('Statements - Continue', () => {
 //        t.equal(msg, 'Label \'loop1\' has already been declared')
     });
 
-    pass('try{ LABEL1 : do { throw foo;  } while(0); } catch(e){ continue LABEL2; LABEL2 : do {} while(0); };', Context.Empty, {
+    pass('try{ LABEL1 : do { throw foo;  } while(0); } catch(e){ continue LABEL2; LABEL2 : do {} while(0); };', Context.OptionsEditorMode, {
         source: `try{ LABEL1 : do { throw foo;  } while(0); } catch(e){ continue LABEL2; LABEL2 : do {} while(0); };`,
         expected: {
               "body": [
@@ -423,7 +423,7 @@ describe('Statements - Continue', () => {
 
 });
     describe('Statements - Editor mode', () => {
-        pass('while (foo) { continue; }', Context.Empty, {
+        pass('while (foo) { continue; }', Context.OptionsEditorMode, {
             source: 'while (foo) { continue; }',
             expected: {
                 "type": "Program",
@@ -449,7 +449,7 @@ describe('Statements - Continue', () => {
             }
         }); 
 
-        pass('while (foo) { continue; }', Context.Empty, {
+        pass('while (foo) { continue; }', Context.OptionsEditorMode, {
             source: 'while (foo) { continue; }',
             expected: {
                 "type": "Program",

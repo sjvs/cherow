@@ -308,7 +308,7 @@ describe('Statements - Variable', () => {
             }
         });
     
-        pass('var [foo] = arr;;', Context.Empty, {
+        pass('var [foo] = arr;;', Context.OptionsEditorMode, {
             source: 'var [foo] = arr;',
             expected: {
                 "type": "Program",
@@ -624,7 +624,7 @@ describe('Statements - Variable', () => {
             }
         });
     
-        pass('var foo, [bar] = arr2;', Context.Empty, {
+        pass('var foo, [bar] = arr2;', Context.OptionsEditorMode, {
             source: 'var foo, [bar] = arr2;',
             expected: {
                 "type": "Program",
@@ -659,7 +659,7 @@ describe('Statements - Variable', () => {
             }
         });
     
-        pass('var foo = arr, [bar] = arr2;', Context.Empty, {
+        pass('var foo = arr, [bar] = arr2;', Context.OptionsEditorMode, {
             source: 'var foo = arr, [bar] = arr2;',
             expected: {
                 "type": "Program",
@@ -697,7 +697,7 @@ describe('Statements - Variable', () => {
             }
         });
     
-        pass('var [foo=a] = arr;', Context.Empty, {
+        pass('var [foo=a] = arr;', Context.OptionsEditorMode, {
             source: 'var [foo=a] = arr;',
             expected: {
                 "type": "Program",
@@ -851,7 +851,7 @@ describe('Statements - Variable', () => {
             }
         });
        
-       pass('var [foo];', Context.Empty, {
+       pass('var [foo];', Context.OptionsEditorMode, {
         source: 'var [foo];',
         expected: {
                   "body": [
@@ -881,7 +881,7 @@ describe('Statements - Variable', () => {
     }, function(errMsg: string) {
         t.equal(errMsg, 'Missing initializer in destructuring declaration');
     });
-        pass('var [foo = x];', Context.Empty, {
+        pass('var [foo = x];', Context.OptionsEditorMode, {
             source: 'var [foo = x];',
             expected: {
                 "body": [{
@@ -913,7 +913,7 @@ describe('Statements - Variable', () => {
             t.equal(errMsg, 'Missing initializer in destructuring declaration');
         });
 
-        pass('var [foo], bar;', Context.Empty, {
+        pass('var [foo], bar;', Context.OptionsEditorMode, {
                 source: 'var [foo], bar;',
                 expected: {
                           "body": [
@@ -952,7 +952,7 @@ describe('Statements - Variable', () => {
                 t.equal(errMsg, 'Missing initializer in destructuring declaration');
             });
 
-            pass('var foo, [bar];', Context.Empty, {
+            pass('var foo, [bar];', Context.OptionsEditorMode, {
                 source: 'var foo, [bar];',
                 expected: {
                           "body": [
@@ -1030,7 +1030,7 @@ describe('Statements - Variable', () => {
                 t.equal(errMsg, 'Unexpected token :');
             });*/
 
-            pass('var {x} = obj;', Context.Empty, {
+            pass('var {x} = obj;', Context.OptionsEditorMode, {
                 source: 'var {x} = obj;',
                 expected: {
                         "type": "Program",

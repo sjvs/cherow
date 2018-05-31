@@ -58,7 +58,7 @@ describe('Statements - Try', () => {
         }
     });  
 
-    pass('try {} catch(){}', Context.Empty, {
+    pass('try {} catch(){}', Context.OptionsEditorMode, {
         source: 'try {} catch(){}',
         expected: {
               "body": [

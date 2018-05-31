@@ -6,7 +6,7 @@ describe('Statements - Break', () => {
 
     describe('Statements - Editor mode', () => {
 
-        pass('break;', Context.Empty, {
+        pass('break;', Context.OptionsEditorMode, {
             source: `break`,
             expected: {
                   "body": [
@@ -22,7 +22,7 @@ describe('Statements - Break', () => {
              t.equal(msg, 'Illegal break statement');
         });
  
-     pass('while ( false ) Label: continue Label;', Context.Empty, {
+     pass('while ( false ) Label: continue Label;', Context.OptionsEditorMode, {
         source: `while ( foo ) Label: break Label;`,
         expected: {
               "body": [
@@ -55,7 +55,7 @@ describe('Statements - Break', () => {
         
     });
 
-    pass('do {  test262: {  break test262; } } while (a)', Context.Empty, {
+    pass('do {  test262: {  break test262; } } while (a)', Context.OptionsEditorMode, {
         source: `do {  test262: {  break test262; } } while (a)`,
         expected: {
               "body": [
@@ -98,7 +98,7 @@ describe('Statements - Break', () => {
         t.equal(msg, "Undefined label 'test262'")
     });
 
-    pass('do {  test262: {  break test262; } } while (a)', Context.Empty, {
+    pass('do {  test262: {  break test262; } } while (a)', Context.OptionsEditorMode, {
         source: `do {  test262: {  break test262; } } while (a)`,
         expected: {
               "body": [
@@ -141,7 +141,7 @@ describe('Statements - Break', () => {
         t.equal(msg, "Undefined label 'test262'")
     });
 
-    pass('ice: while(true) { break fapper; }', Context.Empty, {
+    pass('ice: while(true) { break fapper; }', Context.OptionsEditorMode, {
         source: `ice: while(a) { break fapper; }`,
         expected: {
               "body": [
@@ -179,7 +179,7 @@ describe('Statements - Break', () => {
         t.equal(msg, 'Undefined label \'fapper\'')
     });
 
-    pass('loop1: while (a) { loop2: function a() { break loop2; } }', Context.Empty, {
+    pass('loop1: while (a) { loop2: function a() { break loop2; } }', Context.OptionsEditorMode, {
         source: `loop1: while (a) { loop2: function a() { break loop2; } }`,
         expected: {
               "body": [
@@ -240,7 +240,7 @@ describe('Statements - Break', () => {
         t.equal(msg, 'Undefined label \'loop2\'')
     });
 
-    pass('loop1: while (a) { loop1: function a() { break loop1; } }', Context.Empty, {
+    pass('loop1: while (a) { loop1: function a() { break loop1; } }', Context.OptionsEditorMode, {
         source: `loop1: while (a) { loop1: function a() { break loop1; } }`,
         expected: {
               "body": [
@@ -301,7 +301,7 @@ describe('Statements - Break', () => {
 //        t.equal(msg, 'Label \'loop1\' has already been declared')
     });
 
-    pass('try{ LABEL1 : do { throw foo;  } while(0); } catch(e){ break LABEL2; LABEL2 : do {} while(0); };', Context.Empty, {
+    pass('try{ LABEL1 : do { throw foo;  } while(0); } catch(e){ break LABEL2; LABEL2 : do {} while(0); };', Context.OptionsEditorMode, {
         source: `try{ LABEL1 : do { throw foo;  } while(0); } catch(e){ break LABEL2; LABEL2 : do {} while(0); };`,
         expected: {
               "body": [
@@ -390,7 +390,7 @@ describe('Statements - Break', () => {
 
 });
     describe('Statements - Editor mode', () => {
-        pass('while (foo) { break; }', Context.Empty, {
+        pass('while (foo) { break; }', Context.OptionsEditorMode, {
             source: 'while (foo) { break; }',
             expected: {
                 "type": "Program",
