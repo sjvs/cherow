@@ -46,7 +46,7 @@ export const enum Flags {
     SimpleParameterList  = 1 << 4,
     HasConstructor       = 1 << 5,
     StrictEvalArguments  = 1 << 6,
-    StrictFunctionName   = 1 << 7,
+    StrictReserved       = 1 << 7
 }
 
 /* Binding origin */

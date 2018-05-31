@@ -920,7 +920,7 @@ export function parseFormalListAndBody(parser: Parser, context: Context) {
  */
 function parseFormalParameters(parser: Parser, context: Context) {
     context = context | Context.InParameter;
-    parser.flags &= ~Flags.SimpleParameterList;
+    parser.flags = swapFlags(parser.flags, Flags.SimpleParameterList);
     expect(parser, context, Token.LeftParen);
     const args: any = [];
     parseDelimitedBindingList(parser, context, BindingType.Args, BindingOrigin.FunctionArgs, args);
@@ -952,6 +952,8 @@ function parseFunctionBody(parser: Parser, context: Context): ESTree.BlockStatem
             if (tokenRaw.length === /* length of prologue*/ 12 && tokenValue === 'use strict') {
                 if (parser.flags & Flags.SimpleParameterList) {
                     recordErrors(parser, context, Errors.IllegalUseStrict);
+                } else if (parser.flags & Flags.StrictReserved) {
+                    recordErrors(parser, context, Errors.UnexpectedStrictReserved);
                 } else if (parser.flags & Flags.StrictEvalArguments) {
                     recordErrors(parser, context, Errors.StrictEvalArguments);
                 }
@@ -959,7 +961,7 @@ function parseFunctionBody(parser: Parser, context: Context): ESTree.BlockStatem
             }
         }
 
-        parser.flags = swapFlags(parser.flags, Flags.StrictFunctionName | Flags.StrictEvalArguments);
+        parser.flags = swapFlags(parser.flags, Flags.StrictReserved | Flags.StrictEvalArguments);
 
         const previousSwitchStatement = parser.switchStatement;
         const previousIterationStatement = parser.iterationStatement;

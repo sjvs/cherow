@@ -35,7 +35,8 @@ export const enum Errors {
     InvalidConstructor,
     StaticPrototype,
     IllegalUseStrict,
-    StrictEvalArguments
+    StrictEvalArguments,
+    UnexpectedStrictReserved
 }
 /*@internal*/
 export const errorMessages: {
@@ -74,6 +75,7 @@ export const errorMessages: {
     [Errors.StaticPrototype]: 'Classes may not have a static property named \'prototype\'',
     [Errors.IllegalUseStrict]: 'Illegal \'use strict\' directive in function with non-simple parameter list',
     [Errors.StrictEvalArguments]: 'Unexpected eval or arguments in strict mode',
+    [Errors.UnexpectedStrictReserved]: 'Unexpected strict mode reserved word',
 };
 
 export function constructError(index: number, line: number, column: number, description: string): void {

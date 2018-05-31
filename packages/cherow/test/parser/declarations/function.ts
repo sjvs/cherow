@@ -33,6 +33,7 @@ describe('Miscellaneous - Function', () => {
         }
 
         const Failures = [
+            'function trailing_comma(,) {}',
             'try function foo() {} catch (e) {}',
             'do function foo() {} while (0);',
             'for (;false;) function foo() {}',
@@ -142,9 +143,9 @@ describe('Miscellaneous - Function', () => {
             source: 'function eval() { "use strict"; }',
         });
 
-      //  fail('function f(a = 0) { "use strict"; }', Context.Empty, {
-        //    source: 'function f(a = 0) { "use strict"; }',
-        //});
+        fail('function f(a = 0) { "use strict"; }', Context.Empty, {
+            source: 'function f(a = 0) { "use strict"; }',
+        });
 
         fail('function f([...{ x }, y] = [1, 2, 3]) {}', Context.Empty, {
             source: 'function f([...{ x }, y] = [1, 2, 3]) {}',

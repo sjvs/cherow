@@ -2,8 +2,12 @@ import { Parser } from '../types';
 import { Token, tokenDesc } from '../token';
 import * as ESTree from '../estree';
 import { Errors, recordErrors, } from '../errors';
-import { parseComputedPropertyName, parseAssignmentExpression, parsePropertyName } from './expressions';
 import { parseVariableDeclaration } from './declarations';
+import {
+    parseComputedPropertyName,
+    parseAssignmentExpression,
+    parsePropertyName
+} from './expressions';
 import {
     Context,
     Flags,
@@ -16,9 +20,9 @@ import {
     expect,
     nextToken,
     isInOrOf,
-    BindingKind
+    BindingKind,
+    swapFlags
 } from '../common';
-import { reporters } from 'mocha';
 
 /**
  * Parse binding identifier
@@ -42,7 +46,7 @@ export function parseBindingIdentifier(
         parser.flags |= Flags.StrictEvalArguments;
     } else if ((t & Token.FutureReserved) === Token.FutureReserved) {
         if ((context & Context.Strict) === Context.Strict) recordErrors(parser, context, Errors.Unexpected);
-        parser.flags |= Flags.StrictFunctionName;
+        parser.flags |= Flags.StrictReserved;
     } else if ((t & Token.Reserved) === Token.Reserved) {
         recordErrors(parser, context, Errors.Unexpected);
     }
@@ -54,6 +58,7 @@ export function parseBindingIdentifier(
         name
     };
 }
+
 /**
  * Parses either a binding identifier or binding pattern
  *
@@ -63,7 +68,7 @@ export function parseBindingIdentifier(
 export function parseBindingIdentifierOrPattern(
     parser: Parser,
     context: Context,
-    type?: BindingType
+    type ? : BindingType
 ): any {
     let left: any;
     if (parser.token === Token.LeftBrace) {
@@ -339,43 +344,31 @@ function parseBindingList(
     context: Context,
     type: BindingType,
     origin: BindingOrigin
-) {
+): any {
     let left: any;
     if ((parser.token & Token.Identifier) === Token.Identifier) {
         left = parseBindingIdentifier(parser, context);
-    } else if (parser.token === Token.LeftBrace) {
-        left = parserObjectAssignmentPattern(parser, context, type);
+    } else if (parser.token === Token.LeftBrace || parser.token === Token.LeftBracket) {
+        parser.flags |= Flags.SimpleParameterList;
+        left = parser.token === Token.LeftBrace ?
+            parserObjectAssignmentPattern(parser, context, type) :
+            parseArrayAssignmentPattern(parser, context, type);
         if (parser.token !== Token.Assign) {
-            if (origin & BindingOrigin.ForStatement && isInOrOf(parser)) {
-                // TODO
-            } else if (origin & (BindingOrigin.FunctionArgs | BindingOrigin.CatchClause)) {
-                // TODO
-            } else {
-                recordErrors(parser, context, Errors.DeclarationMissingInitializer);
-            }
-        }
-    } else if (parser.token === Token.LeftBracket) {
-        left = parseArrayAssignmentPattern(parser, context, type);
-        if (parser.token !== Token.Assign) {
-            if (origin & BindingOrigin.ForStatement && isInOrOf(parser)) {
-                // TODO
-            } else if (origin & (BindingOrigin.FunctionArgs | BindingOrigin.CatchClause)) {
-                // TODO
-            } else {
+            if (origin & BindingOrigin.ForStatement && isInOrOf(parser)) {} else if (origin & (BindingOrigin.FunctionArgs | BindingOrigin.CatchClause)) {} else {
                 recordErrors(parser, context, Errors.DeclarationMissingInitializer);
             }
         }
     } else if (parser.token === Token.Ellipsis) {
-       return parseAssignmentRestElement(parser, context, type, Token.RightParen);
-    } else if (parser.token === Token.RightParen) {
-        recordErrors(parser, context, Errors.UnexpectedToken, 'trailing comma');
+        return parseAssignmentRestElement(parser, context, type, Token.RightParen);
+    } else if (parser.token !== Token.RightParen) {
+        recordErrors(parser, context, Errors.UnexpectedToken, tokenDesc(parser.token));
     }
 
-    if (consume(parser, context, Token.Assign)) {
-        return type & BindingType.Variable ?
-        parseVariableDeclaration(left, parseAssignmentExpression(parser, context))
-         : parseAssignmentPattern(parser, context, left);
-    }
+    if (parser.token !== Token.Assign) return type & BindingType.Variable ?
+        parseVariableDeclaration(left, null) : left;
+    nextToken(parser, context);
+    parser.flags |= Flags.SimpleParameterList;
     return type & BindingType.Variable ?
-    parseVariableDeclaration(left, null) : left;
+        parseVariableDeclaration(left, parseAssignmentExpression(parser, context)) :
+        parseAssignmentPattern(parser, context, left);
 }

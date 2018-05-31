@@ -163,6 +163,7 @@ System.register([], function (exports, module) {
                 [30 /* StaticPrototype */]: 'Classes may not have a static property named \'prototype\'',
                 [31 /* IllegalUseStrict */]: 'Illegal \'use strict\' directive in function with non-simple parameter list',
                 [32 /* StrictEvalArguments */]: 'Unexpected eval or arguments in strict mode',
+                [33 /* UnexpectedStrictReserved */]: 'Unexpected strict mode reserved word',
             };
             function constructError(index, line, column, description) {
                 const error = new SyntaxError(`Line ${line}, column ${column}: ${description}`);
@@ -1605,7 +1606,7 @@ System.register([], function (exports, module) {
                 else if ((t & 16384 /* FutureReserved */) === 16384 /* FutureReserved */) {
                     if ((context & 4096 /* Strict */) === 4096 /* Strict */)
                         recordErrors(parser, context, 0 /* Unexpected */);
-                    parser.flags |= 128 /* StrictFunctionName */;
+                    parser.flags |= 128 /* StrictReserved */;
                 }
                 else if ((t & 8192 /* Reserved */) === 8192 /* Reserved */) {
                     recordErrors(parser, context, 0 /* Unexpected */);
@@ -1860,18 +1861,11 @@ System.register([], function (exports, module) {
                 if ((parser.token & 8388608 /* Identifier */) === 8388608 /* Identifier */) {
                     left = parseBindingIdentifier(parser, context);
                 }
-                else if (parser.token === 33554441 /* LeftBrace */) {
-                    left = parserObjectAssignmentPattern(parser, context, type);
-                    if (parser.token !== 167772186 /* Assign */) {
-                        if (origin & 1 /* ForStatement */ && isInOrOf(parser)) ;
-                        else if (origin & (2 /* FunctionArgs */ | 4 /* CatchClause */)) ;
-                        else {
-                            recordErrors(parser, context, 9 /* DeclarationMissingInitializer */);
-                        }
-                    }
-                }
-                else if (parser.token === 33554448 /* LeftBracket */) {
-                    left = parseArrayAssignmentPattern(parser, context, type);
+                else if (parser.token === 33554441 /* LeftBrace */ || parser.token === 33554448 /* LeftBracket */) {
+                    parser.flags |= 16 /* SimpleParameterList */;
+                    left = parser.token === 33554441 /* LeftBrace */ ?
+                        parserObjectAssignmentPattern(parser, context, type) :
+                        parseArrayAssignmentPattern(parser, context, type);
                     if (parser.token !== 167772186 /* Assign */) {
                         if (origin & 1 /* ForStatement */ && isInOrOf(parser)) ;
                         else if (origin & (2 /* FunctionArgs */ | 4 /* CatchClause */)) ;
@@ -1883,16 +1877,17 @@ System.register([], function (exports, module) {
                 else if (parser.token === 33554443 /* Ellipsis */) {
                     return parseAssignmentRestElement(parser, context, type, 33554445 /* RightParen */);
                 }
-                else if (parser.token === 33554445 /* RightParen */) {
-                    recordErrors(parser, context, 1 /* UnexpectedToken */, 'trailing comma');
+                else if (parser.token !== 33554445 /* RightParen */) {
+                    recordErrors(parser, context, 1 /* UnexpectedToken */, tokenDesc(parser.token));
                 }
-                if (consume(parser, context, 167772186 /* Assign */)) {
+                if (parser.token !== 167772186 /* Assign */)
                     return type & 14 /* Variable */ ?
-                        parseVariableDeclaration(left, parseAssignmentExpression(parser, context))
-                        : parseAssignmentPattern(parser, context, left);
-                }
+                        parseVariableDeclaration(left, null) : left;
+                nextToken(parser, context);
+                parser.flags |= 16 /* SimpleParameterList */;
                 return type & 14 /* Variable */ ?
-                    parseVariableDeclaration(left, null) : left;
+                    parseVariableDeclaration(left, parseAssignmentExpression(parser, context)) :
+                    parseAssignmentPattern(parser, context, left);
             }
 
             /**
@@ -2723,7 +2718,7 @@ System.register([], function (exports, module) {
              */
             function parseFormalParameters(parser, context) {
                 context = context | 262144 /* InParameter */;
-                parser.flags &= ~16 /* SimpleParameterList */;
+                parser.flags = swapFlags(parser.flags, 16 /* SimpleParameterList */);
                 expect(parser, context, 33554440 /* LeftParen */);
                 const args = [];
                 parseDelimitedBindingList(parser, context, 1 /* Args */, 2 /* FunctionArgs */, args);
@@ -2741,35 +2736,42 @@ System.register([], function (exports, module) {
             function parseFunctionBody(parser, context) {
                 const body = [];
                 expect(parser, context, 33554441 /* LeftBrace */);
-                const previousSwitchStatement = parser.switchStatement;
-                const previousIterationStatement = parser.iterationStatement;
-                if ((parser.switchStatement & 1 /* Iteration */) === 1 /* Iteration */) {
-                    parser.switchStatement = 2 /* CrossingBoundary */;
-                }
-                if ((parser.iterationStatement & 1 /* Iteration */) === 1 /* Iteration */) {
-                    parser.iterationStatement = 2 /* CrossingBoundary */;
-                }
-                addCrossingBoundary(parser);
-                while (parser.token === 4194304 /* StringLiteral */) {
-                    const { tokenRaw, tokenValue } = parser;
-                    body.push(parseDirective(parser, context));
-                    if (tokenRaw.length === /* length of prologue*/ 12 && tokenValue === 'use strict') {
-                        if (parser.flags & 16 /* SimpleParameterList */) {
-                            recordErrors(parser, context, 31 /* IllegalUseStrict */);
+                if (parser.token !== 33685516 /* RightBrace */) {
+                    // Note: A separate "while" loop is used to avoid unseting the 
+                    // mutual flags within the iteration loop itself. 
+                    while (parser.token === 4194304 /* StringLiteral */) {
+                        const { tokenRaw, tokenValue } = parser;
+                        body.push(parseDirective(parser, context));
+                        if (tokenRaw.length === /* length of prologue*/ 12 && tokenValue === 'use strict') {
+                            if (parser.flags & 16 /* SimpleParameterList */) {
+                                recordErrors(parser, context, 31 /* IllegalUseStrict */);
+                            }
+                            else if (parser.flags & 128 /* StrictReserved */) {
+                                recordErrors(parser, context, 33 /* UnexpectedStrictReserved */);
+                            }
+                            else if (parser.flags & 64 /* StrictEvalArguments */) {
+                                recordErrors(parser, context, 32 /* StrictEvalArguments */);
+                            }
+                            context |= 4096 /* Strict */;
                         }
-                        else if (parser.flags & 64 /* StrictEvalArguments */) {
-                            recordErrors(parser, context, 32 /* StrictEvalArguments */);
-                        }
-                        context |= 4096 /* Strict */;
                     }
+                    parser.flags = swapFlags(parser.flags, 128 /* StrictReserved */ | 64 /* StrictEvalArguments */);
+                    const previousSwitchStatement = parser.switchStatement;
+                    const previousIterationStatement = parser.iterationStatement;
+                    if ((parser.switchStatement & 1 /* Iteration */) === 1 /* Iteration */) {
+                        parser.switchStatement = 2 /* CrossingBoundary */;
+                    }
+                    if ((parser.iterationStatement & 1 /* Iteration */) === 1 /* Iteration */) {
+                        parser.iterationStatement = 2 /* CrossingBoundary */;
+                    }
+                    addCrossingBoundary(parser);
+                    while (parser.token !== 33685516 /* RightBrace */) {
+                        body.push(parseStatementListItem(parser, context));
+                    }
+                    parser.labelDepth--;
+                    parser.switchStatement = previousSwitchStatement;
+                    parser.iterationStatement = previousIterationStatement;
                 }
-                parser.flags = swapFlags(parser.flags, 128 /* StrictFunctionName */ | 64 /* StrictEvalArguments */);
-                while (parser.token !== 33685516 /* RightBrace */) {
-                    body.push(parseStatementListItem(parser, context));
-                }
-                parser.labelDepth--;
-                parser.switchStatement = previousSwitchStatement;
-                parser.iterationStatement = previousIterationStatement;
                 expect(parser, context, 33685516 /* RightBrace */);
                 return {
                     type: 'BlockStatement',

@@ -40,7 +40,7 @@ export declare const enum Flags {
     SimpleParameterList = 16,
     HasConstructor = 32,
     StrictEvalArguments = 64,
-    StrictFunctionName = 128,
+    StrictReserved = 128,
 }
 export declare const enum BindingOrigin {
     Empty = 0,
