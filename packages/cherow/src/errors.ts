@@ -37,7 +37,10 @@ export const enum Errors {
     IllegalUseStrict,
     StrictEvalArguments,
     UnexpectedStrictReserved,
-    UnexpectedKeyword
+    UnexpectedKeyword,
+    AsAfterImportStart,
+    MissingFromClause,
+    UnexpectedReserved
 }
 /*@internal*/
 export const errorMessages: {
@@ -77,7 +80,13 @@ export const errorMessages: {
     [Errors.IllegalUseStrict]: 'Illegal \'use strict\' directive in function with non-simple parameter list',
     [Errors.StrictEvalArguments]: 'Unexpected eval or arguments in strict mode',
     [Errors.UnexpectedStrictReserved]: 'Unexpected strict mode reserved word',
-    [Errors.UnexpectedKeyword]: 'Unexpected keyword \'%0\'',
+    [Errors.UnexpectedKeyword]: 'Keyword \'%0\' is reserved',
+    [Errors.AsAfterImportStart]: 'Missing keyword \'as\' after import *',
+    [Errors.MissingFromClause]: 'Expected keyword \'%0\'',
+    [Errors.UnexpectedReserved]: 'Unexpected reserved word',
+    
+    
+    
 };
 
 export function constructError(index: number, line: number, column: number, description: string): void {

@@ -23,18 +23,18 @@ import {
 } from '../common';
 
 export function parseModuleItemList(parser: Parser, context: Context) {
-     // Prime the scanner
-     nextToken(parser, context);
+    // Prime the scanner
+    nextToken(parser, context);
 
-     const statements: any[] = [];
- 
-     while (parser.token !== Token.EndOfSource) {
-         statements.push((parser.token & Token.StringLiteral) === Token.StringLiteral ?
-             parseDirective(parser, context) :
-             parseModuleItem(parser, context));
-     }
- 
-     return statements;
+    const statements: any[] = [];
+
+    while (parser.token !== Token.EndOfSource) {
+        statements.push((parser.token & Token.StringLiteral) === Token.StringLiteral ?
+            parseDirective(parser, context) :
+            parseModuleItem(parser, context));
+    }
+
+    return statements;
 }
 
 /**
@@ -51,9 +51,9 @@ export function parseModuleItem(parser: Parser, context: Context): any {
 
         // @decorator
         case Token.At:
-          //  return parseDecorators(parser, context);
+            //  return parseDecorators(parser, context);
 
-        // ExportDeclaration
+            // ExportDeclaration
         case Token.ExportKeyword:
             return parseExportDeclaration(parser, context);
 
@@ -78,7 +78,14 @@ export function parseModuleItem(parser: Parser, context: Context): any {
  * @param context Context masks
  */
 export function parseExportDeclaration(parser: Parser, context: Context): any {
-
+    // ExportDeclaration:
+    // export * FromClause;
+    // export ExportClause FromClause;
+    //    export VariableStatement
+    //    export Declaration
+    // export default HoistableDeclaration
+    // export default ClassDeclaration
+    // export default AssignmentExpression
     const specifiers: ESTree.ExportSpecifier[] = [];
 
     let source: ESTree.Literal | null = null;
@@ -88,8 +95,8 @@ export function parseExportDeclaration(parser: Parser, context: Context): any {
 
     switch (parser.token) {
 
-        // export * FromClause ;
         case Token.Multiply:
+            // export * from 'foo';
             return parseExportAllDeclaration(parser, context);
 
         case Token.DefaultKeyword:
@@ -97,8 +104,8 @@ export function parseExportDeclaration(parser: Parser, context: Context): any {
 
         case Token.LeftBrace:
             {
-                // export ExportClause FromClause ;
-                // export ExportClause ;
+                // export {}
+                // export {} from 'foo'
                 expect(parser, context, Token.LeftBrace);
 
                 let hasReservedWord = false;
@@ -115,41 +122,55 @@ export function parseExportDeclaration(parser: Parser, context: Context): any {
 
                 if (parser.token === Token.FromKeyword) {
                     source = parseModuleSpecifier(parser, context);
-                //  The left hand side can't be a keyword where there is no
-                // 'from' keyword since it references a local binding.
-                } else if (hasReservedWord) recordErrors(parser, context, Errors.Unexpected /*UnexpectedReserved*/);
+                    //  The left hand side can't be a keyword where there is no
+                    // 'from' keyword since it references a local binding.
+                } else if (hasReservedWord) recordErrors(parser, context, Errors.UnexpectedReserved);
 
                 consumeSemicolon(parser, context);
 
                 break;
             }
-
-            // export ClassDeclaration
         case Token.ClassKeyword:
+            // export class foo {}
             declaration = (parseClassDeclaration(parser, context));
             break;
 
-            // export LexicalDeclaration
         case Token.LetKeyword:
+            // export let z = 0;
+            // export let x
             declaration = parseVariableStatement(parser, context, BindingType.Let, BindingOrigin.Export);
             break;
 
-         case Token.ConstKeyword:
+        case Token.ConstKeyword:
+            // export const z = 0;
+            // export const x
             declaration = parseVariableStatement(parser, context, BindingType.Const, BindingOrigin.Export);
             break;
 
-          // export VariableDeclaration
         case Token.VarKeyword:
-            declaration = parseVariableStatement(parser, context, BindingType.Const, BindingOrigin.Export);
+            // export var ariya = 123;
+            // export var a, b, c;
+            declaration = parseVariableStatement(parser, context, BindingType.Var, BindingOrigin.Export);
             break;
 
             // export HoistableDeclaration
         case Token.FunctionKeyword:
+            // export function foo () {}
+            // export function () {}
+            // export function *foo() {}
+            // export function *() {}
             declaration = parseFunctionDeclaration(parser, context);
             break;
 
-            // export HoistableDeclaration
         case Token.AsyncKeyword:
+            // export async function *foo () {}
+            // export async function foo () {}
+            // export async function *() {}
+            // export async function f(){}
+            // export async function(){}
+            // export async () => y
+            // export async (x) => y
+            // export async x => y
             if (lookahead(parser, context, nextTokenIsFuncKeywordOnSameLine, false)) {
                 declaration = parseFunctionDeclaration(parser, context, ModifierState.Async);
                 break;
@@ -194,9 +215,9 @@ function parseNamedExportDeclaration(parser: Parser, context: Context): ESTree.E
     // IdentifierName
     // IdentifierName as IdentifierName
     const local = parseIdentifierName(parser, context, parser.token);
-    const exported = consume(parser, context, Token.AsKeyword)
-        ? parseIdentifierName(parser, context, parser.token)
-        : local;
+    const exported = consume(parser, context, Token.AsKeyword) ?
+        parseIdentifierName(parser, context, parser.token) :
+        local;
     return {
         type: 'ExportSpecifier',
         local,
@@ -241,7 +262,7 @@ function parseExportDefault(parser: Parser, context: Context): ESTree.ExportDefa
             break;
 
         default:
-           // export default [lookahead ∉ {function, class}] AssignmentExpression[In] ;
+            // export default [lookahead ∉ {function, class}] AssignmentExpression[In] ;
             declaration = parseAssignmentExpression(parser, context);
             consumeSemicolon(parser, context);
     }
@@ -281,8 +302,8 @@ export function parseImportDeclaration(parser: Parser, context: Context): ESTree
 
         source = parseModuleSpecifier(parser, context);
 
-    // 'import' ModuleSpecifier ';'
-    } else  if ((parser.token & Token.StringLiteral) === Token.StringLiteral) {
+        // 'import' ModuleSpecifier ';'
+    } else if ((parser.token & Token.StringLiteral) === Token.StringLiteral) {
         source = parseLiteral(parser, context);
     } else {
         if (parser.token === Token.Multiply) {
@@ -335,7 +356,9 @@ function parseNamedImports(parser: Parser, context: Context, specifiers: ESTree.
 
 function parseImportSpecifier(parser: Parser, context: Context): ESTree.ImportSpecifier {
 
-    const { token } = parser;
+    const {
+        token
+    } = parser;
     const imported = parseIdentifierName(parser, context, parser.token)
 
     let local: ESTree.Identifier;
@@ -343,8 +366,8 @@ function parseImportSpecifier(parser: Parser, context: Context): ESTree.ImportSp
     if (consume(parser, context, Token.AsKeyword)) {
         local = parseBindingIdentifier(parser, context);
     } else {
-         // An import name that is a keyword is a syntax error if it is not followed
-         // by the keyword 'as'.
+        // An import name that is a keyword is a syntax error if it is not followed
+        // by the keyword 'as'.
         if ((token & Token.Reserved) === Token.Reserved) recordErrors(parser, context, Errors.Unexpected);
         //if ((token & Token.Is, Token.IsEvalOrArguments)) tolerant(parser, context, Errors.StrictEvalArguments);
         local = imported;
@@ -370,7 +393,7 @@ function parseNameSpaceImport(parser: Parser, context: Context, specifiers: ESTr
     // NameSpaceImport:
     //  * as ImportedBinding
     expect(parser, context, Token.Multiply);
-    expect(parser, context, Token.AsKeyword, Errors.Unexpected /*AsAfterImportStart */);
+    expect(parser, context, Token.AsKeyword, Errors.AsAfterImportStart);
     const local = parseBindingIdentifier(parser, context);
     specifiers.push({
         type: 'ImportNamespaceSpecifier',
@@ -420,8 +443,8 @@ function parseImportDefaultSpecifier(parser: Parser, context: Context): ESTree.I
  * @param context Context masks
  */
 function parseAsyncFunctionOrAssignmentExpression(
-  parser: Parser,
-  context: Context
+    parser: Parser,
+    context: Context
 ): ESTree.FunctionDeclaration | ESTree.AssignmentExpression {
     return lookahead(parser, context, nextTokenIsFuncKeywordOnSameLine, false) ?
         parseFunctionDeclaration(parser, context | Context.RequireIdentifier, ModifierState.Async) :

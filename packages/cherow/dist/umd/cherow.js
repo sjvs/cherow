@@ -161,7 +161,10 @@
         [31 /* IllegalUseStrict */]: 'Illegal \'use strict\' directive in function with non-simple parameter list',
         [32 /* StrictEvalArguments */]: 'Unexpected eval or arguments in strict mode',
         [33 /* UnexpectedStrictReserved */]: 'Unexpected strict mode reserved word',
-        [34 /* UnexpectedKeyword */]: 'Unexpected keyword \'%0\'',
+        [34 /* UnexpectedKeyword */]: 'Keyword \'%0\' is reserved',
+        [35 /* AsAfterImportStart */]: 'Missing keyword \'as\' after import *',
+        [36 /* MissingFromClause */]: 'Expected keyword \'%0\'',
+        [37 /* UnexpectedReserved */]: 'Unexpected reserved word',
     };
     function constructError(index, line, column, description) {
         const error = new SyntaxError(`Line ${line}, column ${column}: ${description}`);
@@ -3826,20 +3829,28 @@
      * @param context Context masks
      */
     function parseExportDeclaration(parser, context) {
+        // ExportDeclaration:
+        // export * FromClause;
+        // export ExportClause FromClause;
+        //    export VariableStatement
+        //    export Declaration
+        // export default HoistableDeclaration
+        // export default ClassDeclaration
+        // export default AssignmentExpression
         const specifiers = [];
         let source = null;
         let declaration = null;
         expect(parser, context, 8272 /* ExportKeyword */);
         switch (parser.token) {
-            // export * FromClause ;
             case 301992496 /* Multiply */:
+                // export * from 'foo';
                 return parseExportAllDeclaration(parser, context);
             case 8269 /* DefaultKeyword */:
                 return parseExportDefault(parser, context);
             case 33554441 /* LeftBrace */:
                 {
-                    // export ExportClause FromClause ;
-                    // export ExportClause ;
+                    // export {}
+                    // export {} from 'foo'
                     expect(parser, context, 33554441 /* LeftBrace */);
                     let hasReservedWord = false;
                     while (parser.token !== 33685516 /* RightBrace */) {
@@ -3857,31 +3868,46 @@
                         // 'from' keyword since it references a local binding.
                     }
                     else if (hasReservedWord)
-                        recordErrors(parser, context, 0 /* Unexpected */);
+                        recordErrors(parser, context, 37 /* UnexpectedReserved */);
                     consumeSemicolon(parser, context);
                     break;
                 }
-            // export ClassDeclaration
             case 8266 /* ClassKeyword */:
+                // export class foo {}
                 declaration = (parseClassDeclaration(parser, context));
                 break;
-            // export LexicalDeclaration
             case 16453 /* LetKeyword */:
+                // export let z = 0;
+                // export let x
                 declaration = parseVariableStatement(parser, context, 4 /* Let */, 8 /* Export */);
                 break;
             case 8262 /* ConstKeyword */:
+                // export const z = 0;
+                // export const x
                 declaration = parseVariableStatement(parser, context, 8 /* Const */, 8 /* Export */);
                 break;
-            // export VariableDeclaration
             case 8260 /* VarKeyword */:
-                declaration = parseVariableStatement(parser, context, 8 /* Const */, 8 /* Export */);
+                // export var ariya = 123;
+                // export var a, b, c;
+                declaration = parseVariableStatement(parser, context, 2 /* Var */, 8 /* Export */);
                 break;
             // export HoistableDeclaration
             case 8276 /* FunctionKeyword */:
+                // export function foo () {}
+                // export function () {}
+                // export function *foo() {}
+                // export function *() {}
                 declaration = parseFunctionDeclaration(parser, context);
                 break;
-            // export HoistableDeclaration
             case 4205 /* AsyncKeyword */:
+                // export async function *foo () {}
+                // export async function foo () {}
+                // export async function *() {}
+                // export async function f(){}
+                // export async function(){}
+                // export async () => y
+                // export async (x) => y
+                // export async x => y
                 if (lookahead(parser, context, nextTokenIsFuncKeywordOnSameLine, false)) {
                     declaration = parseFunctionDeclaration(parser, context, 8 /* Async */);
                     break;
@@ -3923,9 +3949,9 @@
         // IdentifierName
         // IdentifierName as IdentifierName
         const local = parseIdentifierName(parser, context, parser.token);
-        const exported = consume(parser, context, 4204 /* AsKeyword */)
-            ? parseIdentifierName(parser, context, parser.token)
-            : local;
+        const exported = consume(parser, context, 4204 /* AsKeyword */) ?
+            parseIdentifierName(parser, context, parser.token) :
+            local;
         return {
             type: 'ExportSpecifier',
             local,
@@ -4078,7 +4104,7 @@
         // NameSpaceImport:
         //  * as ImportedBinding
         expect(parser, context, 301992496 /* Multiply */);
-        expect(parser, context, 4204 /* AsKeyword */, 0 /* Unexpected */);
+        expect(parser, context, 4204 /* AsKeyword */, 35 /* AsAfterImportStart */);
         const local = parseBindingIdentifier(parser, context);
         specifiers.push({
             type: 'ImportNamespaceSpecifier',
