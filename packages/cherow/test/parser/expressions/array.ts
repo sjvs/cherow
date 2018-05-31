@@ -1,8 +1,63 @@
 import * as t from 'assert';
 import { pass } from '../../test-utils';
 import { Context } from '../../../src/common';
+import { parseSource } from '../../../src/parser/parser';
 
 describe('Expressions - Array', () => {
+
+    
+const validSyntax = [
+    '[1 <= 0]',
+    'let [a,,b] = c',
+    '[a, ...b=c]',
+    '([a, ...b=c])',
+    '[,,1,,,2,3,,]',
+    '[ 1, 2,, 3, ]',
+    '[ 0 ]',
+    '[ ,, 0 ]',
+    ' [,,3,,,]',
+    '[,]',
+    '[x()]',
+    '[a, ...b]',
+    '[function* f() {}]',
+    //'[a, ...{0: b}] = (1);',
+    '[...{a}] = b;',
+    '[...{a}] = b;',
+    //'[a, ...{0: b}] = 1',
+    '[1, "z", "a", "Symbol(foo)"]',
+    '[{...null}]',
+    '[{...{a: 2, b: 3}, ... {c: 4, d: 5}}]',
+    '[1, 2, 3, ...[]]',
+    ' [...{}];',
+    '[1,2,,4,5];',
+    'var array = [,,,,,];',
+    'var a = [,];',
+    'let a = [];',
+    'let b = [42];',
+    'let c = [42, 7];',
+    'let [d, ...e] = [1, 2, 3, 4, 5];'
+];
+
+for (const arg of validSyntax) {
+
+    it(`${arg}`, () => {
+        t.doesNotThrow(() => {
+            parseSource(`${arg}`, undefined, Context.Empty);
+        });
+    });
+
+    it(`${arg}`, () => {
+        t.doesNotThrow(() => {
+            parseSource(`${arg}`, undefined, Context.OptionsNext | Context.Module);
+        });
+    });
+
+    it(`"use strict"; ${arg}`, () => {
+        t.doesNotThrow(() => {
+            parseSource(`"use strict"; ${arg}`, undefined, Context.Empty);
+        });
+    });
+}
 
     pass('[]', Context.Empty, {
         source: '[]',

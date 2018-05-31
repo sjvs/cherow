@@ -1,8 +1,25 @@
 import * as t from 'assert';
 import { pass } from '../../test-utils';
 import { Context } from '../../../src/common';
+import { parseSource } from '../../../src/parser/parser';
 
 describe('Statements - With', () => {
+
+    const validSyntax = [
+        `with({}){ p1 = 'x1'; }`,
+        `if (false) {
+    //      with ({}) let // ASI
+    //    {}
+      }`
+    ];
+  
+    for (const arg of validSyntax) {
+        it(`${arg}`, () => {
+            t.doesNotThrow(() => {
+                parseSource(`${arg}`, undefined, Context.Empty);
+            });
+        });
+    }
 
     pass('with (foo) bar;', Context.Empty, {
         source: 'with (foo) bar;',

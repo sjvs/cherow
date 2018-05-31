@@ -91,11 +91,11 @@ describe('Miscellaneous - Function', () => {
         fail('function foo(bar, interface) { "use strict"; }', Context.Empty, {
             source: 'function foo(bar, interface) { "use strict"; }',
         });
-/*
+
         fail('function interface(bar, baz) { "use strict"; }', Context.Empty, {
             source: 'function interface(bar, baz) { "use strict"; }',
         });
-*/
+
         fail('function foo(bar, interface) { "use strict"; }', Context.Empty, {
             source: 'function foo(bar, interface) { "use strict"; }',
         });

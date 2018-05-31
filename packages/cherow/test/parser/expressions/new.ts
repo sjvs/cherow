@@ -1,10 +1,71 @@
 import * as t from 'assert';
 import { pass } from '../../test-utils';
 import { Context } from '../../../src/common';
+import { parseSource } from '../../../src/parser/parser';
 
 describe('Expressions - New', () => {
 
     describe('Pass', () => {
+
+        const validSyntax = [
+            'new foo',
+            'new foo();',
+            'new foo(1);',
+            'new foo(1, 2);',
+            'new foo()();',
+            'new new foo()();',
+            'new foo.bar;',
+            'new foo.bar();',
+            'new foo.bar.baz;',
+            'new foo.bar().baz;',
+            'new foo[bar];',
+            'new foo[bar]();',
+            'new foo[bar][baz];',
+            'new foo[bar]()[baz];',
+            'new foo[bar].baz(baz)()[bar].baz;',
+            'new "foo"',
+            'new 1',
+            'new a(b,c)',
+            'new Button',
+            'new Button(a)',
+            '(new new Function("this.x = 1")).x;',
+            'new function() {}(...[3, 4, 5]);',
+            'new function() {}(...[]);',
+            'new function() {}(...target = [2, 3, 4]);',
+            'new function() {}({...{c: 3, d: 4}});',
+            'new function() {}({...null});',
+            'new function() {}({...{a: 2, b: 3}, get c() { icefapper = false; }});',
+            'new function() {}({...{get a() {}}, c: 4, d: 5, a: 42, ...{get a() {}}});',
+            'new function() {}({a: 1, b: 2, ...undefined});',
+            'new function() {}({a: 1, b: 2, ...null});',
+            'new function() {}(1, 2, 3, ...[]);',
+            `new f(...a)`,
+            `new f(...a, ...b)`,
+            'new(a in b)',
+            'new f(...a, b, ...c)',
+            'function f(a = new.target){}',
+            '(function f(a = new.target){})',
+            'function f() { new new.target; }',
+            'function f() { new.target(); }',
+            'function f() { new["target"]; }',
+        ];
+
+
+        for (const arg of validSyntax) {
+
+            it(`${arg}`, () => {
+                t.doesNotThrow(() => {
+                    parseSource(`${arg}`, undefined, Context.Empty);
+                });
+            });
+
+            it(` var f = ${arg}`, () => {
+                t.doesNotThrow(() => {
+                    parseSource(` var f = ${arg}`, undefined, Context.Strict | Context.Module);
+                });
+            });
+        }
+
 
         pass('new a.b.c.d', Context.Empty, {
             source: `new a.b.c.d`,

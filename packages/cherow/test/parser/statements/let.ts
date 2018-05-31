@@ -1,8 +1,36 @@
 import * as t from 'assert';
 import { pass } from '../../test-utils';
 import { Context } from '../../../src/common';
+import { parseSource } from '../../../src/parser/parser';
 
 describe('Declarations - Let', () => {
+
+    // Testing lexical scoping in sloppy mode
+    const lexivalScoping = [
+        'let = 1;',
+        'for(let = 1;;){}'
+    ];
+
+    for (const arg of lexivalScoping) {
+
+        it(`${arg}`, () => {
+            t.doesNotThrow(() => {
+                parseSource(`${arg}`, undefined, Context.Empty);
+            });
+        });
+
+        it(`function f() {${arg}}`, () => {
+            t.doesNotThrow(() => {
+                parseSource(`function f() {${arg}}`, undefined, Context.Empty);
+            });
+        });
+
+        it(`${arg}`, () => {
+            t.doesNotThrow(() => {
+                parseSource(`${arg}`, undefined, Context.Empty);
+            });
+        });
+    }
 
     pass('let', Context.Empty, {
         source: 'let',
