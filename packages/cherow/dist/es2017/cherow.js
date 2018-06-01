@@ -3206,8 +3206,6 @@ function parseStatement(parser, context, label = 1 /* Disallow */) {
             return parseBreakStatement(parser, context);
         case 8267 /* ContinueKeyword */:
             return parseContinueStatement(parser, context);
-        case 8268 /* DebuggerKeyword */:
-            return parseDebuggerStatement(parser, context);
         case 8287 /* WithKeyword */:
             return parseWithStatement(parser, context);
         case 8284 /* ThrowKeyword */:
