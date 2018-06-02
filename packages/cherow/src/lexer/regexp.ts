@@ -13,283 +13,292 @@ import { isValidIdentifierPart } from '../unicode';
 // - Some of the ideas for this is from SpiderMonkey, V8 and Webkit.
 //
 
+const enum InternalState {
+  Empty = 0,
+  IsAtom = 1 << 0,
+  HasError = 1 << 1, // Editor mode *only*
+}
+
 /**
- * Verify regular expression pattern
- *
- * @param parser Parser object
- * @param next Code point
- * @param depth Level
- * @param type RegExp state
- */
-export function readTerm(
-    parser: Parser,
-    context: Context,
-    next: number,
-    depth: number,
-    type: Type,
-    isAtom: boolean = false
+* Parse disjunction
+*
+* @param parser Parser object
+* @param next Code point
+* @param depth Level
+* @param type type
+* @param state Paser state
+*/
+export function ParseDisjunction(
+  parser: Parser,
+  context: Context,
+  next: number,
+  depth: number,
+  type: Type,
+  state: InternalState,
 ): Type {
-// Disjunction ::
-//   Alternative
-//   Alternative | Disjunction
-// Alternative ::
-//   [empty]
-//   Term Alternative
-// Term ::
-//   Assertion
-//   Atom
-//   Atom Quantifier
-    while (parser.index !== parser.length) {
 
-        switch (next) {
+  // Disjunction ::
+  //   Alternative
+  //   Alternative | Disjunction
+  // Alternative ::
+  //   [empty]
+  //   Term Alternative
+  // Term ::
+  //   Assertion
+  //   Atom
+  //   Atom Quantifier
+  while (parser.index !== parser.length) {
 
-            // `^`, `.`, `$`
-            case Chars.Caret:
-            case Chars.Period:
-            case Chars.Dollar:
-                parser.index++;
-                isAtom = true;
-                break;
+      switch (next) {
 
-                // `\`
-            case Chars.Slash:
-                // Err: "Unterminated group"
-                if (depth !== 0) return Type.Invalid;
-                parser.index++;
-                return type;
+          // `^`, `.`, `$`
+          case Chars.Caret:
+          case Chars.Period:
+          case Chars.Dollar:
+              parser.index++;
+              state = state | InternalState.IsAtom
+              break;
 
-                // `|`
-            case Chars.VerticalBar:
-                parser.index++;
-                isAtom = false;
-                break;
+              // `\`
+          case Chars.Slash:
+              // Err: "Unterminated group"
+              if (depth !== 0) return Type.Invalid;
+              parser.index++;
+              return type;
 
-                // Atom ::
-                //   \ AtomEscape
-            case Chars.Backslash:
-                parser.index++;
-                isAtom = true;
-                // Pattern may not end with a trailing backslash
-                if (parser.index >= parser.length) return Type.Invalid; // \\ at end of pattern
-                next = parser.source.charCodeAt(parser.index);
-                switch (next) {
-                    case Chars.LowerB:
-                    case Chars.UpperB:
-                        parser.index++;
-                        isAtom = false;
-                        break;
-                    default:
-                        let subType: Type;
+              // `|`
+          case Chars.VerticalBar:
+              parser.index++;
+              state = state & ~InternalState.IsAtom;
+              break;
 
+              // Atom ::
+              //   \ AtomEscape
+          case Chars.Backslash:
+              parser.index++;
+              state = state | InternalState.IsAtom
+              // Pattern may not end with a trailing backslash
+              if (parser.index >= parser.length) return Type.Invalid; // \\ at end of pattern
+              next = parser.source.charCodeAt(parser.index);
+              switch (next) {
+                  case Chars.LowerB:
+                  case Chars.UpperB:
+                      parser.index++;
+                      state = state & ~InternalState.IsAtom;
+                      break;
+                  default:
 
-                        switch (next) {
+                      let subType: Type;
 
-                            // '0'
-                            case Chars.Zero:
-                                parser.index++;
-                                if (parser.index >= parser.length || isDecimalDigit(parser.source.charCodeAt(parser.index))) {
-                                    subType = Type.Invalid;
-                                } else subType = Type.Valid;
-                                break;
+                      switch (next) {
 
-                                // '1' - '9'
-                            case Chars.One:
-                            case Chars.Two:
-                            case Chars.Three:
-                            case Chars.Four:
-                            case Chars.Five:
-                            case Chars.Six:
-                            case Chars.Seven:
-                            case Chars.Eight:
-                            case Chars.Nine:
-                                subType = parseBackReferenceIndex(parser, next);
-                                break;
-                            case Chars.LowerU:
-                                parser.index++;
-                                subType = validateUnicodeEscape(parser);
-                                break;
-                            case Chars.UpperX:
-                            case Chars.LowerX:
-                                parser.index++;
+                          // '0'
+                          case Chars.Zero:
+                              parser.index++;
+                              if (parser.index >= parser.length || isDecimalDigit(parser.source.charCodeAt(parser.index))) {
+                                  subType = Type.Invalid;
+                              } else subType = Type.Valid;
+                              break;
 
-                                if (parser.index === parser.length || !isHex(parser.source.charCodeAt(parser.index++))) {
-                                    return Type.Invalid;
-                                } else if (parser.index === parser.length || !isHex(parser.source.charCodeAt(parser.index++))) {
-                                    subType = Type.Invalid;
-                                } else subType = Type.Valid;
-                                break;
-                                // char escapes
-                            case Chars.LowerC:
-                                parser.index++;
-                                if (parser.index >= parser.length) return Type.Invalid;
-                                if (isAZaz(parser.source.charCodeAt(parser.index))) {
-                                    parser.index++;
-                                    subType = Type.Valid;
-                                } else subType = Type.Invalid;
-                                break;
-                                // ControlEscape :: one of
-                                //   f n r t v
-                            case Chars.LowerF:
-                            case Chars.LowerN:
-                            case Chars.LowerR:
-                            case Chars.LowerT:
-                            case Chars.LowerV:
+                              // '1' - '9'
+                          case Chars.One:
+                          case Chars.Two:
+                          case Chars.Three:
+                          case Chars.Four:
+                          case Chars.Five:
+                          case Chars.Six:
+                          case Chars.Seven:
+                          case Chars.Eight:
+                          case Chars.Nine:
+                              subType = parseBackReferenceIndex(parser, next);
+                              break;
+                          case Chars.LowerU:
+                              parser.index++;
+                              subType = validateUnicodeEscape(parser);
+                              break;
+                          case Chars.UpperX:
+                          case Chars.LowerX:
+                              parser.index++;
 
-                                // AtomEscape ::
-                                //   CharacterClassEscape
-                                //
-                                // CharacterClassEscape :: one of
-                                //   d D s S w W
-                            case Chars.LowerD:
-                            case Chars.UpperD:
-                            case Chars.LowerS:
-                            case Chars.UpperS:
-                            case Chars.LowerW:
-                            case Chars.UpperW:
-                            case Chars.Caret:
-                            case Chars.Dollar:
-                            case Chars.Backslash:
-                            case Chars.Period:
-                            case Chars.Asterisk:
-                            case Chars.Plus:
-                            case Chars.QuestionMark:
-                            case Chars.LeftParen:
-                            case Chars.RightParen:
-                            case Chars.LeftBracket:
-                            case Chars.RightBracket:
-                            case Chars.LeftBrace:
-                            case Chars.RightBrace:
-                            case Chars.VerticalBar:
-                            case Chars.Slash:
-                                parser.index++;
-                                subType = Type.Valid;
-                                break;
+                              if (parser.index === parser.length || !isHex(parser.source.charCodeAt(parser.index++))) {
+                                  return Type.Invalid;
+                              } else if (parser.index === parser.length || !isHex(parser.source.charCodeAt(parser.index++))) {
+                                  subType = Type.Invalid;
+                              } else subType = Type.Valid;
+                              break;
+                              // char escapes
+                          case Chars.LowerC:
+                              parser.index++;
+                              if (parser.index >= parser.length) return Type.Invalid;
+                              if (isAZaz(parser.source.charCodeAt(parser.index))) {
+                                  parser.index++;
+                                  subType = Type.Valid;
+                              } else subType = Type.Invalid;
+                              break;
+                              // ControlEscape :: one of
+                              //   f n r t v
+                          case Chars.LowerF:
+                          case Chars.LowerN:
+                          case Chars.LowerR:
+                          case Chars.LowerT:
+                          case Chars.LowerV:
 
-                            case Chars.CarriageReturn:
-                            case Chars.LineFeed:
-                            case Chars.ParagraphSeparator:
-                            case Chars.LineSeparator:
-                                parser.index++;
-                                subType = Type.Invalid;
-                                break;
-                            default:
-                                parser.index++;
-                                // TODO!
-                        }
-                        // TODO;
-                }
+                              // AtomEscape ::
+                              //   CharacterClassEscape
+                              //
+                              // CharacterClassEscape :: one of
+                              //   d D s S w W
+                          case Chars.LowerD:
+                          case Chars.UpperD:
+                          case Chars.LowerS:
+                          case Chars.UpperS:
+                          case Chars.LowerW:
+                          case Chars.UpperW:
+                          case Chars.Caret:
+                          case Chars.Dollar:
+                          case Chars.Backslash:
+                          case Chars.Period:
+                          case Chars.Asterisk:
+                          case Chars.Plus:
+                          case Chars.QuestionMark:
+                          case Chars.LeftParen:
+                          case Chars.RightParen:
+                          case Chars.LeftBracket:
+                          case Chars.RightBracket:
+                          case Chars.LeftBrace:
+                          case Chars.RightBrace:
+                          case Chars.VerticalBar:
+                          case Chars.Slash:
+                              parser.index++;
+                              subType = Type.Valid;
+                              break;
 
-                break;
+                          case Chars.CarriageReturn:
+                          case Chars.LineFeed:
+                          case Chars.ParagraphSeparator:
+                          case Chars.LineSeparator:
+                              parser.index++;
+                              subType = Type.Invalid;
+                              break;
+                          default:
+                              parser.index++;
+                      }
+                      // TODO
+              }
 
-                // `(`
-            case Chars.LeftParen:
-                parser.index++;
-                if (parser.index >= parser.length) return Type.Invalid;
+              break;
 
-                next = parser.source.charCodeAt(parser.index);
+              // `(`
+          case Chars.LeftParen:
+              parser.index++;
+              if (parser.index >= parser.length) return Type.Invalid;
 
-                if (next === Chars.QuestionMark) {
-                    parser.index++;
-                    parser.column++;
-                    switch (parser.source.charCodeAt(parser.index)) {
-                        case Chars.Colon:
-                        case Chars.EqualSign:
-                        case Chars.Exclamation:
-                            {
-                                parser.index++;parser.column++;
-                                if (parser.index >= parser.length) return Type.Invalid;
-                                next = parser.source.charCodeAt(parser.index);
-                                break;
-                            }
-                        default:
-                            type = Type.Invalid;
-                    }
-                } else {
-                    // capturing group
-                    ++parser.capturingParens;
-                }
+              next = parser.source.charCodeAt(parser.index);
 
-                let subType = readTerm(parser, context, next, depth + 1, Type.Valid, isAtom);
+              if (next === Chars.QuestionMark) {
+                  parser.index++;
+                  parser.column++;
+                  switch (parser.source.charCodeAt(parser.index)) {
+                      case Chars.Colon:
+                      case Chars.EqualSign:
+                      case Chars.Exclamation:
+                          {
+                              parser.index++;parser.column++;
+                              if (parser.index >= parser.length) return Type.Invalid;
+                              next = parser.source.charCodeAt(parser.index);
+                              break;
+                          }
+                      default:
+                          type = Type.Invalid;
+                  }
+              } else {
+                  // capturing group
+                  ++parser.capturingParens;
+              }
 
-                  // TODO!
-                break;
+              let subType = ParseDisjunction(parser, context, next, depth + 1, Type.Valid, state);
 
-                // `)`
-            case Chars.RightParen:
-                parser.index++;
-                if (depth > 0) return type; // invalid group
-                type = Type.Invalid;
-                isAtom = true;
-                break;
+              state = state | InternalState.IsAtom
+              // TODO
+              break;
 
-                // `[`
-            case Chars.LeftBracket:
-                let subType = parseCharacterClass(parser);
-                 // TODO!
-                 isAtom = true;
-                break;
+              // `)`
+          case Chars.RightParen:
+              parser.index++;
+              if (depth > 0) return type; // invalid group
+              type = Type.Invalid;
+              state = state | InternalState.IsAtom
+              break;
 
-                // `]`
-            case Chars.RightBracket:
-                parser.index++;
-                isAtom = true;
-                break;
+              // `[`
+          case Chars.LeftBracket:
+              let subType = parseCharacterClass(parser);
+              // TODO
+              state = state | InternalState.IsAtom;
 
-                // `?`, `*`, `+`
-            case Chars.Asterisk:
-            case Chars.Plus:
-            case Chars.QuestionMark:
-                parser.index++;
-                if (isAtom) {
-                  isAtom = false;
-                    if (parser.index < parser.length) {
-                        if (parser.source.charCodeAt(parser.index) === Chars.QuestionMark) {
-                            parser.index++;
-                        }
-                    }
-                } else {
-                    type = Type.Invalid; // Nothing to repeat
-                }
-                break;
+              break;
 
-                // `{`
-            case Chars.LeftBrace:
-                parser.index++;
+              // `]`
+          case Chars.RightBracket:
+              parser.index++;
+              state = state | InternalState.IsAtom;
+              break;
 
-                if (isAtom) {
-                    if (!parseIntervalQuantifier(parser)) type = Type.Invalid;
-                    if (parser.index < parser.length) {
-                        if (parser.source.charCodeAt(parser.index) === Chars.QuestionMark) {
-                            parser.index++;
-                        }
-                    }
-                    isAtom = false;
-                } else {
-                    type = Type.Invalid;
-                }
-                break;
+              // `?`, `*`, `+`
+          case Chars.Asterisk:
+          case Chars.Plus:
+          case Chars.QuestionMark:
+              parser.index++;
+              if ((state & InternalState.IsAtom) === InternalState.IsAtom) {
+                  state = state & ~InternalState.IsAtom;
+                  if (parser.index < parser.length) {
+                      if (parser.source.charCodeAt(parser.index) === Chars.QuestionMark) {
+                          parser.index++;
+                      }
+                  }
+              } else {
+                  type = Type.Invalid; // Nothing to repeat
+              }
+              break;
 
-                // `}`
-            case Chars.RightBrace:
-                parser.index++;
-                type = Type.Invalid;
-                isAtom = false;
-                break;
+              // `{`
+          case Chars.LeftBrace:
+              parser.index++;
 
-                // `LineTerminator`
-            case Chars.CarriageReturn:
-            case Chars.LineFeed:
-            case Chars.ParagraphSeparator:
-            case Chars.LineSeparator:
-                return Type.Invalid;
+              if ((state & InternalState.IsAtom) === InternalState.IsAtom) {
+                  if (!parseIntervalQuantifier(parser)) type = Type.Invalid;
+                  if (parser.index < parser.length) {
+                      if (parser.source.charCodeAt(parser.index) === Chars.QuestionMark) {
+                          parser.index++;
+                      }
+                  }
+                  state = state & ~InternalState.IsAtom;
+              } else {
+                  type = Type.Invalid;
+              }
+              break;
 
-            default:
-                parser.index++;
-                isAtom = true;
-        }
+              // `}`
+          case Chars.RightBrace:
+              parser.index++;
+              type = Type.Invalid;
+              state = state & ~InternalState.IsAtom;
+              break;
 
-        next = parser.source.charCodeAt(parser.index);
-    }
+              // `LineTerminator`
+          case Chars.CarriageReturn:
+          case Chars.LineFeed:
+          case Chars.ParagraphSeparator:
+          case Chars.LineSeparator:
+              return Type.Invalid;
 
-    return Type.Invalid;
+          default:
+              parser.index++;
+              state = state | InternalState.IsAtom
+      }
+
+      next = parser.source.charCodeAt(parser.index);
+  }
+
+  return Type.Invalid;
 }
