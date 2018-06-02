@@ -70,30 +70,21 @@ export function readTerm(
                     break;
 
                     // `(`
-                case Chars.LeftParen:
+                    case Chars.LeftParen:
                     parser.index++;
-                    atom = false; // useless. just in case
-
-                    if (parser.index >= parser.length) {
-                        type = Type.Invalid;
-                        break;
-                    }
+                    if (parser.index >= parser.length)  return Type.Invalid;
 
                     next = parser.source.charCodeAt(parser.index);
 
                     if (next === Chars.QuestionMark) {
-                        parser.index++;
-                        parser.column++;
+                        parser.index++; parser.column++;
                         switch (parser.source.charCodeAt(parser.index)) {
                             case Chars.Colon:
                             case Chars.EqualSign:
                             case Chars.Exclamation:
                                 {
-                                    parser.index++;
-                                    if (parser.index >= parser.length) {
-                                        type = Type.Invalid;
-                                        break loop;
-                                    }
+                                    parser.index++; parser.column++;
+                                    if (parser.index >= parser.length)  return Type.Invalid;
                                     next = parser.source.charCodeAt(parser.index);
                                     break;
                                 }
@@ -101,10 +92,11 @@ export function readTerm(
                                 type = Type.Invalid;
                         }
                     } else {
+                        // capturing group
                         ++parser.capturingParens;
                     }
 
-                    let subType = readTerm(parser, next, depth + 1, Type.Valid, atom);
+                    let subType = readTerm(parser, context, next, depth + 1, Type.Valid, atom);
                     // TODO
                     break;
 
