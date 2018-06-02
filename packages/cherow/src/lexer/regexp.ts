@@ -6,6 +6,13 @@ import { consumeOpt, isDecimalDigit, isSurrogateLead, isSurrogateTail, getSurrog
 import { Errors, recordErrors } from '../errors';
 import { isValidIdentifierPart } from '../unicode';
 
+/* Regular expression validator*/
+
+// Note: This is still WIP.
+//
+// - Some of the ideas for this is from SpiderMonkey, V8 and Webkit.
+//
+
 /**
  * Verify regular expression pattern
  *
@@ -20,9 +27,18 @@ export function readTerm(
     next: number,
     depth: number,
     type: Type,
-    atom: boolean = false
+    isAtom: boolean = false
 ): Type {
-
+// Disjunction ::
+//   Alternative
+//   Alternative | Disjunction
+// Alternative ::
+//   [empty]
+//   Term Alternative
+// Term ::
+//   Assertion
+//   Atom
+//   Atom Quantifier
     while (parser.index !== parser.length) {
 
         switch (next) {
@@ -32,7 +48,7 @@ export function readTerm(
             case Chars.Period:
             case Chars.Dollar:
                 parser.index++;
-                atom = true;
+                isAtom = true;
                 break;
 
                 // `\`
@@ -45,14 +61,14 @@ export function readTerm(
                 // `|`
             case Chars.VerticalBar:
                 parser.index++;
-                atom = false;
+                isAtom = false;
                 break;
 
                 // Atom ::
                 //   \ AtomEscape
             case Chars.Backslash:
                 parser.index++;
-                atom = true;
+                isAtom = true;
                 // Pattern may not end with a trailing backslash
                 if (parser.index >= parser.length) return Type.Invalid; // \\ at end of pattern
                 next = parser.source.charCodeAt(parser.index);
@@ -60,7 +76,7 @@ export function readTerm(
                     case Chars.LowerB:
                     case Chars.UpperB:
                         parser.index++;
-                        atom = false;
+                        isAtom = false;
                         break;
                     default:
                         let subType: Type;
@@ -193,7 +209,7 @@ export function readTerm(
                     ++parser.capturingParens;
                 }
 
-                let subType = readTerm(parser, context, next, depth + 1, Type.Valid, atom);
+                let subType = readTerm(parser, context, next, depth + 1, Type.Valid, isAtom);
 
                   // TODO!
                 break;
@@ -203,20 +219,20 @@ export function readTerm(
                 parser.index++;
                 if (depth > 0) return type; // invalid group
                 type = Type.Invalid;
-                atom = true;
+                isAtom = true;
                 break;
 
                 // `[`
             case Chars.LeftBracket:
                 let subType = parseCharacterClass(parser);
                  // TODO!
-                atom = true;
+                 isAtom = true;
                 break;
 
                 // `]`
             case Chars.RightBracket:
                 parser.index++;
-                atom = true;
+                isAtom = true;
                 break;
 
                 // `?`, `*`, `+`
@@ -224,8 +240,8 @@ export function readTerm(
             case Chars.Plus:
             case Chars.QuestionMark:
                 parser.index++;
-                if (atom) {
-                    atom = false;
+                if (isAtom) {
+                  isAtom = false;
                     if (parser.index < parser.length) {
                         if (parser.source.charCodeAt(parser.index) === Chars.QuestionMark) {
                             parser.index++;
@@ -240,14 +256,14 @@ export function readTerm(
             case Chars.LeftBrace:
                 parser.index++;
 
-                if (atom) {
+                if (isAtom) {
                     if (!parseIntervalQuantifier(parser)) type = Type.Invalid;
                     if (parser.index < parser.length) {
                         if (parser.source.charCodeAt(parser.index) === Chars.QuestionMark) {
                             parser.index++;
                         }
                     }
-                    atom = false;
+                    isAtom = false;
                 } else {
                     type = Type.Invalid;
                 }
@@ -257,7 +273,7 @@ export function readTerm(
             case Chars.RightBrace:
                 parser.index++;
                 type = Type.Invalid;
-                atom = false;
+                isAtom = false;
                 break;
 
                 // `LineTerminator`
@@ -269,7 +285,7 @@ export function readTerm(
 
             default:
                 parser.index++;
-                atom = true;
+                isAtom = true;
         }
 
         next = parser.source.charCodeAt(parser.index);
