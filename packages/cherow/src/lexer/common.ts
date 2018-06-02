@@ -80,18 +80,33 @@ export function nextUnicodeChar(parser: Parser) {
     return (hi & 0x3ff) << 10 | lo & 0x3ff | 0x10000;
 }
 
-export function isHex(code: number) {
-    return code < 128 && ((code - Chars.Zero) <= 9) || ((code - Chars.LowerA) <= 5 || (code - Chars.UpperA) <= 5);
+export function isDecimalDigit(code: number): boolean {
+    return code >= Chars.Zero && code <= Chars.Nine;
+}
+
+export function isSurrogateLead(code: number): boolean {
+    return code >= 0xD800 && code <= 0xDBFF;
+}
+
+export function isSurrogateTail(code: number): boolean {
+    return code >= 0xDC00 && code <= 0xDFFF;
+}
+
+export function getSurrogate(hi: number, low: number): number {
+    return (hi - 0xD800) * 0x400 + (low - 0xDC00) + 0x10000;
 }
 
 export function toHex(code: number): number {
-    if (code < Chars.Zero) return -1;
     if (code <= Chars.Nine) return code - Chars.Zero;
-    if (code < Chars.UpperA) return -1;
-    if (code <= Chars.UpperF) return code - Chars.UpperA + 10;
-    if (code < Chars.LowerA) return -1;
-    if (code <= Chars.LowerF) return code - Chars.LowerA + 10;
-    return -1;
+    if (code <= Chars.UpperZ) return (code - Chars.UpperA) + 10;
+    return (code - Chars.LowerA) + 10;
+}
+
+export function isHex(code: number): boolean {
+    if (code >= Chars.Zero && code <= Chars.Nine) return true;
+    const x = code | 32;
+    if (x >= Chars.LowerA && x <= Chars.LowerF) return true;
+    return false;
 }
 
 export const fromCodePoint = (code: Chars) => {

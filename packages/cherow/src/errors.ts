@@ -40,7 +40,8 @@ export const enum Errors {
     UnexpectedKeyword,
     AsAfterImportStart,
     MissingFromClause,
-    UnexpectedReserved
+    UnexpectedReserved,
+    DuplicateRegExpFlag
 }
 /*@internal*/
 export const errorMessages: {
@@ -84,6 +85,8 @@ export const errorMessages: {
     [Errors.AsAfterImportStart]: 'Missing keyword \'as\' after import *',
     [Errors.MissingFromClause]: 'Expected keyword \'%0\'',
     [Errors.UnexpectedReserved]: 'Unexpected reserved word',
+    [Errors.DuplicateRegExpFlag]: 'Duplicate regular expression flag \'%0\'',
+    
 
 };
 

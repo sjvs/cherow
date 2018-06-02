@@ -47,6 +47,9 @@ export function createParserObject(source: string, errCallback?: ErrorCallBack):
         switchStatement: LabelState.Empty,
         iterationStatement: LabelState.Empty,
         functionBoundaryStack: undefined,
+        // Regular expression
+        capturingParens: 0,
+        largestBackReference: 0,
         // Misc
         token: Token.EndOfSource,
         tokenValue: undefined,
