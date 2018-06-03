@@ -24,7 +24,6 @@ import { isHex, consumeOpt } from './common';
     function parseRegexBody(
         parser: Parser,
         context: Context,
-        next: number,
         depth: number,
         type: number,
         state = InternalState.Empty
@@ -47,7 +46,7 @@ import { isHex, consumeOpt } from './common';
                     break;
 
                 case Chars.Slash:
-                    if (depth !== 0) return recordRegExpErrors(Escape.Unclosed);
+                    if (depth !== 0) return reportRegExpError(Escape.Unclosed);
                     return type;
 
                     // Atom ::
@@ -56,8 +55,8 @@ import { isHex, consumeOpt } from './common';
                     {
                         state = state | InternalState.MaybeQuantifier;
                         let subType = Type.Valid;
-                        if (parser.index >= parser.length) return recordRegExpErrors(Escape.Invalid);
-                        next = parser.source.charCodeAt(parser.index);
+                        if (parser.index >= parser.length) return reportRegExpError(Escape.Invalid);
+                        let next = parser.source.charCodeAt(parser.index);
                         switch (next) {
                             case Chars.LowerB:
                             case Chars.UpperB:
@@ -75,17 +74,17 @@ import { isHex, consumeOpt } from './common';
                                 parser.index++;
 
                                 if (parser.index >= parser.length) {
-                                    subType = recordRegExpErrors(Escape.TODO);
+                                    subType = reportRegExpError(Escape.TODO);
                                 } else if (!isHex(parser.source.charCodeAt(parser.index))) {
-                                    subType = recordRegExpErrors(Escape.TODO);
+                                    subType = reportRegExpError(Escape.TODO);
                                 } else {
                                     parser.index++;
                                     if (parser.index >= parser.length) {
-                                        subType = recordRegExpErrors(Escape.TODO);
+                                        subType = reportRegExpError(Escape.TODO);
                                     }
 
                                     if (!isHex(parser.source.charCodeAt(parser.index))) {
-                                        subType = recordRegExpErrors(Escape.TODO);
+                                        subType = reportRegExpError(Escape.TODO);
                                         break;
                                     }
                                     parser.index++;
@@ -94,14 +93,14 @@ import { isHex, consumeOpt } from './common';
 
                             case Chars.LowerC:
                                 parser.index++;
-                                if (parser.index >= parser.length) return recordRegExpErrors(Escape.TODO);
+                                if (parser.index >= parser.length) return reportRegExpError(Escape.TODO);
                                 next = parser.source.charCodeAt(parser.index);
                                 if (isAZaz(next)) {
                                     parser.index++;
                                     subType = Type.Valid;
                                     break;
                                 }
-                                subType = recordRegExpErrors(Escape.TODO);
+                                subType = reportRegExpError(Escape.TODO);
                                 break;
 
                                 // ControlEscape :: one of
@@ -144,7 +143,7 @@ import { isHex, consumeOpt } from './common';
                                 // '0'
                             case Chars.Zero:
                                 parser.index++;
-                                if (isDecimalDigit(parser.source.charCodeAt(parser.index))) return recordRegExpErrors(Escape.TODO);
+                                if (isDecimalDigit(parser.source.charCodeAt(parser.index))) return reportRegExpError(Escape.TODO);
                                 break;
 
                                 // '1' - '9'
@@ -164,12 +163,12 @@ import { isHex, consumeOpt } from './common';
                             case Chars.ParagraphSeparator:
                             case Chars.LineSeparator:
                                 parser.index++;
-                                subType = recordRegExpErrors(Escape.TODO); // regex has no line continuation
+                                subType = reportRegExpError(Escape.TODO); // regex has no line continuation
                                 break;
                             default:
-                                if (isIdentRestChr(next)) return recordRegExpErrors(Escape.TODO);
+                                if (isIdentRestChr(next)) return reportRegExpError(Escape.TODO);
                                 parser.index++;
-                                subType = Type.GoodSansUFlag;
+                                subType = Type.MaybeUnicode;
                         }
 
                         type = getRegExpState(type, subType);
@@ -179,28 +178,28 @@ import { isHex, consumeOpt } from './common';
                     // '('
                 case Chars.LeftParen:
                     {
-                        if (parser.index >= parser.length) return recordRegExpErrors(Escape.TODO);
+                        if (parser.index >= parser.length) return reportRegExpError(Escape.TODO);
                         next = parser.source.charCodeAt(parser.index);
 
                         if (consumeOpt(parser, Chars.QuestionMark)) {
-                            if (parser.index >= parser.length) return recordRegExpErrors(Escape.TODO);
-                            next = parser.source.charCodeAt(parser.index);
-                            switch (parser.source.charCodeAt(parser.index)) {
+                            if (parser.index >= parser.length) return reportRegExpError(Escape.TODO);
+                           let  next = parser.source.charCodeAt(parser.index);
+                            switch (next) {
                                 case Chars.Colon:
                                 case Chars.EqualSign:
                                 case Chars.Exclamation:
                                     parser.index++;
-                                    if (parser.index >= parser.length) return recordRegExpErrors(Escape.TODO);
+                                    if (parser.index >= parser.length) return reportRegExpError(Escape.TODO);
                                     next = parser.source.charCodeAt(parser.index);
                                     break;
                                 default:
-                                    type = recordRegExpErrors(Escape.TODO);
+                                    type = reportRegExpError(Escape.TODO);
                             }
                         } else {
-                            ++parser.capturingParens;
+                           parser.capturingParens ++;
                         }
 
-                        const subType = parseRegexBody(parser, context, next, depth + 1, Type.Valid);
+                        const subType = parseRegexBody(parser, context, depth + 1, Type.Valid);
                         state = state | InternalState.MaybeQuantifier;
                         type = getRegExpState(type, subType);
                         break;
@@ -209,7 +208,7 @@ import { isHex, consumeOpt } from './common';
                     // `)`
                 case Chars.RightParen:
                     if (depth > 0) return type;
-                    type = recordRegExpErrors(Escape.TODO); // invalid group
+                    type = reportRegExpError(Escape.TODO); // invalid group
                     state = state | InternalState.MaybeQuantifier;
                     break;
 
@@ -222,7 +221,7 @@ import { isHex, consumeOpt } from './common';
 
                     // ']'
                 case Chars.RightBracket:
-                    type = recordRegExpErrors(Escape.TODO);
+                    type = reportRegExpError(Escape.TODO);
                     state = state | InternalState.MaybeQuantifier;
                     break;
 
@@ -240,7 +239,7 @@ import { isHex, consumeOpt } from './common';
                             }
                         }
                     } else {
-                        type = recordRegExpErrors(Escape.TODO);
+                        type = reportRegExpError(Escape.TODO);
                     }
                     break;
 
@@ -249,21 +248,21 @@ import { isHex, consumeOpt } from './common';
 
                     if ((state & InternalState.MaybeQuantifier) === InternalState.MaybeQuantifier) {
                         if (!parseIntervalQuantifier(parser)) {
-                            type = recordRegExpErrors(Escape.TODO);
+                            type = reportRegExpError(Escape.TODO);
                         }
                         if (parser.index < parser.length && parser.source.charCodeAt(parser.index) == Chars.QuestionMark) {
                             parser.index++;
                         }
                         state = state & ~InternalState.MaybeQuantifier;
                     } else {
-                        type = recordRegExpErrors(Escape.TODO);
+                        type = reportRegExpError(Escape.TODO);
                     }
                     break;
 
                     // '}'
                 case Chars.RightBrace:
 
-                    type = recordRegExpErrors(Escape.TODO);
+                    type = reportRegExpError(Escape.TODO);
                     state = state & ~InternalState.MaybeQuantifier;
                     break;
 
@@ -272,12 +271,12 @@ import { isHex, consumeOpt } from './common';
                 case Chars.LineFeed:
                 case Chars.ParagraphSeparator:
                 case Chars.LineSeparator:
-                    return recordRegExpErrors(Escape.TODO);
+                    return reportRegExpError(Escape.TODO);
                 default:
                     state = state | InternalState.MaybeQuantifier;
             }
         }
 
         // Invalid regular expression
-        return recordRegExpErrors(Escape.Invalid);
+        return reportRegExpError(Escape.Invalid);
     }
