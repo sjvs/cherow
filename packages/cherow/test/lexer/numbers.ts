@@ -28,7 +28,7 @@ describe('Lexer - Numbers', () => {
             [Context.Empty, '1.34', 1.34, Token.NumericLiteral],
             [Context.Empty, '.44', 0.44, Token.NumericLiteral],
 
-            // Binary 
+            // Binary
 
             [Context.Empty, '0b10', 2, Token.NumericLiteral],
             [Context.Empty, '0B011', 3, Token.NumericLiteral],
@@ -41,7 +41,7 @@ describe('Lexer - Numbers', () => {
             [Context.Empty, '0b01010110101111010111101011', 22738411, Token.NumericLiteral],
             [Context.Empty, '0b01010110101101101011110101111010111010111101011', 47671431493099, Token.NumericLiteral],
 
-            // Hex 
+            // Hex
             [Context.Empty, '0x10', 16, Token.NumericLiteral],
             [Context.Empty, '0x100', 256, Token.NumericLiteral],
             [Context.Empty, '0xabc', 2748, Token.NumericLiteral],
@@ -81,7 +81,7 @@ describe('Lexer - Numbers', () => {
             [Context.OptionsNext, '123n', 123, Token.BigInt],
 
             // Numeric separators - hex
-            [Context.OptionsNext, '0x10n', 16, Token.BigInt],
+            //[Context.OptionsNext, '0x10n', 16, Token.BigInt],
 
             // Numeric separators - octal
             [Context.OptionsNext, '0o7n', 7, Token.BigInt],
