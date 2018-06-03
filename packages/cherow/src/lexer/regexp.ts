@@ -6,17 +6,20 @@ import { Errors, recordErrors } from '../errors';
 import { isValidIdentifierPart } from '../unicode';
 import { isHex, consumeOpt } from './common';
 
-    // Intentionally negative
-    const enum Escape {
-      Empty = -1,
-      Unclosed = -2,
-      InvalidRegExp = -3,
-      OutOfRange = -4,
-      UnterminatedGroup = -5,
-      NothingToRepeat = -6,
-      UnterminatedRegExpLiteral = -7,
-      TODO = -8,
-  }
+ // Intentionally negative, and used for tracking errors
+ // in "editor mode"
+
+ const enum Escape {
+  Empty                      = -1,
+  Unclosed                   = -2,
+  InvalidRegExp              = -3,
+  OutOfRange                 = -4,
+  UnterminatedGroup          = -5,
+  NothingToRepeat            = -6,
+  UnterminatedRegExpLiteral  = -7,
+  InvalidGroup               = -8,
+  TODO                       = -9,
+}
 
   function parseRegexBody(parser: Parser, context: Context, depth: number, type: number): Type {
 
@@ -65,7 +68,7 @@ import { isHex, consumeOpt } from './common';
                           // 'u'
                           case Chars.LowerU:
                               parser.index++;
-                              subType = parseRegexUnicodeEscape(parser);
+                              subType = validateUnicodeEscape(parser);
                               break;
 
                            // 'x', 'X'
@@ -143,8 +146,7 @@ import { isHex, consumeOpt } from './common';
 
                               // '0'
                           case Chars.Zero:
-                              parser.index++;
-                              if (isDecimalDigit(parser.source.charCodeAt(parser.index))) return recordRegExpErrors(Escape.TODO);
+                              if (isDecimalDigit(parser.source.charCodeAt(parser.index + 1))) return recordRegExpErrors(Escape.TODO);
                               break;
 
                               // '1' - '9'
@@ -212,13 +214,13 @@ import { isHex, consumeOpt } from './common';
                   // `)`
               case Chars.RightParen:
                   if (depth > 0) return type;
-                  type = recordRegExpErrors(Escape.UnterminatedGroup);
+                  type = recordRegExpErrors(Escape.InvalidGroup);
                   MaybeQuantifier = true;
                   break;
 
                   // '['
               case Chars.LeftBracket:
-                  const subType = parseRegexCharClass(parser);
+                  const subType = parseCharacterClass(parser);
                   type = getRegExpState(type, subType);
                   MaybeQuantifier = true;
                   break;
