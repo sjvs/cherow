@@ -6,6 +6,16 @@ import { Errors, recordErrors } from '../errors';
 import { isValidIdentifierPart } from '../unicode';
 import { isHex, consumeOpt, readNext, toHex } from './common';
 
+const enum RegExpFlags {
+  Empty = 0,
+  Global = 0x01,
+  IgnoreCase = 0x02,
+  Multiline = 0x04,
+  Unicode = 0x08,
+  Sticky = 0x10,
+  DotAll = 0x20,
+}
+
 /**
  * Returns true if valid unicode continue
  *
@@ -16,6 +26,15 @@ function isValidUnicodeidcontinue(code: number): boolean {
         code === Chars.Dollar ||
         code === Chars.Underscore ||
         code >= Chars.Zero && code <= Chars.Nine;
+}
+
+function isFlagStart(code: number) {
+  return isValidIdentifierPart(code) ||
+      code === Chars.Backslash ||
+      code === Chars.Dollar ||
+      code === Chars.Underscore ||
+      code === Chars.Zwnj ||
+      code === Chars.Zwj;
 }
 
 /**
@@ -423,4 +442,60 @@ function scanClassCharacterEscape(parser: Parser): Type | Chars {
       default:
           return Type.InvalidClass;
   }
+}
+
+/**
+ * Scans regular expression flags
+ *
+ * @param parser Parser object
+ * @param context Context masks
+ */
+function scanRegexFlags(parser: Parser, context: Context) {
+
+  let mask = Flags.Empty;
+
+  const flagsStart = parser.index;
+
+  loop:
+  while (parser.index < parser.length) {
+      const code = parser.source.charCodeAt(parser.index);
+      switch (code) {
+      case Chars.LowerG:
+          if (mask & RegExpFlags.Global) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 'g');
+          mask |= RegExpFlags.Global;
+          break;
+
+      case Chars.LowerI:
+          if (mask & RegExpFlags.IgnoreCase) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 'i');
+          mask |= RegExpFlags.IgnoreCase;
+          break;
+
+      case Chars.LowerM:
+          if (mask & RegExpFlags.Multiline) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 'm');
+          mask |= RegExpFlags.Multiline;
+          break;
+
+      case Chars.LowerU:
+          if (mask & RegExpFlags.Unicode) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 'u');
+          mask |= RegExpFlags.Unicode;
+          break;
+
+      case Chars.LowerY:
+          if (mask & RegExpFlags.Sticky) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 'y');
+          mask |= RegExpFlags.Sticky;
+          break;
+
+       case Chars.LowerS:
+              if (mask & RegExpFlags.DotAll) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 's');
+              mask |= RegExpFlags.DotAll;
+              break;
+          // falls through
+      default:
+          if (!isFlagStart(code)) break loop;
+          return recordErrors(parser, context, Errors.Unexpected);
+      }
+
+      parser.index++;
+  }
+  return mask & RegExpFlags.Unicode ? Type.OnlyUnicode : Type.MaybeUnicode;
 }
