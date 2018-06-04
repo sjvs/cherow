@@ -7,10 +7,18 @@ import { Token, tokenDesc } from '../../src/token';
 describe('Lexer - Regeular expressions', () => {
 
     const regExs: Array < [string, Type] > = [
+        ['\\b(\\w+) \\1\\b/', Type.Valid],
+        [`\\c\\u0414/`, Type.Valid],
+        [`\\c\\u0414/`, Type.Valid],
+        [`\\c\\u0420/`, Type.Valid],
+        [`\\c\\u042C/`, Type.Valid],
+        ['^\\170$/', Type.Valid],
+        ['^\\777$/', Type.Valid],
         ['^[ァ-ンヴー]*$/', Type.Valid],
         ['^a/gm', Type.Valid],
         ['[:-\s]+/', Type.Valid],
         ['.*\b/', Type.Valid],
+        [']/', Type.Valid],
         ['[b-]/u', Type.Valid],
         ['(a)/g', Type.Valid],
         ['(ab)/g', Type.Valid],
@@ -21,7 +29,7 @@ describe('Lexer - Regeular expressions', () => {
         ['\\\0/', Type.Valid],
         ['\\\0a/', Type.Valid],
         ['0a*/', Type.Valid],
-        ['\s+/', Type.Valid],
+        ['\\s+/', Type.Valid],
         ['(ab)/g', Type.Valid],
         ['^\c$/', Type.Valid],
         ['\c/', Type.Valid],
@@ -91,35 +99,35 @@ describe('Lexer - Regeular expressions', () => {
         ['([\\0-\\x1f\\x7f]|^-?\\d)|^-$|[^\\0-\\x1f\\x7f-\\uFFFF\\w-]/g', Type.Valid],
         ['^<([a-z][^\/\\0>:\\x20\\t\\r\\n\\f]*)[\\x20\\t\\r\\n\\f]*\/?>(?:<\/\\1>|)$/i', Type.Valid],
         ['^(?:\\s*(<[\\w\\W]+>)[^>]*|#([\\w-]+))$/', Type.Valid],
-        ['^(?:parents|prev(?:Until|All))/', Type.Valid],
+        ['^(?:parents|prev(?:Until|All))/', Type.Valid],        
         ['[^\\x20\\t\\r\\n\\f]+/g', Type.Valid],
         ['^(Eval|Internal|Range|Reference|Syntax|Type|URI)Error$/', Type.Valid],
         ['^-ms-/', Type.Valid],
-        ['-([a-z])/g', Type.Valid],
+        ['-([a-z])/g', Type.Valid],        
         ['^(?:\\{[\\w\\W]*\\}|\\[[\\w\\W]*\\])$/', Type.Valid],
         ['[+-]?(?:\\d*\.|)\\d+(?:[eE][+-]?\\d+|)/', Type.Valid],
         ['/<([a-z][^\/\\0>\\x20\\t\\r\\n\\f]+)/i ', Type.Valid],
-        ['<|&#?\\w+;/;', Type.Valid],
+        ['<|&#?\\w+;/;', Type.Valid],        
         ['^([^.]*)(?:\.(.+)|)/', Type.Valid],
         ['^(?:toggle|show|hide)$/', Type.Valid],
         ['^(?:a|area)$/', Type.Valid],
-        ['\\r/g', Type.Valid],
+        ['\\r/g', Type.Valid],        
         ['[\\cz]/u', Type.Valid],
         ['[\\cx]/u', Type.Valid],
         ['[\\cw]/u', Type.Valid],
-        ['[\\cu]/u', Type.Valid],
+        ['[\\cu]/u', Type.Valid],        
         ['[\\cz]/u', Type.Valid],
         ['[\\cx]/u', Type.Valid],
         ['[\\cw]/u', Type.Valid],
-        ['[\\cu]/u', Type.Valid],
+        ['[\\cu]/u', Type.Valid],        
         ['[\\cz]/u', Type.Valid],
         ['[\\cx]/u', Type.Valid],
         ['[\\cw]/u', Type.Valid],
-        ['[\\cu]/u', Type.Valid],
+        ['[\\cu]/u', Type.Valid],        
         ['[\\cz]/u', Type.Valid],
         ['[\\cx]/u', Type.Valid],
         ['[\\cw]/u', Type.Valid],
-        ['[\\cu]/u', Type.Valid],
+        ['[\\cu]/u', Type.Valid],        
         ['a()\\1/', Type.Valid],
         [`[^<\"]*\"|'[^<']*'/`, Type.Valid],
         ['$sup/', Type.Valid],
@@ -629,7 +637,7 @@ describe('Lexer - Regeular expressions', () => {
         ['(?:a(?:b)c)/', Type.Valid],
         ['a(?:(?:b)c)c/', Type.Valid],
         ['(?:(?:b)c)c/', Type.Valid],
-        ['a(?!a(?!b)c)/', Type.Valid],
+        ['a(?!a(?!b)c)/', Type.Valid],     
         ['(?!a(?!b)c)c/', Type.Valid],
         ['a(?=a(?=b)c)c/', Type.Valid],
         ['a(?!a(?!b)c)c/', Type.Valid],
@@ -1136,7 +1144,6 @@ describe('Lexer - Regeular expressions', () => {
         ['[^a-z]{4}/', Type.Valid],
         ['c[\\b]{3}d/', Type.Valid],
         ['[a-z]+/', Type.Valid],
-//        ['\\b(\\w+) \\1\\b/', Type.Valid],
         ['([xu]\\d{2}([A-H]{2})?)\\1/', Type.Valid],
         ['([xu]\\d{2}([A-H]{2})?)\\1/', Type.Valid],
         ['(?=)/', Type.Valid],
@@ -1310,8 +1317,6 @@ describe('Lexer - Regeular expressions', () => {
         ['\\u{12345}{3}/u', Type.Valid],
         ['(?=.)*/u', Type.Valid],
         ['[\\u0062-\\u0066]oo/', Type.Valid],
-        //        [']/u', Type.Valid],
-
         ['(?=a){0}/', Type.Valid],
         ['(?=a){1}/', Type.Valid],
         ['(?!a){0}/', Type.Valid],
@@ -1425,7 +1430,6 @@ describe('Lexer - Regeular expressions', () => {
         ['(?!)/', Type.Valid],
         ['(?=)/', Type.Valid],
         ['||||/', Type.Valid],
-
         ['\\x9/', Type.Invalid],
         ['\\x5/', Type.Invalid],
         ['\\x6/', Type.Invalid],
@@ -1586,8 +1590,6 @@ describe('Lexer - Regeular expressions', () => {
         ['[\\_abcd]/', Type.Invalid],
         ['[abc\\_abcd]/', Type.Invalid],
         ['[\\.', Type.Invalid],
-
-
         ['[b-G\\10]/', Type.Invalid],
         ['[d-G\\b]/', Type.Invalid],
         ['[d-G\\B]/', Type.Invalid],
@@ -1666,7 +1668,6 @@ describe('Lexer - Regeular expressions', () => {
         ['?a', Type.Invalid],
         ['+a', Type.Invalid],
         ['a++/', Type.Invalid],
-
         ['\\_abcd/', Type.Invalid],
         ['\\_abcd/', Type.Invalid],
         ['abc\\_/', Type.Invalid],
@@ -1712,7 +1713,6 @@ describe('Lexer - Regeular expressions', () => {
         ['\\Nabcd/', Type.Invalid],
         ['\\a/', Type.Invalid],
         ['[\\377]/', Type.Invalid],
-
         ['[\\c_]/', Type.Invalid],
         ['[\\c0-]/', Type.Invalid],
         ['[0-9--/]/', Type.Invalid],
@@ -2199,6 +2199,8 @@ describe('Lexer - Regeular expressions', () => {
         ['a( a(b  )c)', Type.Invalid],
         ['(a(  b)c)c/u', Type.Invalid],
         ['a(a( b)c)c/u', Type.Invalid],
+
+
         ['<body.*>((.*\\n?)*?)<\\/body>/i', Type.Invalid],
         ['^(([a-z]+)*([a-z])\\.)+[a-z]{2,}$/', Type.Invalid],
         ['[1234567].{2}/', Type.Invalid],
@@ -2226,10 +2228,11 @@ describe('Lexer - Regeular expressions', () => {
         ['${re}/u', Type.Invalid],
         ['\\Z/u', Type.Invalid],
         ['\\p/', Type.Invalid],
+        [']/u', Type.Invalid],
         ['\\*/u', Type.Invalid],
         ['\\+/u', Type.Invalid],
         ['x/', Type.Invalid],
-
+        ['[\\r]/', Type.Invalid],
     ]
 
     for (const [regExp, state] of regExs) {
@@ -2244,5 +2247,5 @@ describe('Lexer - Regeular expressions', () => {
         });
     }
 
-
+    
 });

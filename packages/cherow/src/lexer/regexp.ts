@@ -6,7 +6,7 @@ import { Errors, recordErrors } from '../errors';
 import { isValidIdentifierPart } from '../unicode';
 import { isHex, consumeOpt } from './common';
 
-    function scanRegexBody(parser: Parser, context: Context, depth: number, type: number): Type {
+  function scanRegexBody(parser: Parser, context: Context, depth: number, type: number): Type {
 
         let maybeQuantifier = false;
 
@@ -84,13 +84,10 @@ import { isHex, consumeOpt } from './common';
                             // 'c'
                             case Chars.LowerC: {
                                 parser.index++;
-                                if (parser.index >= parser.length) return recordRegExpErrors(parser, context,  Errors.Unexpected);
-                                if (isAZaz(parser.source.charCodeAt(parser.index))) {
-                                    parser.index++;
-                                    subType = Type.Valid;
-                                    break;
-                                }
-                                subType = recordRegExpErrors(parser, context,  Errors.Unexpected);
+                                if (parser.index >= parser.length) {
+                                  return recordRegExpErrors(parser, context,  Errors.Unexpected);
+                                };
+                                if (!isAZaz(next)) subType = recordRegExpErrors(parser, context,  Errors.Unexpected);
                                 break;
                             }
                                 // ControlEscape :: one of
@@ -214,7 +211,7 @@ import { isHex, consumeOpt } from './common';
 
                     // ']'
                 case Chars.RightBracket:
-                    type = recordRegExpErrors(parser, context,  Errors.Unexpected);
+                    type = Type.MaybeUnicode;
                     maybeQuantifier = true;
                     break;
 
@@ -268,4 +265,3 @@ import { isHex, consumeOpt } from './common';
         // Invalid regular expression
         return recordRegExpErrors(parser, context,  Errors.Unexpected);
     }
-
