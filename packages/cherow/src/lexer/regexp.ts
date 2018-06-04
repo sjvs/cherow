@@ -292,129 +292,135 @@ function scanRegexBody(parser: Parser, context: Context, depth: number, type: nu
  *
  * @param parser Parser object
  */
-
 function scanClassCharacterEscape(parser: Parser): Type | Chars {
 
-    const next = parser.source.charCodeAt(parser.index);
+  const next = parser.source.charCodeAt(parser.index);
 
-    parser.index++;
+  parser.index++;
 
-    switch (next) {
+  switch (next) {
 
-        case Chars.LowerB:
-            return Chars.Backspace;
+      // 'b'
+      case Chars.LowerB:
+          return Chars.Backspace;
 
-            // ControlEscape :: one of
-            //   f n r t v
-        case Chars.LowerF:
-            return Chars.FormFeed;
-        case Chars.LowerN:
-            return Chars.LineFeed;
-        case Chars.LowerR:
-            return Chars.CarriageReturn;
-        case Chars.LowerT:
-            return Chars.Tab;
-        case Chars.LowerV:
-            return Chars.VerticalTab;
+          // 'B'
+      case Chars.UpperB:
+          return Type.InvalidClass;
 
-            // CharacterClassEscape :: one of
-            //   d D s S w W
-        case Chars.UpperD:
-        case Chars.LowerD:
-        case Chars.UpperS:
-        case Chars.LowerS:
-        case Chars.UpperW:
-        case Chars.LowerW:
-            return Type.InvalidClassRange;
+          // ControlEscape :: one of
+          //   f n r t v
+      case Chars.LowerF:
+          return Chars.FormFeed;
+      case Chars.LowerN:
+          return Chars.LineFeed;
+      case Chars.LowerR:
+          return Chars.CarriageReturn;
+      case Chars.LowerT:
+          return Chars.Tab;
+      case Chars.LowerV:
+          return Chars.VerticalTab;
+          // CharacterClassEscape :: one of
+          //   d D s S w W
+      case Chars.UpperD:
+      case Chars.LowerD:
+      case Chars.UpperS:
+      case Chars.LowerS:
+      case Chars.UpperW:
+      case Chars.LowerW:
+          return Type.InvalidClassRange;
 
-        case Chars.Caret:
-        case Chars.Dollar:
-        case Chars.Backslash:
-        case Chars.Period:
-        case Chars.Asterisk:
-        case Chars.Plus:
-        case Chars.QuestionMark:
-        case Chars.LeftParen:
-        case Chars.RightParen:
-        case Chars.LeftBracket:
-        case Chars.RightBracket:
-        case Chars.LeftBrace:
-        case Chars.RightBrace:
-        case Chars.VerticalBar:
-            return next;
+      case Chars.Caret:
+      case Chars.Dollar:
+      case Chars.Backslash:
+      case Chars.Period:
+      case Chars.Asterisk:
+      case Chars.Plus:
+      case Chars.QuestionMark:
+      case Chars.LeftParen:
+      case Chars.RightParen:
+      case Chars.LeftBracket:
+      case Chars.RightBracket:
+      case Chars.LeftBrace:
+      case Chars.RightBrace:
+      case Chars.VerticalBar:
+      case Chars.Slash:
+          return next;
 
-        case Chars.Slash:
-            return Chars.Slash;
+          // '-'
+      case Chars.Hyphen:
+          return Chars.Hyphen | Type.InvalidNoUnicodeClass;
 
-        case Chars.Hyphen:
-            return Chars.Hyphen | Type.InvalidNoUnicodeClass;
+          // '0'
+      case Chars.Zero:
+          // With /u, \0 is interpreted as NUL if not followed by another digit.
+          if (parser.index < parser.length && isDecimalDigit(parser.source.charCodeAt(parser.index))) {
+              return Type.InvalidClass;
+          }
+          return 0;
 
-            // '0'
-        case Chars.Zero:
-            // With /u, \0 is interpreted as NUL if not followed by another digit.
-            if (parser.index < parser.length && isDecimalDigit(parser.source.charCodeAt(parser.index))) {
-                return Type.InvalidClass;
-            }
-            return 0;
-
-            // '1' - '9';
-        case Chars.One:
-        case Chars.Two:
-        case Chars.Three:
-        case Chars.Four:
-        case Chars.Five:
-        case Chars.Six:
-        case Chars.Seven:
-        case Chars.Eight:
-        case Chars.Nine:
-            return Type.InvalidClass;
-
-            // ASCII escapes
-        case Chars.LowerX: {
-           if (parser.index >= parser.length - 1) return Type.InvalidClass;
-            const ch1 = parser.source.charCodeAt(parser.index);
-            const hi = toHex(ch1);
-            if (hi < 0) return Type.InvalidClass;
-            parser.index++;
-            const ch2 = parser.source.charCodeAt(parser.index);
-            const lo = toHex(ch2);
-            if (lo < 0) return Type.InvalidClass;
-            parser.index++;
-            return (hi << 4) | lo;
-        }
-
-        case Chars.LowerU:
-            {
-                if (consumeOpt(parser, Chars.LeftBrace)) {
-                    const type = validateUnicodeEscape(parser);
-                    if (type !== Type.InvalidClass || (parser.index < parser.length &&
-                        consumeOpt(parser, Chars.RightBrace))) {
-                        parser.index++;
-                    }
-                    return type;
-                }
-                const first = toHex(parser.source.charCodeAt(parser.index));
-                if (first < 0) return Type.InvalidClass;
-                const second = toHex(parser.source.charCodeAt(parser.index + 1));
-                if (second < 0) return Type.InvalidClass;
-                const third = toHex(parser.source.charCodeAt(parser.index + 2));
-                if (third < 0) return Type.InvalidClass;
-                const fourth = toHex(parser.source.charCodeAt(parser.index + 3));
-                if (fourth < 0) return Type.InvalidClass;
-                parser.index += 4;
-                return (first << 12) | (second << 8) | (third << 4) | fourth;
-            }
+          // '1' - '9';
+      case Chars.One:
+      case Chars.Two:
+      case Chars.Three:
+      case Chars.Four:
+      case Chars.Five:
+      case Chars.Six:
+      case Chars.Seven:
+      case Chars.Eight:
+      case Chars.Nine:
+          return Type.InvalidClass;
+          // 'c'
+      case Chars.LowerC:
+          {
+              if (parser.index < parser.length) {
+                  const next = parser.source.charCodeAt(parser.index);
+                  if (isAZaz(next)) return next;
+              }
+              return Type.InvalidClass;
+          }
 
           // UCS-2/Unicode escapes
-        case Chars.LowerC: {
+      case Chars.LowerU:
+          {
+              if (consumeOpt(parser, Chars.LeftBrace)) {
+                  // \u{N}
+                  if (parser.index >= parser.length) return Type.InvalidClass;
+                  const type = scanUnicodeEscape(parser);
+                  if (type !== Type.InvalidClass || (parser.index < parser.length &&
+                          consumeOpt(parser, Chars.RightBrace))) {
+                      parser.index++;
+                  }
+                  return type;
+              } else {
+                  // \uNNNN
+                  const first = toHex(parser.source.charCodeAt(parser.index));
+                  if (first < 0) return Type.InvalidClass;
+                  const second = toHex(parser.source.charCodeAt(parser.index + 1));
+                  if (second < 0) return Type.InvalidClass;
+                  const third = toHex(parser.source.charCodeAt(parser.index + 2));
+                  if (third < 0) return Type.InvalidClass;
+                  const fourth = toHex(parser.source.charCodeAt(parser.index + 3));
+                  if (fourth < 0) return Type.InvalidClass;
+                  parser.index += 4;
+                  return (first << 12) | (second << 8) | (third << 4) | fourth;
+              }
+          }
+          // ASCII escapes
+      case Chars.LowerX:
 
-            if (parser.index < parser.length) {
-                const next = parser.source.charCodeAt(parser.index);
-                if (isAZaz(next)) return next;
-            }
-          // falls through
-        }
-        default:
-            return Type.InvalidClass;
-    }
+          if (parser.index >= parser.length - 1) return Type.InvalidClass;
+          const ch1 = parser.source.charCodeAt(parser.index);
+          const hi = toHex(ch1);
+          if (hi < 0) return Type.InvalidClass;
+          parser.index++;
+          const ch2 = parser.source.charCodeAt(parser.index);
+          const lo = toHex(ch2);
+          if (lo < 0) return Type.InvalidClass;
+          parser.index++;
+          return (hi << 4) | lo;
+
+      default:
+          return Type.InvalidClass;
+  }
 }
