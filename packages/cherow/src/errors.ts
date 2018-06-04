@@ -41,7 +41,21 @@ export const enum Errors {
     AsAfterImportStart,
     MissingFromClause,
     UnexpectedReserved,
-    DuplicateRegExpFlag
+    DuplicateRegExpFlag,
+    NothingToRepeat,
+    LoneQuantifierBrackets,
+    UnterminatedGroup,
+    InvalidUnicodeEscape,
+    InvalidGroup,
+    RegexpOutOfOrder,
+    IncompleteQuantifier,
+    InvalidGroupName,
+    InvalidEscape,
+    InvalidNamedReference,
+    UnterminatedCharacterClass,
+    OutOfOrderCharacterClass,
+
+
 }
 /*@internal*/
 export const errorMessages: {
@@ -86,7 +100,18 @@ export const errorMessages: {
     [Errors.MissingFromClause]: 'Expected keyword \'%0\'',
     [Errors.UnexpectedReserved]: 'Unexpected reserved word',
     [Errors.DuplicateRegExpFlag]: 'Duplicate regular expression flag \'%0\'',
-    
+    [Errors.NothingToRepeat]: 'Nothing to repeat',
+    [Errors.LoneQuantifierBrackets]: 'Lone quantifier brackets',
+    [Errors.UnterminatedGroup]: 'Unterminated group',
+    [Errors.InvalidGroup]: 'Invalid group',
+    [Errors.RegexpOutOfOrder]: 'Numbers out of order in {} quantifier',
+    [Errors.IncompleteQuantifier]: 'Incomplete quantifier',
+    [Errors.InvalidGroupName]: 'Invalid capture group name',
+    [Errors.InvalidEscape]: 'Invalid escape',
+    [Errors.InvalidNamedReference]: 'Invalid named reference',
+    [Errors.InvalidUnicodeEscape]: 'Invalid unicode escape',
+    [Errors.UnterminatedCharacterClass]: 'Unterminated character class',
+    [Errors.OutOfOrderCharacterClass]: 'Range out of order in character class',
 
 };
 
@@ -106,6 +131,7 @@ export function recordErrors(parser: Parser, context: Context, type: Errors, ...
     const { index, line, column } = parser;
     const message = errorMessages[type].replace(/%(\d+)/g, (_: string, i: number) => params[i]);
     const error = constructError(index, line, column, message);
-    if (context & Context.OptionsEditorMode && parser.onError) parser.onError(message, line, column);
-    else throw error;
+    if (context & Context.OptionsEditorMode) {
+        if (parser.onError) parser.onError(message, line, column);
+    } else throw error;   
 }

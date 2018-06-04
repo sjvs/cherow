@@ -6,280 +6,266 @@ import { Errors, recordErrors } from '../errors';
 import { isValidIdentifierPart } from '../unicode';
 import { isHex, consumeOpt } from './common';
 
- // Intentionally negative, and used for tracking errors
- // in "editor mode"
+    function scanRegexBody(parser: Parser, context: Context, depth: number, type: number): Type {
 
- const enum Escape {
-  Empty                      = -1,
-  Unclosed                   = -2,
-  InvalidRegExp              = -3,
-  OutOfRange                 = -4,
-  UnterminatedGroup          = -5,
-  NothingToRepeat            = -6,
-  UnterminatedRegExpLiteral  = -7,
-  InvalidGroup               = -8,
-  TODO                       = -9,
-}
+        let maybeQuantifier = false;
 
-  function parseRegexBody(parser: Parser, context: Context, depth: number, type: number): Type {
+        while (parser.index != parser.length) {
 
-      let MaybeQuantifier = false;
+            switch (parser.source.charCodeAt(parser.index++)) {
 
-      while (parser.index != parser.length) {
+                // `^`, `.`, `$`
+                case Chars.Caret:
+                case Chars.Period:
+                case Chars.Dollar:
+                    maybeQuantifier = true;
+                    break;
 
-          switch (parser.source.charCodeAt(parser.index++)) {
+                    // `|`
+                case Chars.VerticalBar:
+                    maybeQuantifier = false;
+                    break;
 
-              // `^`, `.`, `$`
-              case Chars.Caret:
-              case Chars.Period:
-              case Chars.Dollar:
-                  MaybeQuantifier = true;
-                  break;
+                // '/'
+                case Chars.Slash:
+                    if (depth) return recordRegExpErrors(parser, context, Errors.UnterminatedGroup);
+                    return type;
 
-                  // `|`
-              case Chars.VerticalBar:
-                  MaybeQuantifier = false;
-                  break;
+                    // Atom ::
+                    //   \ AtomEscape
+                case Chars.Backslash:
+                    {
+                      if (parser.index >= parser.length) return recordRegExpErrors(parser, context,  Errors.Unexpected);
 
-              // '/'
-              case Chars.Slash:
-                  if (depth) return recordRegExpErrors(Escape.UnterminatedGroup);
-                  return type;
+                      maybeQuantifier = true;
 
-                  // Atom ::
-                  //   \ AtomEscape
-              case Chars.Backslash:
-                  {
-                    if (parser.index >= parser.length) return recordRegExpErrors(Escape.UnterminatedRegExpLiteral);
+                      let subType = Type.Valid;
 
-                    MaybeQuantifier = true;
+                        const next = parser.source.charCodeAt(parser.index);
 
-                    let subType = Type.Valid;
+                        switch (next) {
 
-                      switch (parser.source.charCodeAt(parser.index)) {
-
-                          // 'b', 'B'
-                          case Chars.LowerB:
-                          case Chars.UpperB:
-                              parser.index++;
-                              MaybeQuantifier = false;
-                              break;
-
-                          // 'u'
-                          case Chars.LowerU:
-                              parser.index++;
-                              subType = validateUnicodeEscape(parser);
-                              break;
-
-                           // 'x', 'X'
-                          case Chars.UpperX:
-                          case Chars.LowerX: {
+                            // 'b', 'B'
+                            case Chars.LowerB:
+                            case Chars.UpperB:
                                 parser.index++;
-                                 if (parser.index >= parser.length) {
-                                  subType = recordRegExpErrors(Escape.TODO);
-                              } else if (!isHex(parser.source.charCodeAt(parser.index))) {
-                                  subType = recordRegExpErrors(Escape.TODO);
-                              } else {
+                                maybeQuantifier = false;
+                                break;
+
+                            // 'u'
+                            case Chars.LowerU:
+                                parser.index++;
+                                subType = validateUnicodeEscape(parser, context);
+                                break;
+
+                             // 'x', 'X'
+                            case Chars.UpperX:
+                            case Chars.LowerX: {
                                   parser.index++;
-                                  if (parser.index >= parser.length) {
-                                      subType = recordRegExpErrors(Escape.TODO);
-                                  }
+                                   if (parser.index >= parser.length) {
+                                    subType = recordRegExpErrors(parser, context,  Errors.Unexpected);
+                                } else if (!isHex(parser.source.charCodeAt(parser.index))) {
+                                    subType = recordRegExpErrors(parser, context,  Errors.Unexpected);
+                                } else {
+                                    parser.index++;
+                                    if (parser.index >= parser.length) {
+                                        subType = recordRegExpErrors(parser, context,  Errors.Unexpected);
+                                    }
 
-                                  if (!isHex(parser.source.charCodeAt(parser.index))) {
-                                      subType = recordRegExpErrors(Escape.TODO);
-                                      break;
-                                  }
-                                  parser.index++;
-                              }
-                              break;
-                          }
+                                    if (!isHex(parser.source.charCodeAt(parser.index))) {
+                                        subType = recordRegExpErrors(parser, context,  Errors.Unexpected);
+                                        break;
+                                    }
+                                    parser.index++;
+                                }
+                                break;
+                            }
 
-                          // 'c'
-                          case Chars.LowerC: {
-                              parser.index++;
-                              if (parser.index >= parser.length) return recordRegExpErrors(Escape.TODO);
-                              const next = parser.source.charCodeAt(parser.index);
-                              if (isAZaz(next)) {
-                                  parser.index++;
-                                  subType = Type.Valid;
-                                  break;
-                              }
-                              subType = recordRegExpErrors(Escape.TODO);
-                              break;
-                          }
-                              // ControlEscape :: one of
-                              //   f n r t v
-                          case Chars.LowerF:
-                          case Chars.LowerN:
-                          case Chars.LowerR:
-                          case Chars.LowerT:
-                          case Chars.LowerV:
+                            // 'c'
+                            case Chars.LowerC: {
+                                parser.index++;
+                                if (parser.index >= parser.length) return recordRegExpErrors(parser, context,  Errors.Unexpected);
+                                if (isAZaz(parser.source.charCodeAt(parser.index))) {
+                                    parser.index++;
+                                    subType = Type.Valid;
+                                    break;
+                                }
+                                subType = recordRegExpErrors(parser, context,  Errors.Unexpected);
+                                break;
+                            }
+                                // ControlEscape :: one of
+                                //   f n r t v
+                            case Chars.LowerF:
+                            case Chars.LowerN:
+                            case Chars.LowerR:
+                            case Chars.LowerT:
+                            case Chars.LowerV:
 
-                              // AtomEscape ::
-                              //   CharacterClassEscape
-                              //
-                              // CharacterClassEscape :: one of
-                              //   d D s S w W
-                          case Chars.UpperD:
-                          case Chars.LowerD:
-                          case Chars.UpperS:
-                          case Chars.LowerS:
-                          case Chars.UpperW:
-                          case Chars.LowerW:
-                          case Chars.Caret:
-                          case Chars.Dollar:
-                          case Chars.Backslash:
-                          case Chars.Period:
-                          case Chars.Asterisk:
-                          case Chars.Plus:
-                          case Chars.QuestionMark:
-                          case Chars.LeftParen:
-                          case Chars.RightParen:
-                          case Chars.LeftBracket:
-                          case Chars.RightBracket:
-                          case Chars.LeftBrace:
-                          case Chars.RightBrace:
-                          case Chars.VerticalBar:
-                          case Chars.Slash:
-                              parser.index++;
-                              break;
+                                // AtomEscape ::
+                                //   CharacterClassEscape
+                                //
+                                // CharacterClassEscape :: one of
+                                //   d D s S w W
+                            case Chars.UpperD:
+                            case Chars.LowerD:
+                            case Chars.UpperS:
+                            case Chars.LowerS:
+                            case Chars.UpperW:
+                            case Chars.LowerW:
+                            case Chars.Caret:
+                            case Chars.Dollar:
+                            case Chars.Backslash:
+                            case Chars.Period:
+                            case Chars.Asterisk:
+                            case Chars.Plus:
+                            case Chars.QuestionMark:
+                            case Chars.LeftParen:
+                            case Chars.RightParen:
+                            case Chars.LeftBracket:
+                            case Chars.RightBracket:
+                            case Chars.LeftBrace:
+                            case Chars.RightBrace:
+                            case Chars.VerticalBar:
+                            case Chars.Slash:
+                                parser.index++;
+                                break;
 
-                              // '0'
-                          case Chars.Zero:
-                              if (isDecimalDigit(parser.source.charCodeAt(parser.index + 1))) return recordRegExpErrors(Escape.TODO);
-                              break;
+                                // '0'
+                            case Chars.Zero:
+                                parser.index++;
+                                if (isDecimalDigit(parser.source.charCodeAt(parser.index))) return recordRegExpErrors(parser, context,  Errors.Unexpected);
+                                break;
 
-                              // '1' - '9'
-                          case Chars.One:
-                          case Chars.Two:
-                          case Chars.Three:
-                          case Chars.Four:
-                          case Chars.Five:
-                          case Chars.Six:
-                          case Chars.Seven:
-                          case Chars.Eight:
-                          case Chars.Nine:
-                              subType = parseBackReferenceIndex(parser, parser.source.charCodeAt(parser.index));
-                              break;
-                          case Chars.CarriageReturn:
-                          case Chars.LineFeed:
-                          case Chars.ParagraphSeparator:
-                          case Chars.LineSeparator:
-                              parser.index++;
-                              subType = recordRegExpErrors(Escape.TODO);
-                              break;
-                          default:
-                              if (isValidUnicodeidcontinue(parser.source.charCodeAt(parser.index))) return recordRegExpErrors(Escape.TODO);
-                              parser.index++;
-                              subType = Type.MaybeUnicode;
-                      }
+                                // '1' - '9'
+                            case Chars.One:
+                            case Chars.Two:
+                            case Chars.Three:
+                            case Chars.Four:
+                            case Chars.Five:
+                            case Chars.Six:
+                            case Chars.Seven:
+                            case Chars.Eight:
+                            case Chars.Nine:
+                                subType = parseBackReferenceIndex(parser, next);
+                                break;
+                            case Chars.CarriageReturn:
+                            case Chars.LineFeed:
+                            case Chars.ParagraphSeparator:
+                            case Chars.LineSeparator:
+                                parser.index++;
+                                subType = recordRegExpErrors(parser, context,  Errors.Unexpected);
+                                break;
+                            default:
+                                if (isValidUnicodeidcontinue(next)) return recordRegExpErrors(parser, context,  Errors.Unexpected);
+                                parser.index++;
+                                subType = Type.MaybeUnicode;
+                        }
 
-                      type = getRegExpState(type, subType);
-                      break;
-                  }
+                        type = getRegExpState(parser, context, type, subType);
+                        break;
+                    }
 
-                  // '('
-              case Chars.LeftParen:
-                  {
-                      if (parser.index >= parser.length) return recordRegExpErrors(Escape.TODO);
+                    // '('
+                case Chars.LeftParen:
+                    {
+                        if (parser.index >= parser.length) return recordRegExpErrors(parser, context,  Errors.Unexpected);
 
-                      if (consumeOpt(parser, Chars.QuestionMark)) {
+                        if (consumeOpt(parser, Chars.QuestionMark)) {
 
-                          if (parser.index >= parser.length) return recordRegExpErrors(Escape.TODO);
+                            if (parser.index >= parser.length) return recordRegExpErrors(parser, context,  Errors.Unexpected);
 
-                          switch (parser.source.charCodeAt(parser.index)) {
+                            switch (parser.source.charCodeAt(parser.index)) {
 
-                              // ':', '=', '?'
-                              case Chars.Colon:
-                              case Chars.EqualSign:
-                              case Chars.Exclamation:
-                                  parser.index++;
-                                  // non capturing group
-                                  if (parser.index >= parser.length) return recordRegExpErrors(Escape.TODO);
+                                // ':', '=', '?'
+                                case Chars.Colon:
+                                case Chars.EqualSign:
+                                case Chars.Exclamation:
+                                    parser.index++;
+                                    // non capturing group
+                                    if (parser.index >= parser.length) return recordRegExpErrors(parser, context,  Errors.Unexpected);
 
-                                  break;
-                              default:
-                                  type = recordRegExpErrors(Escape.TODO);
-                          }
-                      } else {
-                          ++parser.capturingParens;
-                      }
+                                    break;
+                                default:
+                                    type = recordRegExpErrors(parser, context,  Errors.Unexpected);
+                            }
+                        } else {
+                            ++parser.capturingParens;
+                        }
 
-                      const subType = parseRegexBody(parser, context, depth + 1, Type.Valid);
-                      MaybeQuantifier = true;
-                      type = getRegExpState(type, subType);
-                      break;
-                  }
+                        const subType = scanRegexBody(parser, context, depth + 1, Type.Valid);
+                        maybeQuantifier = true;
+                        type = getRegExpState(parser, context, type, subType);
+                        break;
+                    }
 
-                  // `)`
-              case Chars.RightParen:
-                  if (depth > 0) return type;
-                  type = recordRegExpErrors(Escape.InvalidGroup);
-                  MaybeQuantifier = true;
-                  break;
+                    // `)`
+                case Chars.RightParen:
+                    if (depth > 0) return type;
+                    type = recordRegExpErrors(parser, context,  Errors.InvalidGroup);
+                    maybeQuantifier = true;
+                    break;
 
-                  // '['
-              case Chars.LeftBracket:
-                  const subType = parseCharacterClass(parser);
-                  type = getRegExpState(type, subType);
-                  MaybeQuantifier = true;
-                  break;
+                    // '['
+                case Chars.LeftBracket:
+                    const subType = parseCharacterClass(parser, context);
+                    type = getRegExpState(parser, context, type, subType);
+                    maybeQuantifier = true;
+                    break;
 
-                  // ']'
-              case Chars.RightBracket:
-                  type = recordRegExpErrors(Escape.TODO);
-                  MaybeQuantifier = true;
-                  break;
+                    // ']'
+                case Chars.RightBracket:
+                    type = recordRegExpErrors(parser, context,  Errors.Unexpected);
+                    maybeQuantifier = true;
+                    break;
 
-                  // '*', '+', '?'
-              case Chars.Asterisk:
-              case Chars.Plus:
-              case Chars.QuestionMark:
-                  if (MaybeQuantifier) {
-                      MaybeQuantifier = false;
-                      if (parser.index < parser.length) {
-                          if (parser.source.charCodeAt(parser.index) == Chars.QuestionMark) {
-                              parser.index++;
-                          }
-                      }
-                  } else {
-                      type = recordRegExpErrors(Escape.NothingToRepeat);
-                  }
-                  break;
+                    // '*', '+', '?'
+                case Chars.Asterisk:
+                case Chars.Plus:
+                case Chars.QuestionMark:
+                    if (maybeQuantifier) {
+                        maybeQuantifier = false;
+                        if (parser.index < parser.length) {
+                            consumeOpt(parser, Chars.QuestionMark);
+                        }
+                    } else {
+                        type = recordRegExpErrors(parser, context,  Errors.NothingToRepeat);
+                    }
+                    break;
 
-                  // '{'
-              case Chars.LeftBrace:
+                    // '{'
+                case Chars.LeftBrace:
 
-                  if (MaybeQuantifier) {
-                      if (!parseIntervalQuantifier(parser)) {
-                          type = recordRegExpErrors(Escape.NothingToRepeat);
-                      }
-                      if (parser.index < parser.length && parser.source.charCodeAt(parser.index) == Chars.QuestionMark) {
-                          parser.index++;
-                      }
-                      MaybeQuantifier = false;
-                  } else {
-                      type = recordRegExpErrors(Escape.NothingToRepeat);
-                  }
-                  break;
+                    if (maybeQuantifier) {
+                        if (!parseIntervalQuantifier(parser)) {
+                            type = recordRegExpErrors(parser, context,  Errors.NothingToRepeat);
+                        }
+                        if (parser.index < parser.length) {
+                            consumeOpt(parser, Chars.QuestionMark);
+                        }
+                        maybeQuantifier = false;
+                    } else {
+                        type = recordRegExpErrors(parser, context,  Errors.NothingToRepeat);
+                    }
+                    break;
 
-                  // '}'
-              case Chars.RightBrace:
-                  type = recordRegExpErrors(Escape.NothingToRepeat);
-                  MaybeQuantifier = false;
-                  break;
+                    // '}'
+                case Chars.RightBrace:
+                    type = recordRegExpErrors(parser, context,  Errors.NothingToRepeat);
+                    maybeQuantifier = false;
+                    break;
 
-                  // `LineTerminator`
-              case Chars.CarriageReturn:
-              case Chars.LineFeed:
-              case Chars.ParagraphSeparator:
-              case Chars.LineSeparator:
-                  return recordRegExpErrors(Escape.InvalidRegExp);
-              default:
-              MaybeQuantifier = true;
-          }
-      }
+                    // `LineTerminator`
+                case Chars.CarriageReturn:
+                case Chars.LineFeed:
+                case Chars.ParagraphSeparator:
+                case Chars.LineSeparator:
+                    return recordRegExpErrors(parser, context,  Errors.Unexpected);
+                default:
+                maybeQuantifier = true;
+            }
+        }
 
-      // Invalid regular expression
-      return recordRegExpErrors(Escape.InvalidRegExp);
-  }
+        // Invalid regular expression
+        return recordRegExpErrors(parser, context,  Errors.Unexpected);
+    }
+

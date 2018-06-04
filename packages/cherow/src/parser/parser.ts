@@ -1,3 +1,4 @@
+import { EmptyStatement } from './../estree';
 import { Token } from '../token';
 import { Context, Flags, LabelState } from '../common';
 import { Parser, ErrorCallBack, Options } from '../types';
