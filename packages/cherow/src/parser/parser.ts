@@ -177,7 +177,17 @@ export function parseModule(source: string, options?: Options, errCallback?: Err
 export function validateRegExp(source: string, options?: Options, errCallback?: ErrorCallBack): boolean {
     // Create the parser object
     const parser = createParserObject(source, errCallback);
-    if (!consumeOpt(parser, Chars.Slash)) recordErrors(parser, Context.Empty, Errors.Unexpected);
-    const res = verifyRegExpPattern(parser, options && options.edit ? Context.OptionsEditorMode : Context.Empty);
-    return (res === RegexState.Valid) ? true : false;
+
+    let context = Context.Empty;
+
+    if (options !== undefined) {
+        // The flag to enable editor mode
+        if (options.edit) context |= Context.OptionsEditorMode;
+
+    }
+
+    if (!consumeOpt(parser, Chars.Slash)) recordErrors(parser, context, Errors.InvalidRegularExp);
+    const { state } = verifyRegExpPattern(parser, context);
+    if (state === RegexState.Invalid) recordErrors(parser, context, Errors.InvalidRegularExp);
+    return (state === RegexState.Valid) ? true : false;
 }
