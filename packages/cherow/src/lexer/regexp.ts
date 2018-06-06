@@ -16,7 +16,7 @@ import {
     consumeOpt,
     readNext,
     toHex,
-    isAsciiLetter,
+    isAZaz,
     isDecimalDigit,
     isFlagStart
 } from './common';
@@ -25,10 +25,9 @@ import {
  * Validates regular expression pattern
  *
  * @export
- * @param {Parser} parser
- * @param {Context} context
- * @returns {RegexState}
- */
+ * @param parser Parser object
+ * @param context Context masks
+  */
 export function verifyRegExpPattern(parser: Parser, context: Context): RegexState {
 
     const bodyStart = parser.index;
@@ -107,6 +106,16 @@ export function verifyRegExpPattern(parser: Parser, context: Context): RegexStat
     return state; // return Token.RegularExpression;
 }
 
+
+/**
+ * Scans the regular expression body
+ *
+ * @export
+ * @param parser Parser object
+ * @param context Context masks
+ * @param level
+ * @param state Validation state
+ */
 export function scanRegexBody(parser: Parser, context: Context, level: number, state: RegexState): RegexState {
 
     let maybeQuantifier = false;
@@ -156,7 +165,7 @@ export function scanRegexBody(parser: Parser, context: Context, level: number, s
                                     break;
                                 case Chars.LowerC:
                                     if (parser.index >= parser.length) subState = RegexState.Invalid;
-                                    else if (isAsciiLetter(ch)) {
+                                    else if (isAZaz(ch)) {
                                         subState = RegexState.Valid;
                                     }
                                     break;
