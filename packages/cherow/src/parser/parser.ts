@@ -5,7 +5,11 @@ import { Parser, ErrorCallBack, Options } from '../types';
 import * as ESTree from '../estree';
 import { parseStatementList } from './statements';
 import { parseModuleItemList } from './module';
-import { verifyRegExpPattern, State } from '../lexer/regexp';
+import { Chars } from '../chars';
+import { consumeOpt, RegexState } from '../lexer/common';
+import { verifyRegExpPattern } from '../lexer/regexp';
+import { Errors, recordErrors, } from '../errors';
+
 /**
  * Creates the parser object
  *
@@ -173,6 +177,7 @@ export function parseModule(source: string, options?: Options, errCallback?: Err
 export function validateRegExp(source: string, options?: Options, errCallback?: ErrorCallBack): boolean {
     // Create the parser object
     const parser = createParserObject(source, errCallback);
+    if (!consumeOpt(parser, Chars.Slash)) recordErrors(parser, Context.Empty, Errors.Unexpected);
     const res = verifyRegExpPattern(parser, options && options.edit ? Context.OptionsEditorMode : Context.Empty);
-    return (res === State.Valid) ? true : false;
+    return (res === RegexState.Valid) ? true : false;
 }

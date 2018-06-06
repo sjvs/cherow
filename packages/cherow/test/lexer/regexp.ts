@@ -1,6 +1,7 @@
 import * as t from 'assert';
-import { verifyRegExpPattern, State } from '../../src/lexer/regexp';
+import { verifyRegExpPattern,  } from '../../src/lexer/regexp';
 import { createParserObject } from '../../src/parser/parser';
+import { RegexState } from '../../src/lexer/common';
 import { Context } from '../../src/common';
 import { Token, tokenDesc } from '../../src/token';
 
@@ -71,7 +72,7 @@ describe('Lexer - Regeular expressions', () => {
                     t.deepEqual({
                         token: found,
                     }, {
-                        token: State.Invalid,
+                        token: RegexState.Invalid,
                     });
                 });
             }
@@ -86,7 +87,7 @@ describe('Lexer - Regeular expressions', () => {
                     t.deepEqual({
                         token: found,
                     }, {
-                        token: State.Valid,
+                        token: RegexState.Valid,
                     });
                 });
             }
@@ -104,7 +105,7 @@ describe('Lexer - Regeular expressions', () => {
                     t.deepEqual({
                         token: found,
                     }, {
-                        token: State.Invalid,
+                        token: RegexState.Invalid,
                     });
                 });
             }
@@ -119,7 +120,7 @@ describe('Lexer - Regeular expressions', () => {
                     t.deepEqual({
                         token: found,
                     }, {
-                        token: State.Invalid,
+                        token: RegexState.Invalid,
                     });
                 });
             }
@@ -134,7 +135,7 @@ describe('Lexer - Regeular expressions', () => {
                     t.deepEqual({
                         token: found,
                     }, {
-                        token: State.Invalid,
+                        token: RegexState.Invalid,
                     });
                 });
             }
@@ -149,7 +150,7 @@ describe('Lexer - Regeular expressions', () => {
                     t.deepEqual({
                         token: found,
                     }, {
-                        token: State.Invalid,
+                        token: RegexState.Invalid,
                     });
                 });
             }
@@ -185,7 +186,7 @@ describe('Lexer - Regeular expressions', () => {
                     t.deepEqual({
                         token: found,
                     }, {
-                        token: State.Invalid,
+                        token: RegexState.Invalid,
                     });
                 });
             }
@@ -227,7 +228,7 @@ describe('Lexer - Regeular expressions', () => {
                     t.deepEqual({
                         token: found,
                     }, {
-                        token: State.Valid,
+                        token: RegexState.Valid,
                     });
                 });
             }
@@ -256,7 +257,7 @@ describe('Lexer - Regeular expressions', () => {
                 t.deepEqual({
                     token: found,
                 }, {
-                    token: State.Invalid,
+                    token: RegexState.Invalid,
                 });
             });
         }
@@ -1188,7 +1189,7 @@ describe('Lexer - Regeular expressions', () => {
                 t.deepEqual({
                     token: found,
                 }, {
-                    token: State.Valid,
+                    token: RegexState.Valid,
                 });
             });
         }
@@ -1409,7 +1410,7 @@ describe('Lexer - Regeular expressions', () => {
                 t.deepEqual({
                     token: found,
                 }, {
-                    token: State.Valid,
+                    token: RegexState.Valid,
                 });
             });
         }
@@ -1669,7 +1670,7 @@ describe('Lexer - Regeular expressions', () => {
                 t.deepEqual({
                     token: found,
                 }, {
-                    token: State.Invalid,
+                    token: RegexState.Invalid,
                 });
             });
         }
