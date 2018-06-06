@@ -67,12 +67,12 @@ describe('Lexer - Regeular expressions', () => {
             if (!isAlphaDigit(s) && !isSyntaxCharacter(s) && s !== "/") {
                 it(`scans '[\\c${s}]/u'`, () => {
                     const parser = createParserObject(`[\\c${s}]/u`, undefined);
-                    const found = verifyRegExpPattern(parser, Context.OptionsEditorMode);
+                    const { state } = verifyRegExpPattern(parser, Context.OptionsEditorMode);
 
                     t.deepEqual({
-                        token: found,
+                        state,
                     }, {
-                        token: RegexState.Invalid,
+                        state: RegexState.Invalid,
                     });
                 });
             }
@@ -83,11 +83,11 @@ describe('Lexer - Regeular expressions', () => {
             if (!isValidAlphaEscapeInAtom(s)) {
                 it(`scans '[\\c${s}]/u'`, () => {
                     const parser = createParserObject(`[\\c${s}]/u`, undefined);
-                    const found = verifyRegExpPattern(parser, Context.OptionsEditorMode);
+                    const { state } = verifyRegExpPattern(parser, Context.OptionsEditorMode);
                     t.deepEqual({
-                        token: found,
+                        state,
                     }, {
-                        token: RegexState.Valid,
+                        state: RegexState.Valid,
                     });
                 });
             }
@@ -100,12 +100,12 @@ describe('Lexer - Regeular expressions', () => {
 
                 it(`scans '[\\c${s}]/u'`, () => {
                     const parser = createParserObject(`[\\c${s}]/u`, undefined);
-                    const found = verifyRegExpPattern(parser, Context.OptionsEditorMode);
+                    const { state } = verifyRegExpPattern(parser, Context.OptionsEditorMode);
 
                     t.deepEqual({
-                        token: found,
+                        state,
                     }, {
-                        token: RegexState.Invalid,
+                        state: RegexState.Invalid,
                     });
                 });
             }
@@ -116,11 +116,11 @@ describe('Lexer - Regeular expressions', () => {
             if (!isAlphaDigit(s) && !isSyntaxCharacter(s) && s !== "/") {
                 it(`scans '\\c${s}]/u'`, () => {
                     const parser = createParserObject(`\\c${s}]/u`, undefined);
-                    const found = verifyRegExpPattern(parser, Context.OptionsEditorMode);
+                    const { state } = verifyRegExpPattern(parser, Context.OptionsEditorMode);
                     t.deepEqual({
-                        token: found,
+                        state,
                     }, {
-                        token: RegexState.Invalid,
+                        state: RegexState.Invalid,
                     });
                 });
             }
@@ -131,11 +131,11 @@ describe('Lexer - Regeular expressions', () => {
             if (!isValidAlphaEscapeInAtom(s)) {
                 it(`scans '\\c${s}]/u'`, () => {
                     const parser = createParserObject(`\\c${s}]/u`, undefined);
-                    const found = verifyRegExpPattern(parser, Context.OptionsEditorMode);
+                    const { state } = verifyRegExpPattern(parser, Context.OptionsEditorMode);
                     t.deepEqual({
-                        token: found,
+                        state,
                     }, {
-                        token: RegexState.Invalid,
+                        state: RegexState.Invalid,
                     });
                 });
             }
@@ -146,11 +146,11 @@ describe('Lexer - Regeular expressions', () => {
             if (!isValidAlphaEscapeInAtom(s)) {
                 it(`scans '\\c${s}]/u'`, () => {
                     const parser = createParserObject(`\\c${s}]/u`, undefined);
-                    const found = verifyRegExpPattern(parser, Context.OptionsEditorMode);
+                    const { state } = verifyRegExpPattern(parser, Context.OptionsEditorMode);
                     t.deepEqual({
-                        token: found,
+                        state,
                     }, {
-                        token: RegexState.Invalid,
+                        state: RegexState.Invalid,
                     });
                 });
             }
@@ -182,11 +182,11 @@ describe('Lexer - Regeular expressions', () => {
             for (const arg of failuresss) {
                 it(`${arg}`, () => {
                     const parser = createParserObject(`${arg}`, undefined);
-                    const found = verifyRegExpPattern(parser, Context.OptionsEditorMode);
+                    const { state } = verifyRegExpPattern(parser, Context.OptionsEditorMode);
                     t.deepEqual({
-                        token: found,
+                        state,
                     }, {
-                        token: RegexState.Invalid,
+                        state: RegexState.Invalid,
                     });
                 });
             }
@@ -224,11 +224,11 @@ describe('Lexer - Regeular expressions', () => {
             for (const arg of Test262Cases) {
                 it(`${arg}`, () => {
                     const parser = createParserObject(`${arg}`, undefined);
-                    const found = verifyRegExpPattern(parser, Context.OptionsEditorMode);
+                    const { state } = verifyRegExpPattern(parser, Context.OptionsEditorMode);
                     t.deepEqual({
-                        token: found,
+                        state,
                     }, {
-                        token: RegexState.Valid,
+                        state: RegexState.Valid,
                     });
                 });
             }
@@ -253,11 +253,11 @@ describe('Lexer - Regeular expressions', () => {
         for (const arg of failuresss) {
             it(`${arg}`, () => {
                 const parser = createParserObject(`${arg}`, undefined);
-                const found = verifyRegExpPattern(parser, Context.OptionsEditorMode);
+                const { state } = verifyRegExpPattern(parser, Context.OptionsEditorMode);
                 t.deepEqual({
-                    token: found,
+                    state,
                 }, {
-                    token: RegexState.Invalid,
+                    state: RegexState.Invalid,
                 });
             });
         }
@@ -1185,11 +1185,11 @@ describe('Lexer - Regeular expressions', () => {
         for (const arg of failuresss) {
             it(`${arg}`, () => {
                 const parser = createParserObject(`${arg}`, undefined);
-                const found = verifyRegExpPattern(parser, Context.OptionsEditorMode);
+                const { state } = verifyRegExpPattern(parser, Context.OptionsEditorMode);
                 t.deepEqual({
-                    token: found,
+                    state,
                 }, {
-                    token: RegexState.Valid,
+                    state: RegexState.Valid,
                 });
             });
         }
@@ -1406,11 +1406,11 @@ describe('Lexer - Regeular expressions', () => {
         for (const arg of valid) {
             it(`${arg}`, () => {
                 const parser = createParserObject(`${arg}`, undefined);
-                const found = verifyRegExpPattern(parser, Context.OptionsEditorMode);
+                const { state } = verifyRegExpPattern(parser, Context.OptionsEditorMode);
                 t.deepEqual({
-                    token: found,
+                    state,
                 }, {
-                    token: RegexState.Valid,
+                    state: RegexState.Valid,
                 });
             });
         }
@@ -1666,11 +1666,11 @@ describe('Lexer - Regeular expressions', () => {
         for (const arg of failures) {
             it(`${arg}`, () => {
                 const parser = createParserObject(`${arg}`, undefined);
-                const found = verifyRegExpPattern(parser, Context.OptionsEditorMode);
+                const { state } = verifyRegExpPattern(parser, Context.OptionsEditorMode);
                 t.deepEqual({
-                    token: found,
+                    state,
                 }, {
-                    token: RegexState.Invalid,
+                    state: RegexState.Invalid,
                 });
             });
         }

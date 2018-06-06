@@ -16,106 +16,106 @@ import {
     consumeOpt,
     readNext,
     toHex,
-    isAZaz,
+    isAsciiLetter,
     isDecimalDigit,
     isFlagStart
 } from './common';
 
 /**
- * Validates regular expression pattern
+ * Scans regular expression pattern
  *
  * @export
  * @param parser Parser object
  * @param context Context masks
-  */
-export function verifyRegExpPattern(parser: Parser, context: Context): RegexState {
+ */
+function scanRegularExpression(parser: Parser, context: Context): Token {
 
-    const bodyStart = parser.index;
-    const bodyState = scanRegexBody(parser, context, 0, RegexState.Valid);
+  const { flags, pattern, state } = verifyRegExpPattern(parser, context);
 
-    const bodyEnd = parser.index - 1;
+  parser.tokenRegExp = { pattern, flags };
 
-    let mask = Flags.Empty;
+  if (context & Context.OptionsRaw) parser.tokenRaw = parser.source.slice(parser.startIndex, parser.index);
 
-    const { index: flagStart } = parser;
+  try {
+      parser.tokenValue = new RegExp(pattern, flags);
+  } catch (e) {
+      parser.tokenValue = null;
+  }
 
-    loop:
-        while (parser.index < parser.length) {
-            const code = parser.source.charCodeAt(parser.index);
-            switch (code) {
-                case Chars.LowerG:
-                    if (mask & RegExpFlags.Global) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 'g');
-                    mask |= RegExpFlags.Global;
-                    break;
-
-                case Chars.LowerI:
-                    if (mask & RegExpFlags.IgnoreCase) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 'i');
-                    mask |= RegExpFlags.IgnoreCase;
-                    break;
-
-                case Chars.LowerM:
-                    if (mask & RegExpFlags.Multiline) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 'm');
-                    mask |= RegExpFlags.Multiline;
-                    break;
-
-                case Chars.LowerU:
-                    if (mask & RegExpFlags.Unicode) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 'u');
-                    mask |= RegExpFlags.Unicode;
-                    break;
-
-                case Chars.LowerY:
-                    if (mask & RegExpFlags.Sticky) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 'y');
-                    mask |= RegExpFlags.Sticky;
-                    break;
-
-                case Chars.LowerS:
-                    if (mask & RegExpFlags.DotAll) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 's');
-                    mask |= RegExpFlags.DotAll;
-                    break;
-                    // falls through
-                default:
-                    if (!isFlagStart(code)) break loop;
-                    recordErrors(parser, context, Errors.Unexpected);
-            }
-
-            parser.index++; parser.column++;
-        }
-
-    const state = setRegExpState(parser, mask & RegExpFlags.Unicode ? RegexState.StrictMode : RegexState.SloppyMode, bodyState);
-
-    // This is foolish! Will nevertheless return either "valid" or "invalid" if in editor mode.
-    if (state === RegexState.Valid) {
-
-        const flags = parser.source.slice(flagStart, parser.index);
-        const pattern = parser.source.slice(bodyStart, bodyEnd);
-
-        parser.tokenRegExp = {
-            pattern,
-            flags
-        };
-
-        if (context & Context.OptionsRaw) parser.tokenRaw = parser.source.slice(parser.startIndex, parser.index);
-        try {
-            parser.tokenValue = new RegExp(pattern, flags);
-        } catch (e) {
-            parser.tokenValue = null;
-        }
-    }
-
-    // Note! This should return the token, **NOT** the regexp state
-    return state; // return Token.RegularExpression;
+  return Token.RegularExpression;
 }
 
-
 /**
- * Scans the regular expression body
- *
- * @export
- * @param parser Parser object
- * @param context Context masks
- * @param level
- * @param state Validation state
- */
+* Validates regular expression pattern
+*
+* @export
+* @param {Parser} parser
+* @param {Context} context
+* @returns {RegexState}
+*/
+export function verifyRegExpPattern(parser: Parser, context: Context): {
+  flags: string; pattern: string; state: RegexState;
+} {
+  const bodyStart = parser.index;
+  const bodyState = scanRegexBody(parser, context, 0, RegexState.Valid);
+
+  const bodyEnd = parser.index - 1;
+
+  let mask = Flags.Empty;
+
+  const { index: flagStart } = parser;
+
+  loop:
+      while (parser.index < parser.length) {
+          const code = parser.source.charCodeAt(parser.index);
+          switch (code) {
+              case Chars.LowerG:
+                  if (mask & RegExpFlags.Global) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 'g');
+                  mask |= RegExpFlags.Global;
+                  break;
+
+              case Chars.LowerI:
+                  if (mask & RegExpFlags.IgnoreCase) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 'i');
+                  mask |= RegExpFlags.IgnoreCase;
+                  break;
+
+              case Chars.LowerM:
+                  if (mask & RegExpFlags.Multiline) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 'm');
+                  mask |= RegExpFlags.Multiline;
+                  break;
+
+              case Chars.LowerU:
+                  if (mask & RegExpFlags.Unicode) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 'u');
+                  mask |= RegExpFlags.Unicode;
+                  break;
+
+              case Chars.LowerY:
+                  if (mask & RegExpFlags.Sticky) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 'y');
+                  mask |= RegExpFlags.Sticky;
+                  break;
+
+              case Chars.LowerS:
+                  if (mask & RegExpFlags.DotAll) recordErrors(parser, context, Errors.DuplicateRegExpFlag, 's');
+                  mask |= RegExpFlags.DotAll;
+                  break;
+                  // falls through
+              default:
+                  if (!isFlagStart(code)) break loop;
+                  recordErrors(parser, context, Errors.Unexpected);
+          }
+
+          parser.index++;
+          parser.column++;
+      }
+
+  const state = setRegExpState(parser, mask & RegExpFlags.Unicode ? RegexState.StrictMode : RegexState.SloppyMode, bodyState);
+
+  const flags = parser.source.slice(flagStart, parser.index);
+  const pattern = parser.source.slice(bodyStart, bodyEnd);
+
+  return { flags, pattern, state };
+}
+
 export function scanRegexBody(parser: Parser, context: Context, level: number, state: RegexState): RegexState {
 
     let maybeQuantifier = false;
@@ -165,7 +165,7 @@ export function scanRegexBody(parser: Parser, context: Context, level: number, s
                                     break;
                                 case Chars.LowerC:
                                     if (parser.index >= parser.length) subState = RegexState.Invalid;
-                                    else if (isAZaz(ch)) {
+                                    else if (isAsciiLetter(ch)) {
                                         subState = RegexState.Valid;
                                     }
                                     break;
