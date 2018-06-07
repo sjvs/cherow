@@ -263,6 +263,198 @@ describe('Lexer - Regeular expressions', () => {
         }
     });
 
+    
+describe('Unicode ranges', () => {
+
+    // Invalid without unicode flag
+    const Invalid = [
+        '\\u{0123}/',
+        '\\u{4567}/',
+        '\\u{89abc}/',
+        '\\u{defAB}/',
+        '\\u{CDEF}/',
+        '\\u{0123}/',
+        'prefix \\u{012345}/',
+        '\\u{012345} postfix/',
+        '\\u{012345}\\u{6789a}/',
+        '\\u{103456}/',
+        '\\u{12345}/',
+        '\\u{1234}/',
+        '\\u{123}/',
+        '\\u{12}/',
+        '\\u{12}/',
+        '\\u{1}/',
+    ];
+
+    for (const arg of Invalid) {
+        it(`${arg}`, () => {
+            const parser = createParserObject(`${arg}`, undefined);
+            const { state } = verifyRegExpPattern(parser, Context.OptionsEditorMode);
+            t.deepEqual({
+                state,
+            }, {
+                state: RegexState.Invalid,
+            });
+        });
+    }
+
+    const valid = [
+        '\\u{0123}/u',
+        '\\u{4567}/u',
+        '\\u{89abc}/u',
+        '\\u{defAB}/u',
+        '\\u{CDEF}/u',
+        '\\u{0123}/u',
+        'prefix \\u{012345}/u',
+        '\\u{012345} postfix/u',
+        '\\u{012345}\\u{6789a}/u',
+        '\\u{103456}/u',
+        '\\u{12345}/u',
+        '\\u{1234}/u',
+        '\\u{123}/u',
+        '\\u{12}/u',
+        '\\u{12}/u',
+        '\\u{1}/u',
+        '\\u{0000000000000000000010ffff}/u',
+        '[ace-fipr\\u1680-\\u169e]/u',
+        '[ $+<->^`-ace-fipr|~\\u00a0¢-¥¨¬¯±´¸×÷˂-˅˒-˟˥-˫˭˯-˿͵΄-΅϶؆-؈؋৲-৳૱௹฿\\u1680-\\u169e៛\\u180e᾽᾿-῁῍-῏῝-῟῭-`´-῾\\u2000-\\u206e⁺-⁼₊-₌₠-₵⅀-⅄⅋←-↔↚-↛↠↣↦↮⇎-⇏⇒⇔⇴-⋿⌈-⌋⌠-⌡⍼⎛-⎳⏜-⏡▷◁◸-◿♯⟀-⟄⟇-⟊⟌⟐-⟥⟰-⟿⤀-⦂⦙-⧗⧜-⧻⧾-⫿⬰-⭄⭇-⭌\\u3000゛-゜꜀-꜖꜠-꜡꞉-꞊﬩﷼﹢﹤-﹦﹩＄＋＜-＞＾｀｜～￠-￣￥-￦￩-￬]|\\ud835[\\udec1\\udedb\\udefb\\udf15\\udf35\\udf4f\\udf6f\\udf89\\udfa9\\udfc3]/',
+        '[0-9٠-٩۰-۹߀-߉०-९০-৯੦-੯૦-૯୦-୯௦-௯౦-౯೦-೯൦-൯๐-๙໐-໙༠-༩၀-၉႐-႙០-៩᠐-᠙᥆-᥏᧐-᧙᭐-᭙᮰-᮹᱀-᱉᱐-᱙꘠-꘩꣐-꣙꤀-꤉꩐-꩙０-９]|\\ud801[\\udca0-\\udca9]|\\ud835[\\udfce-\\udfff]/',
+        '[ehlo]|\\ud83d[\\udf00-\\udf7e]|\\udb40[\\udc00-\\udc7e]/u',
+        '[acn-or─-╾\\u3000-〾ꔀ-\\ua63eꙀ-\\ua69e]|\\ud809[\\udc00-\\udc7e]|\\ud834[\\ude00-\\ude4e]/u',
+        '[aei-js߀-\\u07fe\\u0a00-\\u0a7e\\u0b80-\\u0bfe\\u0d00-ൾ\\u0e00-\\u0e7e▀-▞⨀-⫾⬀-\\u2bfe⼀-\\u2fde䷀-䷾\\ua8e0-\\ua8fe\\uaae0-\\uaafe\\uab00-\\uab2e]|[\\udbc0-\\udbfe][\\udc00-\\udfff]|\\ud801[\\udc80-\\udcae]|\\ud802[\\ude60-\\ude7e]|\\ud83c[\\ude00-\\udefe]|\\ud87e[\\udc00-\\ude1e]|\\udbff[\\udc00-\\udffe]/',
+        '[߀-\\u07fe]/',
+        '[\\u0000-\\u001f\\u007f-\\u009f]/u',
+        '\\u2028/u',
+        '[\\u0980-\\u09fe\\u0b80-\\u0bfe]/u',
+        '[ʰ-˾\\u0300-\\u036e\\u0530-\\u058e\\u08a0-\\u08fe\\u0c80-\\u0cfe᠀-\\u18ae\\u1cc0-\\u1cce\\u1dc0-\\u1dfe℀-ⅎ─-╾⤀-⥾]/u',
+        '[Ꭰ-\\u13fe⠀-⣾]/u',
+        '[\\ud800-\\udb7f\\udc00-\\uf8ff]|[\\udb80-\\udbbe\\udbc0-\\udbfe][\\udc00-\\udfff]|\\udbbf[\\udc00-\\udffd]|\\udbff[\\udc00-\\udffd]|[\\udb80-\\udbff]/u',
+        '[\\u0903\\u093e-\\u0940\\u0949-\\u094c\\u0982-\\u0983\\u09be-\\u09c0\\u09c7-\\u09c8\\u09cb-\\u09cc\\u09d7\\u0a03\\u0a3e-\\u0a40\\u0a83\\u0abe-\\u0ac0\\u0ac9\\u0acb-\\u0acc\\u0b02-\\u0b03\\u0b3e\\u0b40\\u0b47-\\u0b48\\u0b4b-\\u0b4c\\u0b57\\u0bbe-\\u0bbf\\u0bc1-\\u0bc2\\u0bc6-\\u0bc8\\u0bca-\\u0bcc\\u0bd7\\u0c01-\\u0c03\\u0c41-\\u0c44\\u0c82-\\u0c83\\u0cbe\\u0cc0-\\u0cc4\\u0cc7-\\u0cc8\\u0cca-\\u0ccb\\u0cd5-\\u0cd6\\u0d02-\\u0d03\\u0d3e-\\u0d40\\u0d46-\\u0d48\\u0d4a-\\u0d4c\\u0d57\\u0d82-\\u0d83\\u0dcf-\\u0dd1\\u0dd8-\\u0ddf\\u0df2-\\u0df3\\u0f3e-\\u0f3f\\u0f7f\\u102b-\\u102c\\u1031\\u1038\\u103b-\\u103c\\u1056-\\u1057\\u1062-\\u1064\\u1067-\\u106d\\u1083-\\u1084\\u1087-\\u108c\\u108f\\u17b6\\u17be-\\u17c5\\u17c7-\\u17c8\\u1923-\\u1926\\u1929-\\u192b\\u1930-\\u1931\\u1933-\\u1938\\u19b0-\\u19c0\\u19c8-\\u19c9\\u1a19-\\u1a1b\\u1b04\\u1b35\\u1b3b\\u1b3d-\\u1b41\\u1b43-\\u1b44\\u1b82\\u1ba1\\u1ba6-\\u1ba7\\u1baa\\u1c24-\\u1c2b\\u1c34-\\u1c35\\ua823-\\ua824\\ua827\\ua880-\\ua881\\ua8b4-\\ua8c3\\ua952-\\ua953\\uaa2f-\\uaa30\\uaa33-\\uaa34\\uaa4d]|\\ud834[\\udd65-\\udd66\\udd6d-\\udd72]/',
+        '\\ud804[\\udc80-\\udcce]/u',
+        '^[A-z]+$/u',
+        '[␀-\\u243e]/u',
+        '[␀-\\u243e]/u',
+        '[␀-\\u243e]/u',
+        '[␀-\\u243e]/u',
+        '[␀-\\u243e]/u',
+        '[␀-\\u243e]/u',
+        '[␀-\\u243e]/u',
+        '[␀-\\u243e]/u',
+        '[␀-\\u243e]/u',
+        '[␀-\\u243e]/u',
+        '[␀-\\u243e]/u',
+        '[␀-\\u243e]/u',
+        '[␀-\\u243e]/u',
+        '[␀-\\u243e]/u',
+        '[␀-\\u243e]/u',
+    ];
+
+    for (const arg of valid) {
+        it(`${arg}`, () => {
+            const parser = createParserObject(`${arg}`, undefined);
+            const {state } = verifyRegExpPattern(parser, Context.OptionsEditorMode);
+            t.deepEqual({
+                state,
+            }, {
+                state: RegexState.Valid,
+            });
+        });
+    }
+});
+
+describe('Surrogate', () => {
+    const validSurrogate = [
+        'TTT-TB[\\uDCA9\\uDCA9\\uDCA9-\\uDCA9x]/u',
+        'TTT-TT[\\uDCA9\\uDCA9\\uDCA9-\\uDCA9\\uDCA9]/u',
+        'TTT-TLL[\\uDCA9\\uDCA9\\uDCA9-\\uDCA9\\uD83D\\uD83D]/u',
+        'TTT-TBT[\\uDCA9\\uDCA9\\uDCA9-\\uDCA9x\\uDCA9]/u',
+        'TTT-TB[\\uDCA9\\uDCA9\\uDCA9-\\uDCA9x]/u',
+        'TTT-TTT[\\uDCA9\\uDCA9\\uDCA9-\\uDCA9\\uDCA9\\uDCA9]/u',
+        'TTT-TTL[\\uDCA9\\uDCA9\\uDCA9-\\uDCA9\\uDCA9\\uD83D]/u',
+        'TTT-TTB[\\uDCA9\\uDCA9\\uDCA9-\\uDCA9\\uDCA9x]/u',
+        'TTT-TT[\\uDCA9\\uDCA9\\uDCA9-\\uDCA9\\uDCA9]/u',
+        'TTT-TLB[\\uDCA9\\uDCA9\\uDCA9-\\uDCA9\\uD83Dx]/u',
+        'TTT-TBT[\\uDCA9\\uDCA9\\uDCA9-\\uDCA9x\\uDCA9]/u',
+        'TTT-TBL[\\uDCA9\\uDCA9\\uDCA9-\\uDCA9x\\uD83D]/u',
+    ];
+
+    for (const arg of validSurrogate) {
+        it(`${arg}`, () => {
+            const parser = createParserObject(`${arg}`, undefined);
+            const { state } = verifyRegExpPattern(parser, Context.OptionsEditorMode);
+            t.deepEqual({
+                state,
+            }, {
+                state: RegexState.Valid,
+            });
+        });
+    }
+
+    const invalidSurrogate = [
+
+        'T-LB[\\uDCA9-\\uD83Dx]/',
+        'BL-BT[x\\uD83D-x\\uDCA9]/',
+        'BL-BTB[x\\uD83D-x\\uDCA9x]/',
+        'BL-BTL[x\\uD83D-x\\uDCA9\\uD83D]/',
+        'BL-BTT[x\\uD83D-x\\uDCA9\\uDCA9]/',
+        'BT-B[x\\uDCA9-x]/',
+        'BT-BB[x\\uDCA9-xx]/',
+        'BT-BL[x\\uDCA9-x\\uD83D]/',
+        'BT-BT[x\\uDCA9-x\\uDCA9]/',
+        'BT-BB[x\\uDCA9-xx]/u',
+        'BT-BBB[x\\uDCA9-xxx]/u',
+        'BT-BBL[x\\uDCA9-xx\\uD83D]/u',
+        'BT-BBT[x\\uDCA9-xx\\uDCA9]/u',
+        'BT-BL[x\\uDCA9-x\\uD83D]/u',
+        'BT-BLB[x\\uDCA9-x\\uD83Dx]/u',
+        'BT-BLL[x\\uDCA9-x\\uD83D\\uD83D]/u',
+        'BT-BLT[x\\uDCA9-x\\uD83D\\uDCA9]/u',
+        'BT-BT[x\\uDCA9-x\\uDCA9]/u',
+        'BT-BTB[x\\uDCA9-x\\uDCA9x]/u',
+        'BT-BTL[x\\uDCA9-x\\uDCA9\\uD83D]/u',
+        'BT-BTT[x\\uDCA9-x\\uDCA9\\uDCA9]/u',
+        'BT-B[x\\uDCA9-x]/u',
+        'BT-BB[x\\uDCA9-xx]/u',
+        'BT-BL[x\\uDCA9-x\\uD83D]/u',
+        'BT-BT[x\\uDCA9-x\\uDCA9]/u',
+        'BT-BB[x\\uDCA9-xx]/u',
+        'BT-BBB[x\\uDCA9-xxx]/u',
+        'BT-BBL[x\\uDCA9-xx\\uD83D]/u',
+        'BT-BBT[x\\uDCA9-xx\\uDCA9]/u',
+        'BT-BL[x\\uDCA9-x\\uD83D]/u',
+        'BT-BLB[x\\uDCA9-x\\uD83Dx]/u',
+        'BT-BLL[x\\uDCA9-x\\uD83D\\uD83D]/u',
+        'BT-BLT[x\\uDCA9-x\\uD83D\\uDCA9]/u',
+        'BT-BT[x\\uDCA9-x\\uDCA9]/u',
+        'BT-BTB[x\\uDCA9-x\\uDCA9x]/u',
+        'BT-BTL[x\\uDCA9-x\\uDCA9\\uD83D]/',
+        'BT-BTT[x\\uDCA9-x\\uDCA9\\uDCA9]/',
+        'BT-L[x\\uDCA9-\\uD83D]/',
+        'BT-LB[x\\uDCA9-\\uD83Dx]/',
+        'BT-LL[x\\uDCA9-\\uD83D\\uD83D]/',
+        'BT-LT[x\\uDCA9-\\uD83D\\uDCA9]/',
+        'BT-LB[x\\uDCA9-\\uD83Dx]/',
+        'BT-LBB[x\\uDCA9-\\uD83Dxx]/',
+        'BT-LBL[x\\uDCA9-\\uD83Dx\\uD83D]/',
+
+
+    ];
+
+    for (const arg of invalidSurrogate) {
+        it(`${arg}`, () => {
+            const parser = createParserObject(`${arg}`, undefined);
+            const {
+                state
+            } = verifyRegExpPattern(parser, Context.OptionsEditorMode);
+               t.deepEqual({
+                state,
+            }, {
+                state: RegexState.Invalid,
+            });
+        });
+    }
+});
+
     describe('Sloppy mode', () => {
 
         const failuresss = [
@@ -1401,6 +1593,16 @@ describe('Lexer - Regeular expressions', () => {
             '[x\\ud810\\udc10\\ud810]/u',
             '[prefix \\u{012345}]/u',
             'a(?:b(?=c)d)e/',
+            '[^\\[\\b\\]]+/',
+            '\\%([0-9]*)\\[(\\^)?(\\]?[^\\]]*)\\]/',
+            '\\%([0-9]*)\\[(\\^)?\\]/',
+            '(\\]?[^\\]]*)\\]/',
+            '[\\]]/',
+            '[abc\\]]/',
+            '[^\\[\\b\\]]+/', '(\\]?[^\\]]*)\\]/u',
+            '[\\]]/u',
+            '[abc\\]]/u',
+            '[^\\[\\b\\]]+/u',
         ];
 
         for (const arg of valid) {

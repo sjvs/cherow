@@ -121,7 +121,7 @@ export const enum LabelState {
 }
 
 export function setGrammar(flags: Flags, mask: Flags): Context {
-    return (flags | flags) ^ mask;
+    return (flags | mask) ^ mask;
 }
 
 export function swapFlags(flags: Flags, mask: Flags): Flags {
