@@ -210,10 +210,16 @@ export function scanRegexBody(parser: Parser, context: Context, level: number, s
                                 case Chars.Slash:
                                     subState = RegexState.Valid;
                                     break;
-                                case Chars.Zero:
-                                    if (parser.index >= parser.length) subState = RegexState.Invalid;
-                                    if (!isDecimalDigit(parser.source.charCodeAt(parser.index))) subState = RegexState.Valid;
-                                    break;
+
+                                case Chars.Zero: {
+                                      const next = parser.source.charCodeAt(parser.index);
+                                      if (parser.index >= parser.length || next >= Chars.Zero && next <= Chars.Nine) {
+                                          subState = RegexState.Invalid;
+                                      } else subState = RegexState.Valid;
+
+                                      break;
+                                }
+
                                 case Chars.One:
                                 case Chars.Two:
                                 case Chars.Three:
@@ -243,6 +249,7 @@ export function scanRegexBody(parser: Parser, context: Context, level: number, s
                     break;
                 }
 
+            // '{'
             case Chars.LeftBrace:
                 {
                     if (maybeQuantifier) {
@@ -253,10 +260,12 @@ export function scanRegexBody(parser: Parser, context: Context, level: number, s
                     break;
                 }
 
+            // '}'
             case Chars.RightBrace:
                 state = RegexState.Invalid;
                 break;
 
+            // '('
             case Chars.LeftParen:
                 {
                     if (parser.index > parser.length) {
@@ -283,6 +292,7 @@ export function scanRegexBody(parser: Parser, context: Context, level: number, s
                     break;
                 }
 
+            // ')'
             case Chars.RightParen:
                 {
                     if (level > 0) return state;
@@ -291,6 +301,7 @@ export function scanRegexBody(parser: Parser, context: Context, level: number, s
                     break;
                 }
 
+            // '*',  '+', '?'
             case Chars.Asterisk:
             case Chars.Plus:
             case Chars.QuestionMark:
@@ -304,11 +315,13 @@ export function scanRegexBody(parser: Parser, context: Context, level: number, s
                 }
                 break;
 
+            // '['
             case Chars.LeftBracket:
                 state = setValidationState(state, validateCharacterClass(parser, context));
                 maybeQuantifier = true;
                 break;
 
+            // ']'
             case Chars.RightBracket:
                 state = RegexState.Invalid;
                 // maybeQuantifier = true;
