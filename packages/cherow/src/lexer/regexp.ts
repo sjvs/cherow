@@ -95,6 +95,7 @@ function validateRegexBody(
         switch (parser.source.charCodeAt(parser.index++)) {
 
             case Chars.Slash:
+
                 if (level !== 0) return RegexpState.Invalid;
                 return state;
 
@@ -168,7 +169,7 @@ function validateRegexBody(
                 break;
 
             case Chars.RightBracket:
-                state = RegexpState.MaybeBothModes;
+                state = RegexpState.Invalid;
                 maybeQuantifier = true;
                 break;
 
@@ -189,7 +190,15 @@ function validateRegexBody(
             case Chars.LeftBrace:
 
                 if (maybeQuantifier) {
-                    if (!parseIntervalQuantifier(parser)) {
+                    // Missing the first digits - 'a{,15}/u',
+                    // Invalid with 'u-flag'
+                    let res: any = parseIntervalQuantifier(parser);
+                    if (res & RegexpState.MissingDigits) {
+                        res = res ^ RegexpState.MissingDigits;
+                        if (res) return RegexpState.MaybeBothModes;
+                        return RegexpState.Invalid;
+                    } else if (!res) {
+                        // Nothing to repeat
                         state = RegexpState.Invalid;
                     }
                     if (parser.index < parser.length) {
