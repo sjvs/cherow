@@ -24,7 +24,7 @@ import {
 // - Optimize
 // - Maybe convert 'validateRegexBody' to a lookup table
 // - Add missing code
-//
+// - Fix the known bug with unicode flag (*should solve all non-failing tests*)
 
 /**
  * Scans regular expression pattern
