@@ -190,7 +190,7 @@ function validateRegexBody(
 
                if (maybeQuantifier) {
                     // Missing the first digits - '/a{,15}/u' - results in,
-                    // 'Incomplete quantifier' without the 'u-flag'
+                    // 'Incomplete quantifier' with the 'u-flag'.
                     let res: number | boolean = parseIntervalQuantifier(parser);
                     if (res as number & RegexpState.MissingDigits) {
                         res = res as number ^ RegexpState.MissingDigits;
