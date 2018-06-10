@@ -9,11 +9,14 @@ import {
     ClassRangesState,
     setRegExpState,
     setValidationState,
+    getUnicodeRange, 
+    getRange,
     consumeOpt,
     RegexpState,
     toHex,
     RegExpFlags,
-    isFlagStart
+    isFlagStart,
+    hasBit
 } from './common';
 
 // WIP
