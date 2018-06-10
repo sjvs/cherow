@@ -24,7 +24,6 @@ import {
 // - Optimize
 // - Maybe convert 'validateRegexBody' to a lookup table
 // - Add missing code
-// - Fix the known bug with unicode flag (*should solve all non-failing tests*)
 
 /**
  * Scans regular expression pattern
@@ -189,14 +188,14 @@ function validateRegexBody(
 
             case Chars.LeftBrace:
 
-                if (maybeQuantifier) {
-                    // Missing the first digits - 'a{,15}/u',
-                    // Invalid with 'u-flag'
-                    let res: any = parseIntervalQuantifier(parser);
-                    if (res & RegexpState.MissingDigits) {
-                        res = res ^ RegexpState.MissingDigits;
-                        if (res) return RegexpState.MaybeBothModes;
-                        return RegexpState.Invalid;
+               if (maybeQuantifier) {
+                    // Missing the first digits - '/a{,15}/u' - results in,
+                    // 'Incomplete quantifier' without the 'u-flag'
+                    let res: number | boolean = parseIntervalQuantifier(parser);
+                    if (res as number & RegexpState.MissingDigits) {
+                        res = res as number ^ RegexpState.MissingDigits;
+                        if (res) state = RegexpState.MaybeBothModes;
+                        else state = RegexpState.Invalid;
                     } else if (!res) {
                         // Nothing to repeat
                         state = RegexpState.Invalid;
@@ -208,6 +207,7 @@ function validateRegexBody(
                 } else {
                     state = RegexpState.Invalid;
                 }
+
                 break;
 
             case Chars.RightBrace:
