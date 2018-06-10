@@ -5,7 +5,7 @@ import { Token } from '../token';
 import { Errors, recordErrors } from '../errors';
 import {
     parseBackReferenceIndex,
-    parseIntervalQuantifier,
+    validateQuantifierPrefix,
     ClassRangesState,
     setRegExpState,
     setValidationState,
@@ -21,9 +21,11 @@ import {
 // TODO:
 //
 // - Adjusts masks and fix non-failing tests
+// - Add in error support
 // - Optimize
 // - Maybe convert 'validateRegexBody' to a lookup table
 // - Add missing code
+//
 
 /**
  * Scans regular expression pattern
@@ -34,8 +36,7 @@ import {
  */
 export function scanRegularExpression(parser: Parser, context: Context): Token {
 
-    const { flags, pattern } = verifyRegExpPattern(parser, context);
-
+    const { flags, pattern} = verifyRegExpPattern(parser, context);
     parser.tokenRegExp = { pattern, flags };
 
     if (context & Context.OptionsRaw) parser.tokenRaw = parser.source.slice(parser.startIndex, parser.index);
@@ -58,13 +59,13 @@ export function scanRegularExpression(parser: Parser, context: Context): Token {
  */
 
 export function verifyRegExpPattern(parser: Parser, context: Context): {
-    flags: string; pattern: string; state: RegexpState;
+    flags: string;pattern: string;state: RegexpState;
 } {
     const bodyStart = parser.index;
     const bodyState = validateRegexBody(parser, context, 0, RegexpState.Valid);
     const bodyEnd = parser.index - 1;
     const { index: flagStart } = parser;
-    const flagState = parseRegexFlags(parser, context);
+    const flagState = scanRegexFlags(parser, context);
     const flags = parser.source.slice(flagStart, parser.index);
     const pattern = parser.source.slice(bodyStart, bodyEnd);
     const state = setRegExpState(parser, flagState, bodyState);
@@ -77,13 +78,13 @@ export function verifyRegExpPattern(parser: Parser, context: Context): {
  * @export
  * @param parser Parser object
  * @param context Context masks
- * @param level
+ * @param depth
  * @param state Validation state
  */
 function validateRegexBody(
-    parser: Parser, 
-    context: Context, 
-    level: number, 
+    parser: Parser,
+    context: Context,
+    depth: number,
     state: RegexpState
 ): RegexpState {
 
@@ -93,19 +94,25 @@ function validateRegexBody(
 
         switch (parser.source.charCodeAt(parser.index++)) {
 
+            // `/`
             case Chars.Slash:
 
-                if (level !== 0) return RegexpState.Invalid;
+                if (depth !== 0) return RegexpState.Invalid;
                 return state;
 
+            // `|`
             case Chars.VerticalBar:
                 maybeQuantifier = false;
                 break;
 
-            case Chars.Caret: case Chars.Period: case Chars.Dollar:
+                // `^`, `$`, `.`
+            case Chars.Caret:
+            case Chars.Period:
+            case Chars.Dollar:
                 maybeQuantifier = true;
                 break;
 
+            // `\`
             case Chars.Backslash:
 
                 maybeQuantifier = true;
@@ -123,55 +130,45 @@ function validateRegexBody(
                 }
                 break;
 
+            // `(`
             case Chars.LeftParen:
 
-                if (parser.index >= parser.length) return RegexpState.Invalid;
-
-                if (consumeOpt(parser, Chars.QuestionMark)) {
-
-                    if (parser.index >= parser.length) {
-                        state = RegexpState.Invalid;
-                        break;
-                    }
-
-                    const ch = parser.source.charCodeAt(parser.index);
-
+                let ch = parser.source.charCodeAt(parser.index);
+                if (ch === Chars.QuestionMark) {
+                    parser.index++; parser.column++;
+                    ch = parser.source.charCodeAt(parser.index);
                     if (ch === Chars.Colon || ch === Chars.EqualSign || ch === Chars.Exclamation) {
-                        parser.index++;
-                        parser.column++;
-                        if (parser.index >= parser.length) {
-                            state = RegexpState.Invalid;
-                            break;
-                        }
-
-                    } else {
-                        state = RegexpState.Invalid;
-                    }
+                        parser.index++; parser.column++;
+                    } else state = RegexpState.Invalid;
                 } else {
                     ++parser.capturingParens;
                 }
 
                 maybeQuantifier = true;
-                state = setValidationState(state, validateRegexBody(parser, context, level + 1, RegexpState.Valid));
+                state = setValidationState(state, validateRegexBody(parser, context, depth + 1, RegexpState.Valid));
                 break;
 
+             // `)`
             case Chars.RightParen:
 
-                if (level > 0) return state;
+                if (depth > 0) return state;
                 state = RegexpState.Invalid;
                 maybeQuantifier = true;
                 break;
 
+            // `[`
             case Chars.LeftBracket:
                 state = setValidationState(state, validateCharacterClass(parser));
                 maybeQuantifier = true;
                 break;
 
+            // `]`
             case Chars.RightBracket:
                 state = RegexpState.Invalid;
                 maybeQuantifier = true;
                 break;
 
+            // `?`, `*`, `+`
             case Chars.Asterisk:
             case Chars.Plus:
             case Chars.QuestionMark:
@@ -186,15 +183,16 @@ function validateRegexBody(
                 }
                 break;
 
+            // `{`
             case Chars.LeftBrace:
 
-               if (maybeQuantifier) {
+                if (maybeQuantifier) {
                     // Missing the first digits - '/a{,15}/u' - results in,
-                    // 'Incomplete quantifier' with the 'u-flag'.
-                    let res: number | boolean = parseIntervalQuantifier(parser);
-                    if (res as number & RegexpState.MissingDigits) {
+                    // 'Incomplete quantifier' without the 'u-flag'
+                    let res: number | boolean = validateQuantifierPrefix(parser);
+                    if ((res as number) & RegexpState.MissingDigits) {
                         res = res as number ^ RegexpState.MissingDigits;
-                        if (res) state = RegexpState.MaybeBothModes;
+                        if (res) state = RegexpState.SloppyMode;
                         else state = RegexpState.Invalid;
                     } else if (!res) {
                         // Nothing to repeat
@@ -210,14 +208,18 @@ function validateRegexBody(
 
                 break;
 
+            // `}`
             case Chars.RightBrace:
 
                 state = RegexpState.Invalid;
                 maybeQuantifier = false;
                 break;
 
-            case Chars.CarriageReturn: case Chars.LineFeed: case Chars.LineSeparator:
-            case Chars.ParagraphSeparator: return RegexpState.Invalid;
+            case Chars.CarriageReturn:
+            case Chars.LineFeed:
+            case Chars.LineSeparator:
+            case Chars.ParagraphSeparator:
+                return RegexpState.Invalid;
             default:
                 maybeQuantifier = true;
         }
@@ -230,6 +232,8 @@ function validateRegexBody(
  * Validates atom escape
  *
  * @see [Link](https://tc39.github.io/ecma262/#prod-AtomEscape)
+ * @see [Link](https://www.ecma-international.org/ecma-262/8.0/#prod-DecimalEscape)
+ * 
  * @param parser Parser object
  */
 
@@ -280,12 +284,43 @@ function validateAtomEscape(parser: Parser): RegexpState {
 
             // RegExpUnicodeEscapeSequence[?U]
         case Chars.LowerU:
-            return validateUnicodeEscape(parser);
+            if (consumeOpt(parser, Chars.LeftBrace)) {
 
+                // \u{N}
+                let ch2 = parser.source.charCodeAt(parser.index);
+                let code = toHex(ch2);
+                if (code < 0) return RegexpState.Invalid;
+                parser.index++;
+                ch2 = parser.source.charCodeAt(parser.index);
+                while (ch2 !== Chars.RightBrace) {
+                    const digit = toHex(ch2);
+                    if (digit < 0) return RegexpState.Invalid;
+                    code = code * 16 + digit;
+                    // Code point out of bounds
+                    if (code > Chars.NonBMPMax) return RegexpState.Invalid;
+                    parser.index++;
+                    ch2 = parser.source.charCodeAt(parser.index);
+                }
+                parser.index++;
+                return RegexpState.UnicodeMode;
+            }
+
+            // \uNNNN
+            if (parser.index >= parser.length || toHex(parser.source.charCodeAt(parser.index)) < 0) {
+                return RegexpState.Invalid;
+            }
+            if (parser.index >= parser.length || toHex(parser.source.charCodeAt(parser.index++)) < 0) {
+                return RegexpState.Invalid;
+            }
+            // falls through
         case Chars.UpperX:
         case Chars.LowerX:
-            if (parser.index >= parser.length || toHex(parser.source.charCodeAt(parser.index++)) < 0) return RegexpState.Invalid;
-            if (parser.index >= parser.length || toHex(parser.source.charCodeAt(parser.index++)) < 0) return RegexpState.Invalid;
+            if (parser.index >= parser.length || toHex(parser.source.charCodeAt(parser.index++)) < 0) {
+                return RegexpState.Invalid;
+            }
+            if (parser.index >= parser.length || toHex(parser.source.charCodeAt(parser.index++)) < 0) {
+                return RegexpState.Invalid;
+            }
             return RegexpState.Valid;
 
         case Chars.LowerC:
@@ -297,7 +332,7 @@ function validateAtomEscape(parser: Parser): RegexpState {
                     if (letter >= Chars.UpperA && letter <= Chars.UpperZ) {
                         parser.index++;
                         parser.column++;
-                        return RegexpState.MaybeBothModes;
+                        return RegexpState.SloppyMode;
                     }
                 }
 
@@ -329,58 +364,8 @@ function validateAtomEscape(parser: Parser): RegexpState {
         case Chars.LineSeparator:
             return RegexpState.Invalid;
         default:
-        if (isFlagStart(next)) return RegexpState.Invalid;
-        return RegexpState.MaybeBothModes;
-    }
-}
-
-/**
- * Validates unicode escape
- *
- * @see [Link](https://www.ecma-international.org/ecma-262/8.0/#prod-DecimalEscape)
- *
- * @param parser Parser object
- * @param code Code point
- */
-function validateUnicodeEscape(parser: Parser): RegexpState {
-
-    if (parser.index >= parser.length) return RegexpState.InvalidClassEscape;
-
-    if (consumeOpt(parser, Chars.LeftBrace)) {
-
-        // \u{N}
-        let ch = parser.source.charCodeAt(parser.index);
-        let code = toHex(ch);
-        if (code < 0) return RegexpState.Invalid;
-        parser.index++;
-        ch = parser.source.charCodeAt(parser.index);
-        while (ch !== Chars.RightBrace) {
-            const digit = toHex(ch);
-            if (digit < 0) return RegexpState.Invalid;
-            code = code * 16 + digit;
-            // Code point out of bounds
-            if (code > Chars.NonBMPMax) return RegexpState.Invalid;
-            parser.index++;
-            ch = parser.source.charCodeAt(parser.index);
-        }
-        parser.index++;
-        return RegexpState.UnicodeMode;
-    } else {
-
-        if (parser.index >= parser.length - 3) return RegexpState.Invalid;
-        // \uNNNN
-        let codePoint = toHex(parser.source.charCodeAt(parser.index));
-        if (codePoint < 0) return RegexpState.Invalid;
-        for (let i = 0; i < 3; i++) {
-            parser.index++;
-            parser.column++;
-            const digit = toHex(parser.source.charCodeAt(parser.index));
-            if (digit < 0) return RegexpState.Invalid;
-            codePoint = codePoint * 16 + digit;
-        }
-        parser.index++;
-        parser.column++;
-        return RegexpState.Valid;
+            if (isFlagStart(next)) return RegexpState.Invalid;
+            return RegexpState.SloppyMode;
     }
 }
 
@@ -400,13 +385,13 @@ function validateCharacterClass(parser: Parser): RegexpState {
 }
 
 /**
- * Parser regular expression flags
+ * Scan regular expression flags
  *
  * @param parser Perser object
  * @param context Context masks
  * @returns
  */
-function parseRegexFlags(parser: Parser, context: Context) {
+function scanRegexFlags(parser: Parser, context: Context): RegexpState {
 
     let mask = RegExpFlags.Empty;
 
@@ -451,7 +436,7 @@ function parseRegexFlags(parser: Parser, context: Context) {
             parser.column++;
         }
 
-    return mask & RegExpFlags.Unicode ? RegexpState.UnicodeMode : RegexpState.MaybeBothModes;
+    return mask & RegExpFlags.Unicode ? RegexpState.UnicodeMode : RegexpState.SloppyMode;
 }
 
 /**
@@ -545,19 +530,17 @@ export function validateClassAndClassCharacterEscape(parser: Parser): RegexpStat
                     return code | RegexpState.InvalidCharClassInSloppy;
 
                 } else {
-                    if (parser.index >= parser.length - 3) return RegexpState.InvalidCharClass;
+
                     // \uNNNN
                     let codePoint = toHex(parser.source.charCodeAt(parser.index));
                     if (codePoint < 0) return RegexpState.InvalidCharClass;
                     for (let i = 0; i < 3; i++) {
-                        parser.index++;
-                        parser.column++;
+                        parser.index++; parser.column++;
                         const digit = toHex(parser.source.charCodeAt(parser.index));
                         if (digit < 0) return RegexpState.InvalidCharClass;
                         codePoint = codePoint * 16 + digit;
                     }
-                    parser.index++;
-                    parser.column++;
+                    parser.index++; parser.column++;
                     return codePoint;
                 }
             }
