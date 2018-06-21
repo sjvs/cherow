@@ -19,6 +19,7 @@ function package(script) {
 module.exports = (pkgName, outDir = 'dist') => {
   return {
     scripts: {
+      bench: `node --allow-natives-syntax bench/bench.js`,
       lint: `tslint --project ${config('build')}`,
       test: {
         default: mocha('test/**/*.ts'),
