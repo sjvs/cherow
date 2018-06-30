@@ -6,6 +6,21 @@ import { Token } from '../../src/token';
 
 // Note: 66 000 tests - it also tests escaped values for template literals
 
+export const enum Chars {
+  EnglishUpperA = 0x41,
+      EnglishUpperZ = 0x5A,
+      EnglishLowerA = 0x61,
+      EnglishLowerZ = 0x7A,
+      RussianUpperА = 0x410,
+      RussianUpperЯ = 0x42F,
+      RussianUpperЁ = 0x401,
+      RussianLowerА = 0x430,
+      RussianLowerЯ = 0x44F,
+      RussianLowerЁ = 0x451,
+      Zero = 0x30,
+      Nine = 0x39,
+}
+
 describe('Lexer - String literal', () => {
 
   function pass(name: string, opts: any) {
@@ -313,20 +328,7 @@ fail("doesn't scan '\\u{11ffff}'", "'\\u{11ffff}'");
       line: 1,
       column: 3,
   });
-  const enum Chars {
-      EnglishUpperA = 0x41,
-          EnglishUpperZ = 0x5A,
-          EnglishLowerA = 0x61,
-          EnglishLowerZ = 0x7A,
-          RussianUpperА = 0x410,
-          RussianUpperЯ = 0x42F,
-          RussianUpperЁ = 0x401,
-          RussianLowerА = 0x430,
-          RussianLowerЯ = 0x44F,
-          RussianLowerЁ = 0x451,
-          Zero = 0x30,
-          Nine = 0x39,
-  }
+
   describe('English capitals', () => {
       for (let code = Chars.EnglishUpperA; code <= Chars.EnglishUpperZ; code++) {
           const letter = String.fromCharCode(code);

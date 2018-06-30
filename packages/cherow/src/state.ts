@@ -4,7 +4,7 @@ import { OnComment, OnToken } from './types';
 import { CommentType } from './lexer/comments';
 
 export class State {
-  public readonly index: number;
+  public index: number;
   public column: number;
   public line: number;
   public startIndex: number;

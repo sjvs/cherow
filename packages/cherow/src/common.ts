@@ -4,6 +4,8 @@ export const enum Context {
   ExpressionStart      = 1 << 10,
   Strict               = 1 << 14,
   Module               = 1 << 15,
+  TaggedTemplate               = 1 << 16,
+
 }
 
 export const enum Flags {
