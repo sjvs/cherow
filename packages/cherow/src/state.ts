@@ -1,6 +1,7 @@
 import { Token } from './token';
 import { Flags, Context } from './common';
-import { Options, OnError, OnToken } from './types';
+import { Options, OnError, OnComment, OnToken } from './types';
+import * as ESTree from './estree';
 import { CommentType } from './lexer/comments';
 
 export class State {
