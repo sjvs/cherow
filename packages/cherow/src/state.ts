@@ -13,6 +13,7 @@ export class State {
   public nextChar: number;
   public flags: Flags;
   public token: Token;
+  public tokenRaw: string;
   public onToken: OnToken;
   public onComment: OnComment;
   public commentState: number | undefined;
@@ -32,6 +33,7 @@ export class State {
       this.tokenValue = 0;
       this.nextChar = source.charCodeAt(0);
       this.token = Token.EndOfSource;
+      this.tokenRaw = '';
       this.onToken = onToken;
       this.onComment = onComment;
       this.commentStart = 0;

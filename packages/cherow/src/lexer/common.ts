@@ -1,6 +1,21 @@
 import { State } from '../types';
 import { Chars } from '../chars';
 
+export const enum Escape {
+  Empty = -1,
+      StrictOctal = -2,
+      EightOrNine = -3,
+      InvalidHex = -4,
+      OutOfRange = -5,
+}
+export function fromCodePoint (code: Chars): string {
+  return code <= 0xFFFF ?
+      String.fromCharCode(code) :
+      String.fromCharCode(
+          ((code - Chars.NonBMPMin) >> 10) + Chars.LeadSurrogateMin,
+          ((code - Chars.NonBMPMin) & (1024 - 1)) + Chars.TrailSurrogateMin);
+};
+
 export function consume(state: State, code: number): boolean {
   if (state.source.charCodeAt(state.index) !== code) return false;
   state.index++;

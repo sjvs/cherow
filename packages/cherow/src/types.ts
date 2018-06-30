@@ -89,6 +89,7 @@ export interface State {
     length: number;
     commentState: number | undefined;
     nextChar: number;
+    tokenRaw: string;
     token: Token;
     onToken: any;
     onComment: any;
