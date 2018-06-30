@@ -22,7 +22,8 @@ export function readNext(state: State): number {
  *
  * @param state State
  * @param context Context masks
-  */
+ */
+
 export function scanStringLiteral(state: State, context: Context): Token {
 
   const quote = state.nextChar;
@@ -32,24 +33,20 @@ export function scanStringLiteral(state: State, context: Context): Token {
   readNext(state);
 
   while (state.nextChar !== quote) {
-      switch (state.nextChar) {
-          case Chars.Backslash:
-              nextChar(state);
-              if (state.nextChar >= Chars.MaxAsciiCharacter) {
-                  ret += fromCodePoint(state.nextChar);
-              } else {
-                  const code = table[state.nextChar](state, context);
-                  if (code >= 0) ret += fromCodePoint(code);
-                  else recordStringErrors(state, code as Escape);
-              }
-              break;
-          case Chars.CarriageReturn:
-          case Chars.LineFeed:
-               report(state, Errors.UnterminatedString);
-          default:
+      if (state.nextChar === Chars.Backslash) {
+          nextChar(state);
+          if (state.nextChar >= Chars.MaxAsciiCharacter) {
               ret += fromCodePoint(state.nextChar);
+          } else {
+              const code = table[state.nextChar](state, context);
+              if (code >= 0) ret += fromCodePoint(code);
+              else recordStringErrors(state, code as Escape);
+          }
+      } else if ((state.nextChar & 83) < 3 && (state.nextChar === Chars.CarriageReturn || state.nextChar === Chars.LineFeed)) {
+          report(state, Errors.UnterminatedString);
+      } else {
+          ret += fromCodePoint(state.nextChar);
       }
-
       readNext(state);
   }
 
@@ -237,11 +234,11 @@ table[Chars.LowerU] = state => {
 };
 
 /**
- * Throws a string error for either string or template literal
- *
- * @param state state object
- * @param context Context masks
- */
+* Throws a string error for either string or template literal
+*
+* @param state state object
+* @param context Context masks
+*/
 export function recordStringErrors(state: State, code: Escape): any {
   let message: Errors = Errors.Unexpected;
   if (code === Escape.Empty) return;
