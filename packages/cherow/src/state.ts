@@ -1,11 +1,10 @@
 import { Token } from './token';
-import { Flags, Context } from './common';
-import { Options, OnError, OnComment, OnToken } from './types';
-import * as ESTree from './estree';
+import { Flags } from './common';
+import { OnComment, OnToken } from './types';
 import { CommentType } from './lexer/comments';
 
 export class State {
-  public index: number;
+  public readonly index: number;
   public column: number;
   public line: number;
   public startIndex: number;
@@ -14,15 +13,15 @@ export class State {
   public nextChar: number;
   public flags: Flags;
   public token: Token;
-  public onToken: any;
-  public onComment: any;
+  public onToken: OnToken;
+  public onComment: OnComment;
   public commentState: number | undefined;
   public tokenValue: number | string;
   public commentStart: number;
   public commentEnd: number;
   public commentType: CommentType | void;
 
-  constructor(source: string, onToken: any, onComment: any) {
+  constructor(source: string, onToken: OnToken | void, onComment: OnComment | void) {
       this.index = 0;
       this.column = 0;
       this.line = 1;
@@ -38,6 +37,5 @@ export class State {
       this.commentStart = 0;
       this.commentEnd = 0;
       this.commentType = undefined;
-
   }
 }
