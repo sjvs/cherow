@@ -1,9 +1,23 @@
 import { State } from '../types';
 
 import { Token, KeywordDescTable } from '../token';
+import { Context } from '../../src/common';
+import { nextToken } from '../../src/lexer/scan';
 
-export function tokenize(state: State, context: Context) {
-  // TODO:
+export function tokenize(state: State, opts: object= {}) {
+  // TODO: make it work, state should be a class?
+  const tokens: any[] = [];
+  state.onToken = (type: any, value: any) => { tokens.push({ type,  value });
+
+  // Get the first token in the stream
+
+  nextToken(state, Context.Empty);
+
+  // Get the rest of the tokens
+
+  while (nextToken(state, Context.Empty) !== Token.EndOfSource) {}
+
+  return tokens;
 }
 
 // TODO! Optimize and refactor this!
