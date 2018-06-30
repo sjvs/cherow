@@ -1,25 +1,30 @@
 import { Context, Flags } from '../common';
 import { State } from '../types';
-import { Token, KeywordDescTable, descKeywordTable } from '../token';
+import { Token } from '../token';
 import { Chars } from '../chars';
-import { toHex, nextChar, nextUnicodeChar } from './common';
+import { toHex, nextChar, nextUnicodeChar, Escape, fromCodePoint } from './common';
 import { report, Errors } from '../errors';
 
+// Rest the 'nextChar' and advance the index if in unicode range.
+// This is 'unique' only for string and template literals
 export function readNext(state: State): number {
-  const ch = nextChar(state);
+  if (state.nextChar > 0xFFFF) ++state.index;
+  const ch = state.nextChar = state.source.charCodeAt(++state.index);
   if (state.index >= state.length) report(state, Errors.UnterminatedString);
+  ++state.column;
   return ch;
 }
 
-export const enum Escape {
-  Empty = -1,
-      StrictOctal = -2,
-      EightOrNine = -3,
-      InvalidHex = -4,
-      OutOfRange = -5,
-}
-
+/**
+ * Scan a string literal
+ *
+ * @see [Link](https://tc39.github.io/ecma262/#sec-literals-string-literals)
+ *
+ * @param state State
+ * @param context Context masks
+  */
 export function scanStringLiteral(state: State, context: Context): Token {
+
   const quote = state.nextChar;
 
   let ret = '';
@@ -30,12 +35,11 @@ export function scanStringLiteral(state: State, context: Context): Token {
       switch (state.nextChar) {
           case Chars.Backslash:
               nextChar(state);
-
-              if (state.nextChar >= 128) {
-                  ret += String.fromCodePoint(state.nextChar);
+              if (state.nextChar >= Chars.MaxAsciiCharacter) {
+                  ret += fromCodePoint(state.nextChar);
               } else {
-                  const code = table[state.nextChar](state, context, state.nextChar);
-                  if (code >= 0) ret += String.fromCodePoint(code);
+                  const code = table[state.nextChar](state, context);
+                  if (code >= 0) ret += fromCodePoint(code);
                   else recordStringErrors(state, code as Escape);
               }
               break;
@@ -43,20 +47,22 @@ export function scanStringLiteral(state: State, context: Context): Token {
           case Chars.LineFeed:
                report(state, Errors.UnterminatedString);
           default:
-              ret += String.fromCodePoint(state.nextChar);
+              ret += fromCodePoint(state.nextChar);
       }
 
       readNext(state);
   }
 
-  nextChar(state); // Skip terminating quote.
+  nextChar(state); // Consume the quote
+
+  if (context & Context.OptionsRaw) state.tokenRaw = state.source.slice(state.startIndex, state.index);
 
   state.tokenValue = ret;
+
   return Token.StringLiteral;
 }
 
-
-export const table = new Array < (parser: State, context: Context, first: number) => number > (128).fill(nextUnicodeChar);
+export const table = new Array < (state: State, context: Context) => number > (128).fill(nextUnicodeChar);
 
 table[Chars.LowerB] = () => Chars.Backspace;
 table[Chars.LowerF] = () => Chars.FormFeed;
@@ -67,20 +73,17 @@ table[Chars.LowerV] = () => Chars.VerticalTab;
 
 
 // Line continuations
-table[Chars.CarriageReturn] = parser => {
-  parser.column = -1;
-  parser.line++;
+table[Chars.CarriageReturn] = state => {
+  state.column = -1;
+  state.line++;
+  const { index } = state;
 
-  const {
-      index
-  } = parser;
-
-  if (index < parser.source.length) {
-      const ch = parser.source.charCodeAt(index);
+  if (index < state.source.length) {
+      const ch = state.source.charCodeAt(index);
 
       if (ch === Chars.LineFeed) {
-          parser.nextChar = ch;
-          parser.index = index + 1;
+          state.nextChar = ch;
+          state.index = index + 1;
       }
   }
 
@@ -89,28 +92,25 @@ table[Chars.CarriageReturn] = parser => {
 
 table[Chars.LineFeed] =
   table[Chars.LineSeparator] =
-  table[Chars.ParagraphSeparator] = parser => {
-      parser.column = -1;
-      parser.line++;
+  table[Chars.ParagraphSeparator] = state => {
+      state.column = -1;
+      state.line++;
       return Escape.Empty;
   };
 
 
-// Line continuations
-table[Chars.CarriageReturn] = parser => {
-  parser.column = -1;
-  parser.line++;
+table[Chars.CarriageReturn] = state => {
+  state.column = -1;
+  state.line++;
 
-  const {
-      index
-  } = parser;
+  const { index } = state;
 
-  if (index < parser.source.length) {
-      const ch = parser.source.charCodeAt(index);
+  if (index < state.source.length) {
+      const ch = state.source.charCodeAt(index);
 
       if (ch === Chars.LineFeed) {
-          parser.nextChar = ch;
-          parser.index = index + 1;
+          state.nextChar = ch;
+          state.index = index + 1;
       }
   }
 
@@ -119,72 +119,69 @@ table[Chars.CarriageReturn] = parser => {
 
 table[Chars.LineFeed] =
   table[Chars.LineSeparator] =
-  table[Chars.ParagraphSeparator] = parser => {
-      parser.column = -1;
-      parser.line++;
+  table[Chars.ParagraphSeparator] = state => {
+      state.column = -1;
+      state.line++;
       return Escape.Empty;
   };
 
 // Null character, octals
-table[Chars.Zero] = table[Chars.One] = table[Chars.Two] = table[Chars.Three] = (
-  parser, context, first
-) => {
+table[Chars.Zero] = table[Chars.One] = table[Chars.Two] = table[Chars.Three] = (state, context) => {
   // 1 to 3 octal digits
-  let code = first - Chars.Zero;
-  let index = parser.index + 1;
-  let column = parser.column + 1;
-  if (index < parser.source.length) {
-      let next = parser.source.charCodeAt(index);
+  let code = state.nextChar - Chars.Zero;
+  let index = state.index + 1;
+  let column = state.column + 1;
+  if (index < state.source.length) {
+      let next = state.source.charCodeAt(index);
       if (next < Chars.Zero || next > Chars.Seven) {
           // Strict mode code allows only \0, then a non-digit.
           if (code !== 0 || next === Chars.Eight || next === Chars.Nine) {
               if (context & Context.Strict) return Escape.StrictOctal;
-              //   parser.flags = parser.flags | Flags.HasOctal;
-
+              // If not in strict mode, we mark the 'octal' as found and continue
+              // parsing until we parse out the literal AST node
+              state.flags = state.flags | Flags.HasOctal;
           }
       } else if (context & Context.Strict) {
           return Escape.StrictOctal;
       } else {
-          //     parser.flags = parser.flags | Flags.HasOctal;
-          parser.nextChar = next;
+          state.flags = state.flags | Flags.HasOctal;
+          state.nextChar = next;
           code = code * 8 + (next - Chars.Zero);
           index++;
           column++;
 
-          if (index < parser.source.length) {
-              next = parser.source.charCodeAt(index);
+          if (index < state.source.length) {
+              next = state.source.charCodeAt(index);
 
               if (next >= Chars.Zero && next <= Chars.Seven) {
-                  parser.nextChar = next;
+                  state.nextChar = next;
                   code = code * 8 + (next - Chars.Zero);
                   index++;
                   column++;
               }
           }
 
-          parser.index = index - 1;
-          parser.column = column - 1;
+          state.index = index - 1;
+          state.column = column - 1;
       }
   }
 
   return code;
 };
 
-table[Chars.Four] = table[Chars.Five] = table[Chars.Six] = table[Chars.Seven] = (
-  parser, context, first
-) => {
+table[Chars.Four] = table[Chars.Five] = table[Chars.Six] = table[Chars.Seven] = (state, context) => {
   if (context & Context.Strict) return Escape.StrictOctal;
-  let code = first - Chars.Zero;
-  const index = parser.index + 1;
-  const column = parser.column + 1;
+  let code = state.nextChar - Chars.Zero;
+  const index = state.index + 1;
+  const column = state.column + 1;
 
-  if (index < parser.source.length) {
-      const next = parser.source.charCodeAt(index);
+  if (index < state.source.length) {
+      const next = state.source.charCodeAt(index);
       if (next >= Chars.Zero && next <= Chars.Seven) {
           code = code * 8 + (next - Chars.Zero);
-          parser.nextChar = next;
-          parser.index = index;
-          parser.column = column;
+          state.nextChar = next;
+          state.index = index;
+          state.column = column;
       }
   }
 
@@ -194,33 +191,32 @@ table[Chars.Four] = table[Chars.Five] = table[Chars.Six] = table[Chars.Seven] = 
 table[Chars.Eight] = table[Chars.Nine] = () => Escape.EightOrNine;
 
 // ASCII escapes
-table[Chars.LowerX] = (parser, _) => {
-  const ch1 = nextChar(parser);
+table[Chars.LowerX] = state => {
+  const ch1 = nextChar(state);
   const hi = toHex(ch1);
-  if (hi < 0 || parser.index >= parser.length) return Escape.InvalidHex;
-  const ch2 = nextChar(parser);
+  if (hi < 0 || state.index >= state.length) return Escape.InvalidHex;
+  const ch2 = nextChar(state);
   const lo = toHex(ch2);
   if (lo < 0) return Escape.InvalidHex;
-
   return hi * 16 + lo;
 };
 
-table[Chars.LowerU] = (parser, _) => {
-  let ch = nextChar(parser);
+table[Chars.LowerU] = state => {
+  let ch = nextChar(state);
   if (ch === Chars.LeftBrace) {
       // \u{N}
-      ch = nextChar(parser);
+      ch = nextChar(state);
       let code = toHex(ch);
       if (code < 0) return Escape.InvalidHex;
 
-      ch = nextChar(parser);
+      ch = nextChar(state);
       while (ch !== Chars.RightBrace) {
           const digit = toHex(ch);
           if (digit < 0) return Escape.InvalidHex;
           code = code * 16 + digit;
           // Code point out of bounds
           if (code > Chars.NonBMPMax) return Escape.OutOfRange;
-          ch = nextChar(parser);
+          ch = nextChar(state);
       }
 
       return code;
@@ -230,7 +226,7 @@ table[Chars.LowerU] = (parser, _) => {
       if (code < 0) return Escape.InvalidHex;
 
       for (let i = 0; i < 3; i++) {
-          ch = nextChar(parser);
+          ch = nextChar(state);
           const digit = toHex(ch);
           if (digit < 0) return Escape.InvalidHex;
           if (code < 0) return Escape.InvalidHex;
@@ -240,12 +236,10 @@ table[Chars.LowerU] = (parser, _) => {
   }
 };
 
-
-
 /**
  * Throws a string error for either string or template literal
  *
- * @param parser Parser object
+ * @param state state object
  * @param context Context masks
  */
 export function recordStringErrors(state: State, code: Escape): any {
@@ -255,7 +249,6 @@ export function recordStringErrors(state: State, code: Escape): any {
   if (code === Escape.EightOrNine) message = Errors.InvalidEightAndNine;
   if (code === Escape.InvalidHex) message = Errors.StrictOctalEscape;
   if (code === Escape.OutOfRange) message = Errors.InvalidEightAndNine;
-
   report(state, message);
   return Token.Invalid;
 }
