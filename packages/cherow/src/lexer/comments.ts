@@ -1,22 +1,24 @@
 import { Token } from '../token';
-import { Context, Flags } from '../common';
-import { consumeOpt } from './common';
+import { Flags } from '../common';
 import { Chars } from '../chars';
-import { Parser } from '../types';
-import { Errors, report } from '../errors';
+import { State } from '../types';
+import { consume } from './common';
+
+export const enum CommentType {
+  Single,
+  Multi,
+  HTMLOpen,
+  HTMLClose
+}
+
+export const CommentTypes = [
+  'SingleLineComment',
+  'MultiLineComment',
+  'HTMLCommentOpen',
+  'HTMLCommentClose',
+]
 
 // 11.4 Comments
-/**
- * Skips single HTML comments. Same behavior as in V8.
- *
- * @param parser Parser Object
- * @param context Context masks.
- */
-export function skipSingleHTMLComment(parser: Parser, context: Context): Token {
-   if (context & Context.Module) report(parser, Errors.HtmlCommentInModule);
-   skipSingleLineComment(parser, Token.HTMLComment);
-   return Token.HTMLComment;
-}
 
 /**
  * Skips SingleLineComment, SingleLineHTMLCloseComment and SingleLineHTMLOpenComment
@@ -25,35 +27,40 @@ export function skipSingleHTMLComment(parser: Parser, context: Context): Token {
  *  @see [Link](https://tc39.github.io/ecma262/#prod-annexB-SingleLineHTMLOpenComment)
  *  @see [Link](https://tc39.github.io/ecma262/#prod-annexB-SingleLineHTMLCloseComment)
  *
- * @param parser Parser object
+ * @param state Parser object
  * @param returnToken Token to be returned
  */
-export function skipSingleLineComment(parser: Parser, returnToken: Token = Token.SingleComment): Token {
+export function skipSingleLineComment(state: State, type: any = CommentType.Single): Token {
   let lastIsCR = 0;
-  while (parser.index < parser.length) {
-      switch (parser.source.charCodeAt(parser.index)) {
+  if (state.onComment) state.commentStart = state.index;
+  while (state.index < state.length) {
+      switch (state.source.charCodeAt(state.index)) {
           case Chars.CarriageReturn:
               lastIsCR = 2;
           case Chars.LineFeed:
           case Chars.LineSeparator:
           case Chars.ParagraphSeparator:
-              if (!--lastIsCR) parser.line++;
-              parser.flags |= Flags.NewLine;
-              parser.index++;
-              parser.column = 0;
-              parser.line++;
-              return returnToken;
+              if (!--lastIsCR) state.line++;
+              state.flags |= Flags.LineTerminator;
+              state.index++;
+              state.column = 0;
+              state.line++;
+              break;
           default:
               if (lastIsCR) {
-                  parser.line++;
+                  state.line++;
                   lastIsCR = 0;
               }
-              parser.column++;
-              parser.index++;
+              state.column++;
+              state.index++;
       }
   }
 
-  return returnToken;
+  if (state.onComment) {
+      state.commentEnd = state.index;
+      state.commentType = type;
+  }
+  return Token.WhiteSpace;
 }
 
 /**
@@ -61,16 +68,21 @@ export function skipSingleLineComment(parser: Parser, returnToken: Token = Token
  *
  * @see [Link](https://tc39.github.io/ecma262/#prod-annexB-MultiLineComment)
  *
- * @param parser Parser object
+ * @param state Parser object
  */
-export function skipMultilineComment(parser: Parser): any {
+export function skipMultilineComment(state: State): any {
   let lastIsCR = 0;
-  while (parser.index < parser.length) {
-      switch (parser.source.charCodeAt(parser.index)) {
+  if (state.onComment) state.commentStart = state.index;
+  while (state.index < state.length) {
+      switch (state.source.charCodeAt(state.index)) {
           case Chars.Asterisk:
-              parser.index++;
-              parser.column++;
-              if (consumeOpt(parser, Chars.Slash)) {
+              state.index++;
+              state.column++;
+              if (consume(state, Chars.Slash)) {
+                if (state.onComment) {
+                  state.commentEnd = state.index - 2;
+                  state.commentType = CommentType.Multi;
+              }
                 return Token.MultiComment;
               }
               break;
@@ -79,20 +91,20 @@ export function skipMultilineComment(parser: Parser): any {
           case Chars.LineFeed:
           case Chars.LineSeparator:
           case Chars.ParagraphSeparator:
-              if (!--lastIsCR) parser.line++;
-              parser.flags |= Flags.NewLine;
-              parser.index++;
-              parser.column = 0;
+              if (!--lastIsCR) state.line++;
+              state.flags |= Flags.LineTerminator;
+              state.index++;
+              state.column = 0;
               break;
           default:
               if (lastIsCR) {
-                  parser.line++;
+                  state.line++;
                   lastIsCR = 0;
               }
-              parser.index++;
-              parser.column++;
+              state.index++;
+              state.column++;
       }
   }
 
-  report(parser, Errors.UnterminatedComment);
+ // report(state, Errors.UnterminatedComment);
 }
