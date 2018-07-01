@@ -94,7 +94,6 @@ export interface State {
     onToken: any;
     onComment: any;
     commentStart: number;
-    commentEnd: number;
     commentType: CommentType | void;
     tokenValue: number | string;
 }

@@ -19,7 +19,6 @@ export class State {
   public commentState: number | undefined;
   public tokenValue: number | string;
   public commentStart: number;
-  public commentEnd: number;
   public commentType: CommentType | void;
 
   constructor(source: string, onToken: OnToken | void, onComment: OnComment | void) {
@@ -37,7 +36,6 @@ export class State {
       this.onToken = onToken;
       this.onComment = onComment;
       this.commentStart = 0;
-      this.commentEnd = 0;
       this.commentType = undefined;
   }
 }

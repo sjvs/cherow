@@ -44,10 +44,11 @@ export function skipSingleHTMLComment(state: State, context: Context, type: Comm
  */
 export function skipSingleLineComment(state: State, type: any = CommentType.Single): Token {
   let lastIsCR = 0;
+  let start = state.index;
   if (state.onComment) state.commentStart = state.index;
   while (state.index < state.length) {
       const next = state.source.charCodeAt(state.index);
-      if ((next & 8) === 8 && (next & 83) < 3 && (
+      if ((next & 83) < 3 && (
               next === Chars.LineFeed ||
               next === Chars.CarriageReturn ||
               next === Chars.LineSeparator ||
@@ -59,7 +60,6 @@ export function skipSingleLineComment(state: State, type: any = CommentType.Sing
           state.column = 0;
           state.line++;
       } else {
-
           if (lastIsCR) {
               state.line++;
               lastIsCR = 0;
@@ -70,8 +70,7 @@ export function skipSingleLineComment(state: State, type: any = CommentType.Sing
   }
 
   if (state.onComment) {
-      state.commentEnd = state.index;
-      state.commentType = type;
+      state.commentType = type | state.index << 24;
   }
   return Token.SingleComment;
 }
@@ -93,8 +92,7 @@ export function skipMultilineComment(state: State): any {
               state.column++;
               if (consume(state, Chars.Slash)) {
                   if (state.onComment) {
-                      state.commentEnd = state.index - 2;
-                      state.commentType = CommentType.Multi;
+                    state.commentType = CommentType.Multi | state.index - 2 << 24;
                   }
                   return Token.MultiComment;
               }

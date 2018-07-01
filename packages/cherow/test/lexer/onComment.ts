@@ -14,7 +14,7 @@ describe("Lexer - OnComment", () => {
           if (state.commentType !== undefined) {
               t.deepEqual({
                   type: CommentTypes[state.commentType & 0xFF],
-                  value: state.source.slice(state.commentStart, state.commentEnd),
+                  value: state.source.slice(state.commentStart, (state.commentType as any) >> 24),
                   line: state.line,
                   column: state.column,
               }, {
