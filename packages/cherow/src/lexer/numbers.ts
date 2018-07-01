@@ -15,7 +15,7 @@ import { Errors, report } from '../errors';
  * @param context Context masks
  */
 export function scanNumeric(state: State, isFloat: boolean): Token {
-  const { index, column } = state;
+
   if (isFloat) {
       state.tokenValue = 0;
   } else {
@@ -31,12 +31,6 @@ export function scanNumeric(state: State, isFloat: boolean): Token {
 
       if (digit >= 0 && state.nextChar !== Chars.Period && (state.index >= state.length || !isValidIdentifierStart(state.nextChar))) {
           return Token.NumericLiteral;
-      } else {
-          // If we reach down here, the number either exceeds the 4 bytes limit, or
-          // not a plain number.
-          state.index = index;
-          state.column = column;
-          while (nextChar(state) <= Chars.Nine && state.nextChar >= Chars.Zero) {}
       }
   }
 
@@ -45,13 +39,20 @@ export function scanNumeric(state: State, isFloat: boolean): Token {
       while (nextChar(state) <= Chars.Nine && state.nextChar >= Chars.Zero) {}
   }
 
-  if (consume(state, Chars.UpperE) || consume(state, Chars.LowerE)) {
-      if (consume(state, Chars.Plus) || consume(state, Chars.Hyphen)) {}
-      state.nextChar = state.source.charCodeAt(state.index);
-      if (!(state.nextChar >= Chars.Zero && state.nextChar <= Chars.Nine)) report(state, Errors.Unexpected);
+  if (state.nextChar === Chars.UpperE || state.nextChar === Chars.LowerE) {
+      nextChar(state);
+      if (state.nextChar === Chars.Plus || state.nextChar === Chars.Hyphen) {
+          nextChar(state);
+      }
+
+      // first digit is mandatory
+      if (!(state.nextChar >= Chars.Zero && state.nextChar <= Chars.Nine)) {
+          report(state, Errors.Unexpected);
+      }
+
       while (nextChar(state) <= Chars.Nine && state.nextChar >= Chars.Zero) {}
   }
-  if (isValidIdentifierStart(state.nextChar)) report(state, Errors.Unexpected);
-  state.tokenValue = parseFloat(state.source.slice(index, state.index));
+  if (state.index < state.length && isValidIdentifierStart(state.nextChar)) report(state, Errors.Unexpected);
+  state.tokenValue = parseFloat(state.source.slice(state.startIndex, state.index));
   return Token.NumericLiteral;
 }

@@ -45,10 +45,13 @@ describe('Lexer - Numbers', () => {
       source: '1eTYU+1'
     })
 
+    fail('should fail "1eTYU+1"', Context.Empty, {
+      source: '1E'
+    })
+
     fail('Binary-integer-literal-like sequence containing an invalid digit', Context.Empty, {
       source: '00444n'
     })
-
 
     pass("scans '7890", {
       source: "7890",
