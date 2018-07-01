@@ -1,6 +1,6 @@
 import { Context, Flags } from '../common';
 import { State } from '../types';
-import { Token, KeywordDescTable, descKeywordTable } from '../token';
+import { Token } from '../token';
 import { Chars } from '../chars';
 import { consume, mapToToken } from './common';
 import { CommentType, skipSingleLineComment, skipMultilineComment } from './comments';
@@ -8,9 +8,10 @@ import { getTokenValue, convertTokenType } from './tokenizer';
 import { scanStringLiteral } from './string';
 import { scanTemplate } from './template';
 import {scanIdentifier} from './identifier';
+import { report, Errors } from '../errors';
 
-const unexpectedCharacter: any = () => {
-  //error(s, `Unexpected character [${String.fromCharCode(s.currentChar)}]`);
+const unexpectedCharacter: any = (state: State) => {
+  report(state, Errors.Unexpected);
   return null;
 };
 

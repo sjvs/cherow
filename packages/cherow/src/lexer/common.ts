@@ -1,4 +1,5 @@
 import { State } from '../types';
+import { Token } from '../token';
 import { Chars } from '../chars';
 
 export const enum Escape {
@@ -48,4 +49,12 @@ export function toHex(code: number): number {
   if (code < Chars.LowerA) return -1;
   if (code <= Chars.LowerF) return code - Chars.LowerA + 10;
   return -1;
+}
+
+// CharFuncLookup functions
+export function mapToToken(token: Token): (state: State) => Token {
+  return state => {
+      nextChar(state);
+      return token;
+  };
 }
