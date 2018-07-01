@@ -19,7 +19,7 @@ export const errorMessages: {
   [Errors.UnterminatedString]: 'Unterminated string literal',
   [Errors.StrictOctalEscape]: 'Octal escapes are not allowed in strict mode',
   [Errors.InvalidEightAndNine]: 'Escapes \\8 or \\9 are not syntactically valid escapes',
-  [Errors.UnterminatedComment]: 'Unterminated MultiLineComment',,
+  [Errors.UnterminatedComment]: 'Unterminated MultiLineComment',
   [Errors.HtmlCommentInModule]: 'HTML comments are not allowed in modules',
 
 
