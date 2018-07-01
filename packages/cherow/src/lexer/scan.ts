@@ -7,7 +7,8 @@ import { CommentType, skipSingleLineComment, skipMultilineComment } from './comm
 import { getTokenValue, convertTokenType } from './tokenizer';
 import { scanStringLiteral } from './string';
 import { scanTemplate } from './template';
-import {scanIdentifier} from './identifier';
+import { scanIdentifier} from './identifier';
+import { scanNumeric } from './numbers';
 import { report, Errors } from '../errors';
 
 const unexpectedCharacter: any = (state: State) => {
@@ -104,7 +105,7 @@ table[Chars.Period] = (parser: State) => {
           return Token.Ellipsis;
       }
   } else if (next >= Chars.Zero && next <= Chars.Nine) {
-      //      return scanNumeric(parser, context);
+           return scanNumeric(parser, true);
   }
   parser.index++;
   parser.column++;
@@ -318,15 +319,17 @@ table[Chars.GreaterThan] = state => {
   return Token.ShiftRight;
 };
 
-table[Chars.Backtick] = (s: State, c: Context) => {
-  return scanTemplate(s, c, s.nextChar);
+table[Chars.Backtick] = (state: State, context: Context) => {
+  return scanTemplate(state, context, state.nextChar);
 };
+
+table[Chars.Zero] = (state: State) =>  scanNumeric(state, false);
 
 
 // `1`...`9`
-// for (let i = Chars.One; i <= Chars.Nine; i++) {
-// table[i] = (s: State) => scanNumber(s, false);
-// }
+ for (let i = Chars.One; i <= Chars.Nine; i++) {
+ table[i] = (state: State) => scanNumeric(state, false);
+ }
 
 // `A`...`Z`
 for (let i = Chars.UpperA; i <= Chars.UpperZ; i++) {
@@ -339,8 +342,8 @@ for (let i = Chars.LowerA; i <= Chars.LowerZ; i++) {
 // `\\u{N}var` , `$foo`, `_var`
 table[Chars.Backslash] = table[Chars.Dollar] = table[Chars.Underscore] = scanIdentifier;
 
-table[Chars.Backslash] = (s: State) => {
-  return scanIdentifier(s);
+table[Chars.Backslash] = (state: State) => {
+  return scanIdentifier(state);
 };
 
 export function nextToken(state: State, context: Context): Token {

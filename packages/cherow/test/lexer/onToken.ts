@@ -37,7 +37,7 @@ describe("Lexer - OnToken", () => {
     line: 1,
     column: 34,
 });
-/*
+
   pass('should tokenize numbers correctly', {
       source: '123',
       value: [{
@@ -66,7 +66,7 @@ describe("Lexer - OnToken", () => {
       line: 1,
       column: 5,
   });
-
+/*
   pass('should tokenize numbers and identifiers correctly', {
       source: 'abc 123 def',
       value: [{
