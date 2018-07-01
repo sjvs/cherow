@@ -4,7 +4,7 @@ import { State } from '../../src/state';
 import { Context } from '../../src/common';
 import { Token,  } from '../../src/token';
 
-describe('Lexer - Numbers', () => {
+describe('Lexer - Nuasdfmbers', () => {
 
   describe("Pass", () => {
 
@@ -41,16 +41,29 @@ describe('Lexer - Numbers', () => {
         });
     }
 
-    fail('should fail "1eTYU+1"', Context.Empty, {
-      source: '1eTYU+1'
+
+    fail('should fail on private name followed by space', Context.Empty, {
+      source: '123a'
     })
 
-    fail('should fail "1eTYU+1"', Context.Empty, {
-      source: '1E'
+    fail('should fail on private name followed by space', Context.Empty, {
+      source: '.333n'
     })
 
-    fail('Binary-integer-literal-like sequence containing an invalid digit', Context.Empty, {
-      source: '00444n'
+    fail('should fail on private name followed by space', Context.Empty, {
+      source: '0b'
+    })
+
+    fail('should fail on private name followed by space', Context.Empty, {
+      source: '0ba'
+    })
+
+    fail('should fail "00o0"', Context.Empty, {
+      source: '0o8'
+    })
+
+    fail('should fail "0o2424bb"', Context.Empty, {
+      source: '0o2424bb'
     })
 
     pass("scans '7890", {
@@ -69,6 +82,15 @@ describe('Lexer - Numbers', () => {
       token: Token.NumericLiteral,
       line: 1,
       column: 3,
+    });
+
+    pass("scans '1e234", {
+      source: "1e234",
+      value: 1e+234,
+      raw: "2.3",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 5,
     });
 
     pass("scans '1234567890.0987654321", {
@@ -114,6 +136,170 @@ describe('Lexer - Numbers', () => {
       line: 1,
       column: 8,
     });
+
+    pass("scans '0O12345670", {
+      source: "0O12345670",
+      value: 2739128,
+      "raw": "0O12345670",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 10,
+    });
+
+    pass("scans '1", {
+      source: "1",
+      value: 1,
+      raw: "1",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 1,
+    });
+
+    pass("scans '0xAn", {
+      source: "0xAn",
+      value: 10,
+      raw: "0xAn",
+      token: Token.BigInt,
+      line: 1,
+      column: 4,
+    });
+
+    pass("scans '00", {
+      source: "00",
+      value: 0,
+      raw: "00",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 2,
+    });
+
+    pass("scans '0123", {
+      source: "0123",
+      value: 83,
+      raw: "0123",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 4,
+    });
+
+    pass("scans '0123789", {
+      source: "0123789",
+      value: 123789,
+      raw: "0123789",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 7,
+    });
+
+    pass("scans '0xD", {
+      source: "0xD",
+      value: 13,
+      raw: "0xD",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 3,
+    });
+
+    pass("scans '0o4", {
+      source: "0o4",
+      value: 4,
+      raw: "0o4",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 3,
+    });
+
+    pass("scans '0o12", {
+      source: "0o12",
+      value: 10,
+      raw: "0o12",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 4,
+    });
+
+    pass("scans '0x67", {
+      source: "0x67",
+      value: 103,
+      raw: "0x67",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 4,
+    });
+
+    pass("scans '0o12345670", {
+      source: "0o12345670",
+      value: 2739128,
+      raw: "0o12345670",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 10
+    });
+
+    pass("scans '0x34", {
+      source: "0x34",
+      value: 52,
+      raw: "0x34",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 4,
+    });
+
+    pass("scans '0b01", {
+      source: "0b01",
+      value: 1,
+      raw: "0b01",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 4,
+    });
+
+    pass("scans '0009", {
+      source: "0009",
+      value: 9,
+      raw: "0009",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 4,
+    });
+
+    pass("scans '0009.444", {
+      source: "0009.444",
+      value: 9.444,
+      raw: "0009.444",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 8,
+    });
+
+    pass("scans '043", {
+      source: "043",
+      "value": 35,
+      raw: "043",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 3,
+    });
+
+
+    pass("scans '087", {
+      source: "087",
+      value: 87,
+      raw: "087",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 3,
+    });
+
+    pass("scans '000", {
+      source: "000",
+      value: 0,
+      raw: "000",
+      token: Token.NumericLiteral,
+      line: 1,
+      column: 3,
+    });
+
   });
 
 });

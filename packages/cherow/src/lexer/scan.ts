@@ -8,7 +8,7 @@ import { getTokenValue, convertTokenType } from './tokenizer';
 import { scanStringLiteral } from './string';
 import { scanTemplate } from './template';
 import { scanIdentifier} from './identifier';
-import { scanNumeric } from './numbers';
+import { scanNumeric, parseLeadingZeroTable } from './numbers';
 import { report, Errors } from '../errors';
 
 const unexpectedCharacter: any = (state: State) => {
@@ -92,7 +92,7 @@ table[Chars.EqualSign] = state => {
 };
 
 // `.`, `...`, `.123` (numeric literal)
-table[Chars.Period] = (parser: State) => {
+table[Chars.Period] = (parser: State, context: Context) => {
   let index = parser.index + 1;
   const next = parser.source.charCodeAt(index);
 
@@ -105,7 +105,7 @@ table[Chars.Period] = (parser: State) => {
           return Token.Ellipsis;
       }
   } else if (next >= Chars.Zero && next <= Chars.Nine) {
-           return scanNumeric(parser, true);
+           return scanNumeric(parser, context, true);
   }
   parser.index++;
   parser.column++;
@@ -323,12 +323,11 @@ table[Chars.Backtick] = (state: State, context: Context) => {
   return scanTemplate(state, context, state.nextChar);
 };
 
-table[Chars.Zero] = (state: State) =>  scanNumeric(state, false);
-
+table[Chars.Zero] = (state: State, context: Context) =>  (parseLeadingZeroTable[state.source.charCodeAt(state.index + 1)] || scanNumeric)(state, context);
 
 // `1`...`9`
  for (let i = Chars.One; i <= Chars.Nine; i++) {
- table[i] = (state: State) => scanNumeric(state, false);
+ table[i] = (state: State, context: Context) => scanNumeric(state, context);
  }
 
 // `A`...`Z`
