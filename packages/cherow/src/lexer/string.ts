@@ -42,7 +42,9 @@ export function scanStringLiteral(state: State, context: Context): Token {
               if (code >= 0) ret += fromCodePoint(code);
               else recordStringErrors(state, code as Escape);
           }
-      } else if ((state.nextChar & 83) < 3 && (state.nextChar === Chars.CarriageReturn || state.nextChar === Chars.LineFeed)) {
+      } else if ((state.nextChar & 83) < 3 &&
+                (state.nextChar === Chars.CarriageReturn ||
+                state.nextChar === Chars.LineFeed)) {
           report(state, Errors.UnterminatedString);
       } else {
           ret += fromCodePoint(state.nextChar);
