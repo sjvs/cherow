@@ -1,30 +1,31 @@
-import { State } from '../types';
+import { State } from '../state';
 
 import { Token, KeywordDescTable } from '../token';
 import { Context } from '../../src/common';
 import { nextToken } from '../../src/lexer/scan';
+import { Options } from '../types';
 
-export function tokenize(state: State, opts: object= {}) {
-  // TODO: make it work, state should be a class?
-  const tokens: any[] = [];
-  state.onToken = (type: any, value: any) => { tokens.push({ type,  value });
+export function tokenize(source: string, opts: Options) {
+  const state = new State(source, opts.onToken, opts.onComment);
+  const tokens = [];
+  let token;
 
-  // Get the first token in the stream
-
-  nextToken(state, Context.Empty);
-
-  // Get the rest of the tokens
-
-  while (nextToken(state, Context.Empty) !== Token.EndOfSource) {}
+  while (token !== Token.EndOfSource) {
+    token = nextToken(state, Context.Empty);
+    const t = {
+      type: convertTokenType(token),
+      value: getTokenValue(state, token),
+      // TODO: loc...
+    };
+    tokens.push(t);
+  }
 
   return tokens;
 }
 
 // TODO! Optimize and refactor this!
 
-
-
-function getTokenValue(state: State, t: Token) {
+export function getTokenValue(state: State, t: Token) {
 
   if (t & Token.Punctuator) return KeywordDescTable[t & Token.Type];
 
@@ -32,9 +33,7 @@ function getTokenValue(state: State, t: Token) {
 
 }
 
-
-
-function convertTokenType(t: Token): string {
+export function convertTokenType(t: Token): string {
 
   if (t & Token.Identifier) return 'Identifier';
 

@@ -7,7 +7,7 @@ import { CommentType, skipSingleLineComment, skipMultilineComment, skipSingleHTM
 import { getTokenValue, convertTokenType } from './tokenizer';
 import { scanStringLiteral } from './string';
 import { scanTemplate } from './template';
-import { scanIdentifier} from './identifier';
+import { scanIdentifier } from './identifier';
 import { scanNumeric, parseLeadingZeroTable } from './numbers';
 import { report, Errors } from '../errors';
 
@@ -327,8 +327,8 @@ table[Chars.Backtick] = (state: State, context: Context) => {
 table[Chars.Zero] = (state: State, context: Context) => (parseLeadingZeroTable[state.source.charCodeAt(state.index + 1)] || scanNumeric)(state, context);
 
 // `1`...`9`
- for (let i = Chars.One; i <= Chars.Nine; i++) {
- table[i] = (state: State, context: Context) => scanNumeric(state, context);
+for (let i = Chars.One; i <= Chars.Nine; i++) {
+ table[i] = scanNumeric;
  }
 
 // `A`...`Z`
