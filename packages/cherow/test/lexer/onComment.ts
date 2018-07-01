@@ -30,7 +30,7 @@ describe("Lexer - OnComment", () => {
   pass('should skip singleline comment', {
       source: '// foo',
       value: ' foo',
-      type: 'SingleLineComment',
+      type: 'SingleLine',
       line: 1,
       column: 6,
   });
@@ -38,14 +38,14 @@ describe("Lexer - OnComment", () => {
   pass('should skip multiline comment', {
       source: '/** foo */',
       value: '* foo ',
-      type: 'MultiLineComment',
+      type: 'MultiLine',
       line: 1,
       column: 10,
   });
 
   pass('should skip HTMLCommentClose comment', {
     source: '--> foo',
-    "type": "HTMLCommentClose",
+    "type": "HTMLClose",
     "value": " foo",
     line: 1,
     column: 7,
@@ -53,7 +53,7 @@ describe("Lexer - OnComment", () => {
 
   pass('should skip HTMLCommentOpen comment', {
     source: '<!-- foo',
-    "type": "HTMLCommentOpen",
+    "type": "HTMLOpen",
     "value": " foo",
     line: 1,
     column: 8,

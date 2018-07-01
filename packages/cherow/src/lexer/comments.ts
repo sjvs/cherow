@@ -1,8 +1,9 @@
 import { Token } from '../token';
-import { Flags } from '../common';
+import { Context, Flags } from '../common';
 import { Chars } from '../chars';
 import { State } from '../types';
 import { consume } from './common';
+import { Errors, report } from '../errors';
 
 export const enum CommentType {
   Single,
@@ -12,13 +13,24 @@ export const enum CommentType {
 }
 
 export const CommentTypes = [
-  'SingleLineComment',
-  'MultiLineComment',
-  'HTMLCommentOpen',
-  'HTMLCommentClose',
+  'SingleLine',
+  'MultiLine',
+  'HTMLOpen',
+  'HTMLClose',
 ]
 
 // 11.4 Comments
+
+/**
+ * Skips single HTML comments. Same behavior as in V8.
+ *
+ * @param parser Parser Object
+ * @param context Context masks.
+ */
+export function skipSingleHTMLComment(state: State, context: Context, type: CommentType): Token {
+  if (context & Context.Module) report(state, Errors.HtmlCommentInModule);
+  return skipSingleLineComment(state, type);
+}
 
 /**
  * Skips SingleLineComment, SingleLineHTMLCloseComment and SingleLineHTMLOpenComment
@@ -34,25 +46,36 @@ export function skipSingleLineComment(state: State, type: any = CommentType.Sing
   let lastIsCR = 0;
   if (state.onComment) state.commentStart = state.index;
   while (state.index < state.length) {
-      switch (state.source.charCodeAt(state.index)) {
-          case Chars.CarriageReturn:
-              lastIsCR = 2;
-          case Chars.LineFeed:
-          case Chars.LineSeparator:
-          case Chars.ParagraphSeparator:
+      const next = state.source.charCodeAt(state.index);
+      if ((next & 8) === 8) {
+          if ((next & 83) < 3 && (
+                  next === Chars.LineFeed ||
+                  next === Chars.CarriageReturn ||
+                  next === Chars.LineSeparator ||
+                  next === Chars.ParagraphSeparator)) {
+
+              if (next === Chars.CarriageReturn) lastIsCR = 2;
               if (!--lastIsCR) state.line++;
               state.flags |= Flags.LineTerminator;
               state.index++;
               state.column = 0;
               state.line++;
-              break;
-          default:
+          } else {
               if (lastIsCR) {
                   state.line++;
                   lastIsCR = 0;
               }
-              state.column++;
               state.index++;
+              state.column++;
+          }
+
+      } else {
+          if (lastIsCR) {
+              state.line++;
+              lastIsCR = 0;
+          }
+          state.index++;
+          state.column++;
       }
   }
 
@@ -60,7 +83,7 @@ export function skipSingleLineComment(state: State, type: any = CommentType.Sing
       state.commentEnd = state.index;
       state.commentType = type;
   }
-  return Token.WhiteSpace;
+  return Token.SingleComment;
 }
 
 /**
@@ -106,5 +129,5 @@ export function skipMultilineComment(state: State): any {
       }
   }
 
- // report(state, Errors.UnterminatedComment);
+  report(state, Errors.UnterminatedComment);
 }

@@ -3,7 +3,7 @@ import { State } from '../types';
 import { Token } from '../token';
 import { Chars } from '../chars';
 import { consume, mapToToken } from './common';
-import { CommentType, skipSingleLineComment, skipMultilineComment } from './comments';
+import { CommentType, skipSingleLineComment, skipMultilineComment, skipSingleHTMLComment } from './comments';
 import { getTokenValue, convertTokenType } from './tokenizer';
 import { scanStringLiteral } from './string';
 import { scanTemplate } from './template';
@@ -127,8 +127,8 @@ table[Chars.LessThan] = (state: State, context: Context) => {
           state.column++;
           if (consume(state, Chars.EqualSign)) return Token.ShiftLeftAssign;
           return Token.ShiftLeft;
-      } else if (!(context & Context.Module) && consume(state, Chars.Exclamation) && consume(state, Chars.Hyphen) && consume(state, Chars.Hyphen)) {
-          return skipSingleLineComment(state, CommentType.HTMLOpen);
+      } else if (consume(state, Chars.Exclamation) && consume(state, Chars.Hyphen) && consume(state, Chars.Hyphen)) {
+          return skipSingleHTMLComment(state, context, CommentType.HTMLOpen);
       }
   }
 
@@ -239,9 +239,9 @@ table[Chars.Hyphen] = (state: State, context: Context) => {
       if (next === Chars.Hyphen) {
           state.index++;
           state.column++;
-          if (!(context & Context.Module) && state.flags & Flags.LineTerminator || state.startIndex === 0 &&
+          if (state.flags & Flags.LineTerminator || state.startIndex === 0 &&
               consume(state, Chars.GreaterThan)) {
-              return skipSingleLineComment(state, CommentType.HTMLClose);
+              return skipSingleHTMLComment(state, context, CommentType.HTMLClose);
           }
           return Token.Decrement;
       } else if (next === Chars.EqualSign) {
@@ -323,7 +323,7 @@ table[Chars.Backtick] = (state: State, context: Context) => {
   return scanTemplate(state, context, state.nextChar);
 };
 
-table[Chars.Zero] = (state: State, context: Context) =>  (parseLeadingZeroTable[state.source.charCodeAt(state.index + 1)] || scanNumeric)(state, context);
+table[Chars.Zero] = (state: State, context: Context) => (parseLeadingZeroTable[state.source.charCodeAt(state.index + 1)] || scanNumeric)(state, context);
 
 // `1`...`9`
  for (let i = Chars.One; i <= Chars.Nine; i++) {
