@@ -4,18 +4,9 @@ import { State } from '../../src/state';
 import { Context } from '../../src/common';
 import { Token, KeywordDescTable } from '../../src/token';
 
-describe("src/scanner/scan", () => {
-  describe("scan()", () => {
-      interface Opts {
-          source: string;
-          context: Context;
-          token: Token;
-          hasNext: boolean;
-          line: number;
-          column: number;
-      }
+describe("Lexer - Punctuators", () => {
 
-      function pass(name: string, opts: Opts) {
+      function pass(name: string, opts: any) {
           it(name, () => {
               const state = new State(opts.source, undefined, undefined);
 
@@ -42,7 +33,6 @@ describe("src/scanner/scan", () => {
       });
 
       const tokens: Array<[Context, Token, string]> = [
-          /* Punctuators */
           [Context.Empty,      Token.Arrow,        "=>"],
           [Context.Empty,      Token.LeftParen,    "("],
           [Context.Empty,      Token.LeftBrace,    "{"],
@@ -56,12 +46,8 @@ describe("src/scanner/scan", () => {
           [Context.Empty,      Token.RightBracket, "]"],
           [Context.Empty,      Token.Colon,        ":"],
           [Context.Empty,      Token.QuestionMark, "?"],
-
-          /* Update operators */
           [Context.Empty, Token.Increment, "++"],
           [Context.Empty, Token.Decrement, "--"],
-
-          /* Assign operators */
           [Context.Empty, Token.Assign,                  "="],
           [Context.Empty, Token.ShiftLeftAssign,         "<<="],
           [Context.Empty, Token.ShiftRightAssign,        ">>="],
@@ -75,8 +61,6 @@ describe("src/scanner/scan", () => {
           [Context.Empty, Token.BitwiseXorAssign,        "^="],
           [Context.Empty, Token.BitwiseOrAssign,         "|="],
           [Context.Empty, Token.BitwiseAndAssign,        "&="],
-
-          /* Unary/binary operators */
           [Context.Empty, Token.Negate,             "!"],
           [Context.Empty, Token.Complement,         "~"],
           [Context.Empty, Token.Add,                "+"],
@@ -104,7 +88,7 @@ describe("src/scanner/scan", () => {
       ];
 
       for (const [ctx, token, op] of tokens) {
-          it(`scans '${op}' at the end`, () => {
+          it(`scans '${op}'`, () => {
               const state = new State(op, undefined, undefined);
               const found = nextToken(state, ctx);
 
@@ -121,8 +105,8 @@ describe("src/scanner/scan", () => {
               });
           });
 
-          it(`scans '${op}' with more to go`, () => {
-              const state = new State(`${op} rest`, undefined, undefined);
+          it(`scans '${op}' with space`, () => {
+              const state = new State(`${op} foo`, undefined, undefined);
               const found = nextToken(state, ctx);
 
               t.deepEqual({
@@ -154,7 +138,4 @@ describe("src/scanner/scan", () => {
               line: 1, column: 1,
           });
       });
-
-      // TODO
-  });
 });

@@ -4,7 +4,7 @@ import { State } from '../../src/state';
 import { Context } from '../../src/common';
 import { Token } from '../../src/token';
 
-describe("Lexer - Tokenizing", () => {
+describe("Lexer - OnToken", () => {
 
   function pass(name: string, opts: any) {
       it(name, () => {
