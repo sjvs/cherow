@@ -47,29 +47,19 @@ export function skipSingleLineComment(state: State, type: any = CommentType.Sing
   if (state.onComment) state.commentStart = state.index;
   while (state.index < state.length) {
       const next = state.source.charCodeAt(state.index);
-      if ((next & 8) === 8) {
-          if ((next & 83) < 3 && (
-                  next === Chars.LineFeed ||
-                  next === Chars.CarriageReturn ||
-                  next === Chars.LineSeparator ||
-                  next === Chars.ParagraphSeparator)) {
-
-              if (next === Chars.CarriageReturn) lastIsCR = 2;
-              if (!--lastIsCR) state.line++;
-              state.flags |= Flags.LineTerminator;
-              state.index++;
-              state.column = 0;
-              state.line++;
-          } else {
-              if (lastIsCR) {
-                  state.line++;
-                  lastIsCR = 0;
-              }
-              state.index++;
-              state.column++;
-          }
-
+      if ((next & 8) === 8 && (next & 83) < 3 && (
+              next === Chars.LineFeed ||
+              next === Chars.CarriageReturn ||
+              next === Chars.LineSeparator ||
+              next === Chars.ParagraphSeparator)) {
+          if (next === Chars.CarriageReturn) lastIsCR = 2;
+          if (!--lastIsCR) state.line++;
+          state.flags |= Flags.LineTerminator;
+          state.index++;
+          state.column = 0;
+          state.line++;
       } else {
+
           if (lastIsCR) {
               state.line++;
               lastIsCR = 0;
@@ -87,12 +77,12 @@ export function skipSingleLineComment(state: State, type: any = CommentType.Sing
 }
 
 /**
- * Skips multiline comment
- *
- * @see [Link](https://tc39.github.io/ecma262/#prod-annexB-MultiLineComment)
- *
- * @param state Parser object
- */
+* Skips multiline comment
+*
+* @see [Link](https://tc39.github.io/ecma262/#prod-annexB-MultiLineComment)
+*
+* @param state Parser object
+*/
 export function skipMultilineComment(state: State): any {
   let lastIsCR = 0;
   if (state.onComment) state.commentStart = state.index;
@@ -102,11 +92,11 @@ export function skipMultilineComment(state: State): any {
               state.index++;
               state.column++;
               if (consume(state, Chars.Slash)) {
-                if (state.onComment) {
-                  state.commentEnd = state.index - 2;
-                  state.commentType = CommentType.Multi;
-              }
-                return Token.MultiComment;
+                  if (state.onComment) {
+                      state.commentEnd = state.index - 2;
+                      state.commentType = CommentType.Multi;
+                  }
+                  return Token.MultiComment;
               }
               break;
           case Chars.CarriageReturn:

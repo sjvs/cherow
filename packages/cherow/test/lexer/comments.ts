@@ -70,6 +70,11 @@ pass('should skip single line comment with multi line paragrap', {
   line: 3, column: 0, index: 5
 });
 
+pass('should skip single line comment with multi line paragrap', {
+  source: `/* \u2028\u2029 */`,
+  line: 2, column: 3, index: 8
+});
+
 pass('should skip single line comment with line feed', {
   source: `// \r`,
   line: 2, column: 0, index: 4
