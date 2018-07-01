@@ -37,7 +37,7 @@ describe("Lexer - Tokenizing", () => {
     line: 1,
     column: 34,
 });
-
+/*
   pass('should tokenize numbers correctly', {
       source: '123',
       value: [{
@@ -165,7 +165,7 @@ describe("Lexer - Tokenizing", () => {
       ],
       line: 1,
       column: 61,
-  });
+  });*/
 
   pass('should tokenize mix of punctuators', {
       source: '!(&/%)/)(&{}',

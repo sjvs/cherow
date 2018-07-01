@@ -18,7 +18,7 @@ export function parseSource(
   let onToken: OnToken;
   let sourceFile: string = '';
   let c = context;
-
+  let s = source;
   if (options !== undefined) {
      /* // The flag to enable module syntax support
       if (options.module) context |= Context.Module;
@@ -58,7 +58,7 @@ export function parseSource(
   }
 
   // Create the parser object
-   const state = new State(source, onToken, onComment);
+   //const state = new State(source, onToken, onComment);
 
    // TODO
 
