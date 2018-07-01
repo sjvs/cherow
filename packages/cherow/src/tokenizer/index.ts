@@ -5,7 +5,7 @@ import { Context } from '../../src/common';
 import { nextToken } from '../../src/lexer/scan';
 import { Options } from '../types';
 
-export function tokenize(source: string, opts: Options) {
+export function tokenize(source: string, opts: Options= {}) {
   const state = new State(source, opts.onToken, opts.onComment);
   const tokens = [];
   let token;
