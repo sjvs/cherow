@@ -2,13 +2,33 @@ import * as t from 'assert';
 import { nextToken } from '../../src/lexer/scan';
 import { State } from '../../src/state';
 import { Context } from '../../src/common';
-import { Token } from '../../src/token';
+import { CommentTypes, CommentType } from '../../src/lexer/comments';
 
 // https://github.com/tc39/test262/tree/master/test/language/comments
 
+// Note! An HTML close comment must be preceeded by a LineTerminator, this will fail in the parser and not in
+// the lexer. Same with arbitrary character sequencses before HTML close comment .They are not permitted,
+// but will only fail in the parser
+
 describe('Lexer - Comments', () => {
 
-  function pass(name: string, opts: any) {
+  // Test comment type lookup
+  const items: [CommentType, string][] = [
+    [CommentType.Single, 'SingleLine'],
+    [CommentType.Multi, 'MultiLine'],
+    [CommentType.HTMLClose, 'HTMLClose'],
+    [CommentType.HTMLOpen, 'HTMLOpen'],
+  ]
+
+  for (const [comment, expected] of items) {
+      it(`should stringify '${expected}' comment`, () => {
+          t.equal(CommentTypes[comment & 0xFF], expected)
+      })
+
+      if (!/^\w+$/.test(expected)) continue
+  }
+
+  function pass(name: string, opts: any): void {
       it(name, () => {
           const state = new State(opts.source, undefined, undefined);
           const token = nextToken(state, Context.Empty);
@@ -24,7 +44,7 @@ describe('Lexer - Comments', () => {
       });
   }
 
-  function fail(name: string, context: Context, opts: any): any {
+  function fail(name: string, context: Context, opts: any): void {
     it(name, () => {
         const state = new State(opts.source, undefined, undefined);
         t.throws(() => {
@@ -47,6 +67,11 @@ fail('should fail on HTML open comment in module code', Context.Module, {
 
 pass('should skip a simple single line comment', {
   source: `// `,
+  line: 1, column: 3, index: 3
+});
+
+pass('should handle correct interpretation of single line comments', {
+  source: `///`,
   line: 1, column: 3, index: 3
 });
 
@@ -102,12 +127,21 @@ pass('single line comment escaped newlines are ignored', {
   line: 1, column: 33, index: 33
 });
 
-/*
+pass('should skip Mongolian Vowel Separator in single line comments', {
+  source: `//᠎  single-line comment with U+180E`,
+  line: 1, column: 36, index: 36
+});
+
+pass('should skip Mongolian Vowel Separator in multi line comments', {
+  source: `// U+180E in comments; UTF8(0x180E) = 0xE1 0xA0 0x8E`,
+  line: 1, column: 52, index: 52
+});
+
     pass('should handle correct interpretation of single line comments', {
         source: `//FOO
         ///`,
-        line: 2, column: 11, index: 17
-    });*/
+        line: 3, column: 11, index: 17
+    });
 
     pass('should handle correct interpretation of single line comments', {
       source: `/* var
@@ -198,5 +232,85 @@ pass('single line comment escaped newlines are ignored', {
     source: '/* \\u{nope} \\unope \\xno */',
     line: 1, column:  26, index: 26
   });
+
+  pass('should skip multiline comments with line separator', {
+    source: `  \t /* foo * /* bar \u2028 */  `,
+    line: 2, column: 5, index: 26
+  });
+
+
+  pass('should skip multiline comments with line feed', {
+    source: `  \t /* foo * /* bar \n */  `,
+    line: 2, column: 5, index: 26
+  });
+
+  pass('should skip multiline comments with line feed', {
+    source: `  \t /* foo * /* bar \r */  `,
+    line: 2, column: 5, index: 26
+  });
+
+
+  pass('should skip multiline comments with line feed', {
+    source: `  \t /* foo bar\r *//* baz*/ \r /**/`,
+    line: 3, column: 5, index: 33
+  });
+
+  pass('should skip single line comments with form feed', {
+    source: '//\u000C single line \u000C comment \u000C',
+    line: 1, column: 27, index: 27
+});
+
+pass('should skip multiline comment with horizontal tab', {
+    source: '/*	multi\tline\tcomment*/',
+    line: 1, column: 23, index: 23
+});
+
+pass('should skip multiline comment with space', {
+  source: '/*\u0020 multi line \u0020 comment \u0020*/',
+  line: 1, column: 28, index: 28
+});
+
+pass('should skip multiline comment with no break space', {
+  source: '/*\u00A0 multi line \u00A0 comment \u00A0*/',
+  line: 1, column: 28, index: 28
+});
+
+pass('should skip multiline comment with no mathematical space', {
+source: '/*\u00A0 multi line \0x205F comment \0x205F*/',
+line: 1, column: 38, index: 38
+});
+
+pass('should skip block HTML close with chars w/o line terminator', {
+  source: "  \t /**/  --> the comment doesn't extend to these characters\n ",
+  line: 1, column: 12, index: 12
+});
+
+pass("avoids single HTML close comment w/o line terminator", {
+  source: "  \t -->  ",
+  line: 1, column: 6, index: 6
+});
+
+pass("avoids single HTML close comment w/o line terminator", {
+  source: `  \t /*\toptional\tMultiLineCommentChars \t*/  --> ` +
+  `the comment extends to these characters\t `,
+  line: 1, column: 45, index: 45
+});
+
+pass('should skip HTML single line comments with line feed', {
+  source: `  \t <!-- foo bar\n  `,
+  line: 3, column: 2, index: 19
+});
+
+pass('should skip line separators', {
+  source: '    \t \u2028 ',
+  line: 2, column: 1, index: 8
+});
+
+pass('should skip multiline comments with nothing', {
+    source: '  \t /* foo * /* bar */  ',
+    line: 1, column: 24, index: 24
+});
+
+
 
 });

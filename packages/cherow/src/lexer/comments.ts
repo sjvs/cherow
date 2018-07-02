@@ -42,9 +42,8 @@ export function skipSingleHTMLComment(state: State, context: Context, type: Comm
  * @param state Parser object
  * @param returnToken Token to be returned
  */
-export function skipSingleLineComment(state: State, type: any = CommentType.Single): Token {
+export function skipSingleLineComment(state: State, type: CommentType = CommentType.Single): Token {
   let lastIsCR = 0;
-  let start = state.index;
   if (state.onComment) state.commentStart = state.index;
   while (state.index < state.length) {
       const next = state.source.charCodeAt(state.index);
@@ -69,9 +68,8 @@ export function skipSingleLineComment(state: State, type: any = CommentType.Sing
       }
   }
 
-  if (state.onComment) {
-      state.commentType = type | state.index << 24;
-  }
+  if (state.onComment) state.commentType = type | state.index << 24;
+
   return Token.SingleComment;
 }
 
@@ -91,9 +89,7 @@ export function skipMultilineComment(state: State): any {
               state.index++;
               state.column++;
               if (consume(state, Chars.Slash)) {
-                  if (state.onComment) {
-                    state.commentType = CommentType.Multi | state.index - 2 << 24;
-                  }
+                  if (state.onComment) state.commentType = CommentType.Multi | state.index - 2 << 24;
                   return Token.MultiComment;
               }
               break;

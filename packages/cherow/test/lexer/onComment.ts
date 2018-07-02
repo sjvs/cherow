@@ -8,7 +8,6 @@ describe("Lexer - OnComment", () => {
 
   function pass(name: string, opts: any) {
       it(name, () => {
-
           const state = new State(opts.source, undefined, () => {});
           nextToken(state, Context.Empty);
           if (state.commentType !== undefined) {

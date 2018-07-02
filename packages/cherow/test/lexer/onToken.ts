@@ -39,13 +39,20 @@ describe("Lexer - OnToken", () => {
 });
 
   pass('should tokenize numbers correctly', {
-      source: '123',
-      value: [{
-          type: 'Numeric',
-          value: '123'
-      }],
-      line: 1,
-      column: 3,
+    source: '123',
+    value: [{
+        type: 'Numeric',
+        value: '123'
+    }],
+    line: 1,
+    column: 3,
+  });
+
+  pass('should not tokenize comments', {
+    source: '// chinese',
+    value: [],
+    line: 1,
+    column: 10, // The comment will be skipped regardless, but not captured
   });
 
   pass('should tokenize numbers and punctuators correctly', {

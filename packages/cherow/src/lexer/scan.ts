@@ -127,6 +127,7 @@ table[Chars.LessThan] = (state: State, context: Context) => {
           state.column++;
           if (consume(state, Chars.EqualSign)) return Token.ShiftLeftAssign;
           return Token.ShiftLeft;
+          // HTML single line comment
       } else if (consume(state, Chars.Exclamation) && consume(state, Chars.Hyphen) && consume(state, Chars.Hyphen)) {
           return skipSingleHTMLComment(state, context, CommentType.HTMLOpen);
       }
@@ -239,7 +240,7 @@ table[Chars.Hyphen] = (state: State, context: Context) => {
       if (next === Chars.Hyphen) {
           state.index++;
           state.column++;
-          if (state.flags & Flags.LineTerminator || state.startIndex === 0 &&
+          if ((state.flags & Flags.LineTerminator || state.startIndex === 0) &&
               consume(state, Chars.GreaterThan)) {
               return skipSingleHTMLComment(state, context, CommentType.HTMLClose);
           }
