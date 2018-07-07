@@ -14,7 +14,20 @@ import { scanRegularExpression } from './regexp';
 
 const unexpectedCharacter: (state: ParserState) => void = (state: ParserState) => report(state, Errors.IllegalCaracter, escapeInvalidCharacters(state.nextChar));
 
-const table = new Array(0xFFFF).fill(unexpectedCharacter, 0, 128).fill(maybeIdentifier, 128) as((state: ParserState, context: Context) => Token)[];
+const table = new Array(0xFFFF).fill(unexpectedCharacter, 0, 128).fill(maybeIdentifier, 128) as ((state: ParserState, context: Context) => Token)[];
+
+const skipWS = (state: ParserState) => { state.index++; state.column++; return Token.WhiteSpace; };
+
+// Non-Ascii whitespace
+table.fill(skipWS, 0x9, 0xD + 1).fill(skipWS, 0x2000, 0x200A + 1);
+table[0xA0] = table[0x1680] = table[0x202F] = table[0x205F] = table[0x3000] = table[0xFEFF] = skipWS;
+table[0x2028] = table[0x2029] = function (state: ParserState): Token {
+  state.index++;
+  state.column = 0;
+  state.line++;
+  state.flags |= Flags.LineTerminator;
+  return Token.WhiteSpace;
+};
 
 // `,`, `~`, `?`, `[`, `]`, `{`, `}`, `:`, `;`, `(` ,`)`, `"`, `'`
 table[Chars.Comma] = mapToToken(Token.Comma);

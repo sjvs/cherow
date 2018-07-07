@@ -1,6 +1,6 @@
 import { ParserState } from '../types';
 import { Token } from '../token';
-import { Chars, whiteSpaceMap } from '../chars';
+import { Chars } from '../chars';
 import { mustEscape, isIDStart } from '../unicode';
 import { Context, Flags } from '../common';
 import { report, Errors } from '../errors';

@@ -1,8 +1,8 @@
 import { Token, descKeywordTable } from '../token';
 import { ParserState } from '../types';
-import { Chars, isIdentifierPart, AsciiLookup, CharType, whiteSpaceMap } from '../chars';
+import { Chars, isIdentifierPart, AsciiLookup, CharType } from '../chars';
 import { Context } from '../common';
-import { nextChar, fromCodePoint, toHex, skipToNewLine } from './common';
+import { nextChar, fromCodePoint, toHex } from './common';
 import { report, Errors } from '../errors';
 
 /**
@@ -120,15 +120,6 @@ export function scanIdentifierUnicodeEscape(state: ParserState): number {
  * @param context Context masks
  */
 export function maybeIdentifier(state: ParserState, context: Context): Token {
-
-  // Both 'PS' and 'LS' have the 5th bit set and 7th bit unset. Checking for that first prevents additional checks
-  if ((state.nextChar & 83) < 3 &&
-      (state.nextChar === Chars.ParagraphSeparator ||
-          state.nextChar === Chars.LineSeparator)) {
-      return skipToNewLine(state);
-  }
-
-  if (whiteSpaceMap[state.nextChar](state)) return Token.WhiteSpace;
 
   if ((state.nextChar & 0xFC00) === 0xD800) {
       state.index++;
