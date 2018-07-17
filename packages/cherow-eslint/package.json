@@ -21,6 +21,7 @@
   "scripts": {
   },
   "dependencies": {
+    "@cherow/core": "1.6.8"
   },
   "devDependencies": {
 		"typescript": "^3.0.0-rc"

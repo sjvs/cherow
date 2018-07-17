@@ -48,7 +48,8 @@
   },
   "dependencies": {
     "chalk": "^2.4.1",
-    "commander": "^2.15.1"
+    "commander": "^2.15.1",
+    "@cherow/core": "1.6.8"
   },
   "devDependencies": {
 		"typescript": "^3.0.0-rc"
