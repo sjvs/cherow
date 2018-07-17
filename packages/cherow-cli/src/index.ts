@@ -1,7 +1,7 @@
 import { parse } from 'cherow';
-import fs from 'fs';
-import program from 'commander';  // tslint:disable-line import-name
-import chalk from 'chalk';
+import * as fs from 'fs';
+import * as program from 'commander';  // tslint:disable-line import-name
+import * as chalk from 'chalk';
 
 program
   .arguments('<code / file>')
