@@ -5,6 +5,12 @@
     "declarationMap": true,
     "sourceMap": true,
 
+    "types": [
+      "node"
+    ],
+    "lib": [
+      "es2017"
+    ],
     "target": "es5",
     "module": "commonjs"
   }

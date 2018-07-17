@@ -5,6 +5,9 @@
     "rootDir": "lib",
     "allowJs": true
   },
+  "include": [
+    "src"
+  ],
   "references": [
     { "path": "../cherow-core" }
   ]

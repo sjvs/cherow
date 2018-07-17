@@ -45,6 +45,7 @@
   ],
   "scripts": {},
   "devDependencies": {
+    "@types/node": "8.10.20",
     "typescript": "^3.0.0-rc"
   }
 }

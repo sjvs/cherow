@@ -47,11 +47,12 @@
     "test:watch": "nps test.watch"
   },
   "dependencies": {
+    "@cherow/core": "1.6.8",
     "chalk": "^2.4.1",
-    "commander": "^2.15.1",
-    "@cherow/core": "1.6.8"
+    "commander": "^2.15.1"
   },
   "devDependencies": {
-		"typescript": "^3.0.0-rc"
+    "@types/node": "8.10.20",
+    "typescript": "^3.0.0-rc"
   }
 }

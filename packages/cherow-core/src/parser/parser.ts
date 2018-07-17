@@ -15,7 +15,7 @@ import { skipBomAndShebang } from '../lexer/common';
  */
 export function parseSource(
   source: string,
-  options: Options | void,
+  options: undefined | Options,
   /*@internal*/
   context: Context): any {
   let onComment: any;
