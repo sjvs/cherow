@@ -6,6 +6,6 @@
     "allowJs": true
   },
   "references": [
-    { "path": "../cherow" }
+    { "path": "../cherow-core" }
   ]
 }

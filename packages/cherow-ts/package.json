@@ -1,5 +1,5 @@
 {
-  "name": "cherow-ts",
+  "name": "@cherow/ts",
   "version": "0.0.1",
   "description": "Fast and lightweight, standard-compliant javascript parser written in ECMAScript",
   "main": "dist/umd/cherow-ts.js",

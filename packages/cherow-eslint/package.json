@@ -1,5 +1,5 @@
 {
-  "name": "cherow-eslint",
+  "name": "@cherow/eslint",
   "description": "Cherow parser for ESLint.",
   "version": "0.4.1",
   "author": {

@@ -1,5 +1,5 @@
 {
-  "name": "cherow-cli",
+  "name": "@cherow/cli",
   "version": "0.2.0",
   "description": "CLI for Cherow.",
   "bin": {

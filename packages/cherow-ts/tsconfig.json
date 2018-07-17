@@ -5,6 +5,6 @@
     "rootDir": "src"
   },
   "references": [
-    { "path": "../cherow" }
+    { "path": "../cherow-core" }
   ]
 }

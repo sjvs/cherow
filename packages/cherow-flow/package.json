@@ -1,5 +1,5 @@
 {
-  "name": "cherow-flow",
+  "name": "@cherow/flow",
   "version": "0.0.1",
   "description": "Fast and lightweight, standard-compliant Flow parser written in ECMAScript",
   "main": "dist/umd/cherow-flow.js",
