@@ -1,0 +1,11 @@
+{
+  "files": [],
+  "references": [
+    { "path": "cherow" },
+    { "path": "cherow-cli" },
+    { "path": "cherow-eslint" },
+    { "path": "cherow-flow" },
+    { "path": "cherow-minify" },
+    { "path": "cherow-ts" }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "extends": "../tsconfig.settings.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "lib",
+    "allowJs": true
+  },
+  "references": [
+    { "path": "../cherow" }
+  ]
+}
