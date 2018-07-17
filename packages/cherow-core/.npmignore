@@ -1,0 +1,6 @@
+/src
+/test
+/scripts
+/media
+*.log
+tsconfig.json

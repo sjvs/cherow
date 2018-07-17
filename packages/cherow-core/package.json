@@ -38,11 +38,6 @@
     "tolerant",
     "lightweight"
   ],
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE.md"
-  ],
   "scripts": {},
   "devDependencies": {
     "@types/node": "8.10.20",
