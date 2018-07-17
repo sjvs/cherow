@@ -1,9 +1,9 @@
 {
-	"devDependencies": {
-		"lerna": "^3.0.0-beta.21",
-		"typescript": "^3.0.0-rc"
+  "devDependencies": {
+    "lerna": "^3.0.0-beta.21",
+    "typescript": "^3.0.0-rc"
   },
   "scripts": {
-    "postinstall": "lerna bootstrap"
+    "postinstall": "lerna bootstrap --ci"
   }
 }
